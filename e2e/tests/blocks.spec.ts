@@ -12,7 +12,7 @@ test.describe("rich blocks", () => {
     await page.keyboard.type("/")
     await page.waitForTimeout(250)
     await page.keyboard.type("tab")
-    await page.getByRole("button", { name: /Table/ }).click()
+    await page.getByRole("button", { name: /Table Organize information/ }).click()
     await page.waitForTimeout(300)
     const cells = page.locator("table input")
     await cells.nth(0).fill("Name")

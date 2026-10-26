@@ -48,6 +48,7 @@ type Block struct {
 	ID       string     `bson:"id" json:"id"`
 	Type     string     `bson:"type" json:"type"`
 	Text     string     `bson:"text" json:"text"`
+	Rich     string     `bson:"rich,omitempty" json:"rich,omitempty"`
 	Checked  bool       `bson:"checked,omitempty" json:"checked,omitempty"`
 	Language string     `bson:"language,omitempty" json:"language,omitempty"`
 	Color    string     `bson:"color,omitempty" json:"color,omitempty"`
@@ -65,6 +66,7 @@ type Page struct {
 	Cover       string              `bson:"cover" json:"cover"`
 	Blocks      []Block             `bson:"blocks" json:"blocks,omitempty"`
 	Text        string              `bson:"text" json:"-"`
+	Role        string              `bson:"-" json:"role,omitempty"`
 	Favorite    bool                `bson:"favorite" json:"favorite"`
 	Archived    bool                `bson:"archived" json:"archived"`
 	Order       float64             `bson:"order" json:"order"`
@@ -85,6 +87,8 @@ type PageSummary struct {
 	Archived  bool                `bson:"archived" json:"archived"`
 	Order     float64             `bson:"order" json:"order"`
 	UpdatedAt time.Time           `bson:"updatedAt" json:"updatedAt"`
+	Text      string              `bson:"text,omitempty" json:"-"`
+	Snippet   string              `bson:"-" json:"snippet,omitempty"`
 }
 
 type APIToken struct {

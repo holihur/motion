@@ -10,6 +10,7 @@ VERSION=""
 MONGO_URI="${MONGODB_URI:-mongodb://127.0.0.1:27017}"
 PORT="${PORT:-8787}"
 ADMIN_EMAIL=""
+OPS_TOKEN="${OPS_TOKEN:-}"
 AUTO_UPDATE="off"
 NO_SERVICE="false"
 
@@ -19,6 +20,7 @@ for arg in "$@"; do
     --mongo-uri=*) MONGO_URI="${arg#*=}" ;;
     --port=*) PORT="${arg#*=}" ;;
     --admin-email=*) ADMIN_EMAIL="${arg#*=}" ;;
+    --ops-token=*) OPS_TOKEN="${arg#*=}" ;;
     --auto-update) AUTO_UPDATE="apply" ;;
     --no-service) NO_SERVICE="true" ;;
     -h|--help)
@@ -104,10 +106,10 @@ if [[ "$OS" == "darwin" || "$NO_SERVICE" == "true" || ! -d /run/systemd/system ]
 Motion is installed at /opt/motion/motion.
 
 Start it with:
-  PORT=${PORT} MONGODB_URI=${MONGO_URI} SEED_DEMO=false /opt/motion/motion
+  PORT=${PORT} MONGODB_URI=${MONGO_URI} SEED_DEMO=false OPS_TOKEN=${OPS_TOKEN:-<set-a-token>} /opt/motion/motion
 
-Or configure everything in the Ops console after starting. See README.md for
-Docker instructions if you prefer a supervised container.
+Then open http://127.0.0.1:${PORT}/ops and enter the Ops token. See README.md
+for Docker instructions if you prefer a supervised container.
 EOF
   exit 0
 fi
@@ -120,6 +122,12 @@ chown motion:motion /opt/motion/motion
 install -d -m 0750 /etc/motion
 
 ENV_FILE="/etc/motion/motion.env"
+if [[ -f "$ENV_FILE" && -z "$OPS_TOKEN" ]]; then
+  OPS_TOKEN="$(grep '^OPS_TOKEN=' "$ENV_FILE" | head -n1 | cut -d= -f2- || true)"
+fi
+if [[ -z "$OPS_TOKEN" ]]; then
+  OPS_TOKEN="$(head -c 32 /dev/urandom | base64 | tr -d '\n=' | tr '/+' '_-')"
+fi
 if [[ ! -f "$ENV_FILE" ]]; then
   JWT_SECRET="$(head -c 48 /dev/urandom | base64 | tr -d '\n=' | tr '/+' '_-')"
   ENCRYPTION_KEY="$(head -c 48 /dev/urandom | base64 | tr -d '\n=' | tr '/+' '_-')"
@@ -132,6 +140,7 @@ SEED_DEMO=false
 ALLOW_SIGNUP=true
 MCP_ENABLED=true
 ADMIN_EMAILS=${ADMIN_EMAIL}
+OPS_TOKEN=${OPS_TOKEN}
 JWT_SECRET=${JWT_SECRET}
 ENCRYPTION_KEY=${ENCRYPTION_KEY}
 AUTO_UPDATE=${AUTO_UPDATE}
@@ -140,6 +149,11 @@ else
   sed -i "s#^PORT=.*#PORT=${PORT}#" "$ENV_FILE"
   sed -i "s#^MONGODB_URI=.*#MONGODB_URI=${MONGO_URI}#" "$ENV_FILE"
   grep -q '^ADMIN_EMAILS=' "$ENV_FILE" || echo "ADMIN_EMAILS=${ADMIN_EMAIL}" >> "$ENV_FILE"
+  if grep -q '^OPS_TOKEN=' "$ENV_FILE"; then
+    sed -i "s#^OPS_TOKEN=.*#OPS_TOKEN=${OPS_TOKEN}#" "$ENV_FILE"
+  else
+    echo "OPS_TOKEN=${OPS_TOKEN}" >> "$ENV_FILE"
+  fi
   if [[ -n "$ADMIN_EMAIL" ]]; then
     sed -i "s#^ADMIN_EMAILS=.*#ADMIN_EMAILS=${ADMIN_EMAIL}#" "$ENV_FILE"
   fi
@@ -197,11 +211,16 @@ cat <<EOF
 
    Local:  http://127.0.0.1:${PORT}
    LAN:    http://${IP:-your-server-ip}:${PORT}
-   Admin:  http://127.0.0.1:${PORT}/ops
+   Ops:    http://127.0.0.1:${PORT}/ops
+   Ops token: ${OPS_TOKEN}
 
-The first account you create becomes administrator. Everything else — OIDC,
-BYOK AI keys, MCP, update policy and members — is configured in the Ops console,
-so you do not need to edit the command line after installation.
+Ops is protected by a dedicated access token, separate from user accounts.
+The first account you create becomes a workspace administrator. Everything
+else — OIDC, BYOK AI keys, MCP, update policy and members — is configured in
+Ops, so you do not need to edit the command line after installation.
+
+Keep the Ops token private. It is stored in /etc/motion/motion.env (root:motion,
+0640). To rotate it, change OPS_TOKEN there and restart Motion.
 
 Useful only if needed:
    systemctl status motion

@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Plus } from "lucide-react"
-import type { Block, BlockType } from "@/lib/types"
+import type { Block, BlockType, Comment } from "@/lib/types"
 import { uid } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 import { caretOffset, caretRect, focusBlockById, setCaret } from "@/lib/caret"
@@ -53,6 +53,9 @@ const DEFAULT_DIAGRAM = `flowchart LR
 
 function focusAt(id: string, offset: number) {
   requestAnimationFrame(() => {
+    window.dispatchEvent(
+      new CustomEvent("motion:focus-block", { detail: { id, where: "end", offset } }),
+    )
     const el = document.getElementById(`block-input-${id}`) as HTMLElement | null
     if (!el) return
     el.focus()
@@ -74,22 +77,37 @@ export function BlockEditor({
   onFocusBlock,
   remoteFocus,
   commentCounts,
+  blockComments,
   onOpenComments,
   onCommentBlock,
+  readOnly = false,
 }: {
   blocks: Block[]
   onChange: (blocks: Block[]) => void
   onFocusBlock?: (blockId: string) => void
   remoteFocus?: Record<string, RealtimePresence[]>
   commentCounts?: Record<string, number>
+  blockComments?: Record<string, Comment[]>
   onOpenComments?: () => void
   onCommentBlock?: (blockId: string) => void
+  readOnly?: boolean
 }) {
   const [slash, setSlash] = useState<SlashState | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)
   const [drop, setDrop] = useState<{ index: number; position: "before" | "after" } | null>(null)
 
   const commands = useMemo(() => filterCommands(slash?.query ?? ""), [slash?.query])
+
+  useEffect(() => {
+    function onInsert() {
+      if (readOnly || blocks.length === 0) return
+      const index = blocks.length - 1
+      const fallback = document.getElementById(`block-input-${blocks[index].id}`)
+      openSlash(index, "insert", "", fallback?.getBoundingClientRect() ?? null)
+    }
+    window.addEventListener("motion:open-insert", onInsert)
+    return () => window.removeEventListener("motion:open-insert", onInsert)
+  }, [blocks, readOnly])
 
   const numbers = useMemo(() => {
     let current = 0
@@ -144,6 +162,7 @@ export function BlockEditor({
     updateBlock(index, {
       type,
       text: nextText,
+      rich: "",
       checked: false,
       ...(type === "code" ? { language: block.language || "plain text" } : {}),
       ...(type === "callout" ? { color: block.color || "amber" } : {}),
@@ -182,7 +201,7 @@ export function BlockEditor({
     closeSlash()
   }
 
-  function handleInput(index: number, text: string, el: HTMLElement) {
+  function handleInput(index: number, text: string, el: HTMLElement, rich?: string) {
     const block = blocks[index]
     if (!block) return
 
@@ -197,6 +216,7 @@ export function BlockEditor({
       updateBlock(index, {
         type,
         text: "",
+        rich: "",
         checked: false,
         ...(type === "code" ? { language: "plain text" } : {}),
       })
@@ -205,7 +225,7 @@ export function BlockEditor({
       return
     }
 
-    updateBlock(index, { text })
+    updateBlock(index, { text, ...(rich !== undefined ? { rich } : {}) })
 
     const isSlashForThisBlock = slash?.blockId === block.id && slash.mode === "convert"
     if (text === "/" && !isSlashForThisBlock) {
@@ -341,7 +361,7 @@ export function BlockEditor({
         focusSoon(previous.id, "end")
         return
       }
-      const merged = { ...previous, text: previous.text + block.text }
+      const merged = { ...previous, text: previous.text + block.text, rich: "" }
       const offset = previous.text.length
       onChange([
         ...blocks.slice(0, index - 1),
@@ -524,10 +544,12 @@ export function BlockEditor({
             dropPosition={drop?.index === index ? drop.position : null}
             focusUsers={remoteFocus?.[block.id]}
             commentCount={commentCounts?.[block.id] ?? 0}
+            comments={blockComments?.[block.id]}
             onOpenComments={onOpenComments}
             onCommentBlock={onCommentBlock}
             onFocusBlock={onFocusBlock}
-            onInput={(text, el) => handleInput(index, text, el)}
+            readOnly={readOnly}
+            onInput={(text, el, rich) => handleInput(index, text, el, rich)}
             onKeyDown={handleKeyDown}
             onPaste={(text) => handlePaste(index, text)}
             onToggle={() => updateBlock(index, { checked: !block.checked })}
@@ -556,7 +578,7 @@ export function BlockEditor({
         ))}
       </div>
 
-      <button
+      {!readOnly && <button
         type="button"
         onClick={appendBlock}
         aria-label="Add a block"
@@ -565,9 +587,9 @@ export function BlockEditor({
         <span className="flex h-6 items-center gap-1 text-[11px] text-muted-foreground/0 transition group-hover/add:text-muted-foreground/60">
           <Plus className="size-3" /> Add block
         </span>
-      </button>
+      </button>}
 
-      {slash && (
+      {slash && !readOnly && (
         <SlashMenu
           state={slash}
           commands={commands}

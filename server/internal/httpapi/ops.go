@@ -57,9 +57,6 @@ func opsView(settings site.Settings) opsSettingsView {
 }
 
 func (s *Server) getOpsSettings(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.requireAdmin(w, r); !ok {
-		return
-	}
 	writeJSON(w, http.StatusOK, opsView(s.siteSnapshot()))
 }
 
@@ -93,10 +90,6 @@ type opsSettingsRequest struct {
 }
 
 func (s *Server) saveOpsSettings(w http.ResponseWriter, r *http.Request) {
-	admin, ok := s.requireAdmin(w, r)
-	if !ok {
-		return
-	}
 	var req opsSettingsRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid request body")
@@ -128,23 +121,11 @@ func (s *Server) saveOpsSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.AdminEmails != nil {
 		emails := site.NormalizeEmails(*req.AdminEmails)
-		if len(emails) == 0 {
-			writeErr(w, http.StatusBadRequest, "keep at least one administrator email")
-			return
-		}
-		found := false
 		for _, email := range emails {
 			if !strings.Contains(email, "@") {
 				writeErr(w, http.StatusBadRequest, "invalid administrator email: "+email)
 				return
 			}
-			if strings.EqualFold(email, admin.Email) {
-				found = true
-			}
-		}
-		if !found {
-			writeErr(w, http.StatusBadRequest, "your own email must remain an administrator to avoid lockout")
-			return
 		}
 		settings.AdminEmails = emails
 	}
@@ -227,7 +208,7 @@ func (s *Server) saveOpsSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := site.Save(r.Context(), s.store.Settings, settings, s.cfg.EncryptionKey, admin.Email); err != nil {
+	if err := site.Save(r.Context(), s.store.Settings, settings, s.cfg.EncryptionKey, "ops-access-token"); err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not save settings")
 		return
 	}
@@ -263,9 +244,6 @@ type opsStats struct {
 }
 
 func (s *Server) getOpsStats(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.requireAdmin(w, r); !ok {
-		return
-	}
 	ctx := r.Context()
 	stats := opsStats{}
 	stats.Users, _ = s.store.Users.CountDocuments(ctx, bson.M{})

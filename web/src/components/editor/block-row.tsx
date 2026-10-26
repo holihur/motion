@@ -16,10 +16,10 @@ import {
   X,
 } from "lucide-react"
 import { toast } from "sonner"
-import type { Block, BlockType } from "@/lib/types"
+import type { Block, BlockType, Comment } from "@/lib/types"
 import { BLOCK_LABELS, SLASH_COMMANDS } from "@/components/editor/commands"
 import { CALLOUT_COLORS, CALLOUT_EMOJI } from "@/lib/covers"
-import { cn } from "@/lib/utils"
+import { cn, formatRelative } from "@/lib/utils"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,8 +31,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { RealtimePresence } from "@/lib/realtime"
 import { MermaidDiagram } from "@/components/editor/mermaid-diagram"
+import { LexicalBlock } from "@/components/editor/lexical-block"
 import { tr } from "@/lib/i18n"
 
 export interface BlockRowProps {
@@ -43,12 +45,14 @@ export interface BlockRowProps {
   slashActive: boolean
   isDragging: boolean
   dropPosition: "before" | "after" | null
+  readOnly?: boolean
   focusUsers?: RealtimePresence[]
   commentCount?: number
+  comments?: Comment[]
   onOpenComments?: () => void
   onCommentBlock?: (blockId: string) => void
   onFocusBlock?: (blockId: string) => void
-  onInput: (text: string, el: HTMLElement) => void
+  onInput: (text: string, el: HTMLElement, rich?: string) => void
   onKeyDown: (event: React.KeyboardEvent<HTMLElement>, index: number) => void
   onPaste: (text: string) => void
   onToggle: () => void
@@ -72,8 +76,10 @@ export function BlockRow(props: BlockRowProps) {
     slashActive,
     isDragging,
     dropPosition,
+    readOnly = false,
     focusUsers,
     commentCount = 0,
+    comments = [],
     onOpenComments,
     onCommentBlock,
     onFocusBlock,
@@ -141,37 +147,19 @@ export function BlockRow(props: BlockRowProps) {
     }
   }
 
-  const editableCommon = {
-    "data-block-input": true,
-    "data-empty": block.text.length === 0,
-    "data-placeholder": placeholder,
-    contentEditable: true,
-    suppressContentEditableWarning: true,
-    spellCheck: true,
-    role: "textbox",
-    id: `block-input-${block.id}`,
-    onFocus: () => onFocusBlock?.(block.id),
-  } as const
-
   function renderEditable(className: string) {
     return (
-      <div
-        {...editableCommon}
-        ref={editableRef}
-        className={cn("block-input w-full", className)}
-        onInput={(event) => {
-          const text = event.currentTarget.innerText
-            .replace(/\u00a0/g, " ")
-            .replace(/^\n$/, "")
-          onInput(text, event.currentTarget)
-        }}
+      <LexicalBlock
+        id={block.id}
+        text={block.text}
+        rich={block.rich}
+        placeholder={placeholder}
+        className={className}
+        readOnly={readOnly}
+        onFocus={() => onFocusBlock?.(block.id)}
+        onInput={(text, rich, el) => onInput(text, el, rich)}
         onKeyDown={(event) => onKeyDown(event, index)}
-        onPaste={(event) => {
-          const text = event.clipboardData.getData("text/plain")
-          if (!text) return
-          event.preventDefault()
-          onPaste(text)
-        }}
+        onPaste={(text) => onPaste(text)}
       />
     )
   }
@@ -276,6 +264,7 @@ export function BlockRow(props: BlockRowProps) {
               data-block-input
               value={block.text}
               rows={1}
+              readOnly={readOnly}
               spellCheck={false}
               placeholder={placeholder}
               onChange={(event) => onInput(event.target.value, event.currentTarget)}
@@ -347,12 +336,13 @@ export function BlockRow(props: BlockRowProps) {
                         <div className="flex items-center gap-0.5 px-1">
                           <input
                             value={column}
+                            readOnly={readOnly}
                             onChange={(event) => setColumn(columnIndex, event.target.value)}
                             onFocus={() => onFocusBlock?.(block.id)}
                             className="h-8 min-w-0 flex-1 bg-transparent px-1.5 text-xs font-semibold outline-none"
                             placeholder={`Column ${columnIndex + 1}`}
                           />
-                          {table.columns.length > 1 && (
+                          {!readOnly && table.columns.length > 1 && (
                             <button
                               type="button"
                               onClick={() => removeColumn(columnIndex)}
@@ -375,6 +365,7 @@ export function BlockRow(props: BlockRowProps) {
                         <td key={columnIndex} className="border-b border-r border-border/60 p-0 last:border-r-0">
                           <input
                             value={row[columnIndex] ?? ""}
+                            readOnly={readOnly}
                             onChange={(event) => setCell(rowIndex, columnIndex, event.target.value)}
                             onFocus={() => onFocusBlock?.(block.id)}
                             className="h-9 w-full bg-transparent px-2 text-[13px] outline-none transition focus:bg-brand-soft/20"
@@ -383,21 +374,21 @@ export function BlockRow(props: BlockRowProps) {
                         </td>
                       ))}
                       <td className="border-b border-border/60 p-0 text-center">
-                        <button
+                        {!readOnly && <button
                           type="button"
                           onClick={() => removeRow(rowIndex)}
                           className="flex size-6 items-center justify-center rounded text-muted-foreground/0 transition group-hover/row:text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
                           aria-label={tr("Delete row")}
                         >
                           <X className="size-3" />
-                        </button>
+                        </button>}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="flex items-center gap-1 border-t border-border/60 p-1.5">
+            {!readOnly && <div className="flex items-center gap-1 border-t border-border/60 p-1.5">
               <button
                 type="button"
                 onClick={addRow}
@@ -412,7 +403,7 @@ export function BlockRow(props: BlockRowProps) {
               >
                 <Plus className="size-3" /> Column
               </button>
-            </div>
+            </div>}
           </div>
         )
       }
@@ -435,6 +426,7 @@ export function BlockRow(props: BlockRowProps) {
             {diagramEditing ? (
               <textarea
                 value={block.text}
+                readOnly={readOnly}
                 onChange={(event) => onUpdate({ text: event.target.value })}
                 onFocus={() => onFocusBlock?.(block.id)}
                 spellCheck={false}
@@ -479,13 +471,13 @@ export function BlockRow(props: BlockRowProps) {
               <div className="flex flex-col items-center gap-2 border border-dashed bg-muted/30 px-4 py-10 text-center text-xs text-muted-foreground">
                 <ImageIcon className="size-5" />
                 {tr("This image could not be loaded.")}
-                <button
+                {!readOnly && <button
                   type="button"
                   onClick={() => onUpdate({ url: "" })}
                   className="rounded border px-2 py-1 text-[11px] hover:bg-accent"
                 >
                   Replace URL
-                </button>
+                </button>}
               </div>
             ) : (
               <img
@@ -516,7 +508,7 @@ export function BlockRow(props: BlockRowProps) {
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <ImageIcon className="size-4" /> {tr("Embed an image")}
             </div>
-            <div className="flex w-full max-w-md gap-1.5">
+            {!readOnly && <div className="flex w-full max-w-md gap-1.5">
               <input
                 value={imageDraft}
                 onChange={(event) => setImageDraft(event.target.value)}
@@ -540,7 +532,7 @@ export function BlockRow(props: BlockRowProps) {
               >
                 Embed
               </button>
-            </div>
+            </div>}
           </div>
         )
       case "paragraph":
@@ -564,7 +556,7 @@ export function BlockRow(props: BlockRowProps) {
       onDragOver={handleOver}
       onDrop={handleDrop}
     >
-      <div className="absolute -left-[66px] top-0 hidden h-7 items-center gap-0.5 opacity-0 transition-opacity group-hover/block:opacity-100 has-[[data-state=open]]:opacity-100 md:flex">
+      {!readOnly && <div className="absolute -left-[66px] top-0 hidden h-7 items-center gap-0.5 opacity-0 transition-opacity group-hover/block:opacity-100 has-[[data-state=open]]:opacity-100 md:flex">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -613,7 +605,7 @@ export function BlockRow(props: BlockRowProps) {
             </button>
           }
         />
-      </div>
+      </div>}
 
       {focusUsers && focusUsers.length > 0 && (
         <span
@@ -628,23 +620,59 @@ export function BlockRow(props: BlockRowProps) {
       </div>
 
       {commentCount > 0 && (
-        <Tooltip>
-          <TooltipTrigger asChild>
+        <Popover>
+          <PopoverTrigger asChild>
             <button
               type="button"
-              onClick={onOpenComments}
               aria-label={`View ${commentCount} comment${commentCount === 1 ? "" : "s"}`}
               className="ml-1 mt-1 flex h-5 shrink-0 items-center gap-1 rounded-full bg-brand-soft px-1.5 text-[10px] font-medium text-brand transition hover:bg-brand/15"
             >
               <MessageSquare className="size-3" />
               {commentCount}
             </button>
-          </TooltipTrigger>
-          <TooltipContent>{commentCount} open comment{commentCount === 1 ? "" : "s"}</TooltipContent>
-        </Tooltip>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 p-2">
+            <div className="flex items-center justify-between px-1.5 pb-1.5">
+              <span className="text-xs font-medium">{tr("Comments")}</span>
+              <span className="text-[10px] text-muted-foreground">
+                {commentCount} {tr("open")}
+              </span>
+            </div>
+            <div className="max-h-64 space-y-1 overflow-y-auto thin-scrollbar">
+              {comments.slice(0, 3).map((comment) => (
+                <button
+                  key={comment.id}
+                  type="button"
+                  onClick={onOpenComments}
+                  className="block w-full rounded-lg px-2 py-1.5 text-left transition hover:bg-accent/60"
+                >
+                  {comment.quote && (
+                    <div className="truncate border-l-2 border-brand/50 pl-1.5 text-[10px] italic text-muted-foreground">
+                      “{comment.quote}”
+                    </div>
+                  )}
+                  <div className="mt-0.5 flex items-baseline gap-1.5">
+                    <span className="truncate text-[10px] font-medium">{comment.authorName}</span>
+                    <span className="shrink-0 text-[9px] text-muted-foreground">
+                      {formatRelative(comment.createdAt)}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 line-clamp-2 text-[11px] leading-4">{comment.body}</div>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={onOpenComments}
+              className="mt-1 w-full rounded-md border border-border/70 px-2 py-1.5 text-[11px] font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            >
+              {tr("Open all comments")}
+            </button>
+          </PopoverContent>
+        </Popover>
       )}
 
-      <div className="flex size-6 shrink-0 items-center justify-center md:hidden">
+      {!readOnly && <div className="flex size-6 shrink-0 items-center justify-center md:hidden">
         <BlockMenu
           block={block}
           onConvert={onConvert}
@@ -662,7 +690,7 @@ export function BlockRow(props: BlockRowProps) {
             </button>
           }
         />
-      </div>
+      </div>}
     </div>
   )
 }

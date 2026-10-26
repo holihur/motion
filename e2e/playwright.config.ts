@@ -43,6 +43,7 @@ export default defineConfig({
           MONGODB_URI: process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017",
           MONGODB_DB: process.env.MONGODB_DB ?? "motion_e2e",
           ADMIN_EMAILS: process.env.ADMIN_EMAILS ?? "e2e-admin@example.com",
+          OPS_TOKEN: process.env.OPS_TOKEN ?? "e2e-ops-token",
         },
       },
 })

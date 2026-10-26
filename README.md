@@ -7,18 +7,22 @@
 ## 功能
 
 - **块编辑器**：标题、列表、待办、引用、Callout、代码、分割线、图片、**表格**、**Mermaid 流程图**。
+- **Lexical 富文本**：加粗、斜体、下划线、删除线、行内代码、链接、撤销/重做、Markdown 行内快捷输入和浮动格式工具栏。
 - **Markdown 快捷输入** 与 `/` 斜杠菜单，块拖拽排序，自动保存。
+- **Viewer 只读模式**：无编辑权限时真正的只读界面，不显示编辑控件，不会出现“输入后才报 403”。
 - **多人实时协作**：工作区成员共享页面，基于 WebSocket 的在线状态、正在编辑的块、实时内容同步和块级三方合并。
 - **划词评论 / 块评论 / 回复 / 解决**，评论锚点使用 CSS Custom Highlight 持久高亮，失焦后也不会丢失。
 - **文档历史**：自动快照 + 手动保存版本，可预览和恢复，恢复本身也可撤销。
-- **BYOK AI 文档助手**：支持 DeepSeek、OpenAI、OpenRouter、Groq、Ollama、Gemini 以及任意 OpenAI 兼容服务。默认 DeepSeek。
+- **BYOK AI 文档助手**：支持 DeepSeek、OpenAI、OpenRouter、Groq、Ollama、Gemini 以及任意 OpenAI 兼容服务。默认 DeepSeek。可停止生成、重新生成，并在每次运行前自动保存版本，一键撤销 AI 修改。
 - **Google ADK**：AI 助手基于 `google.golang.org/adk`，通过工具读取、搜索、创建和编辑文档。
 - **MCP 服务器**：`/mcp` 暴露搜索、读写页面、追加块、更新块、评论等工具，使用带 Scope 的 PAT 授权。
 - **OIDC 单点登录**：Google、Keycloak、Auth0、Authentik 等任何 OIDC Provider。
-- **Ops 管理页**：注册开关、管理员、OIDC、AI 默认模型、MCP、更新策略、实例统计都在网页里配置，无需改命令行。
+- **Ops 管理页**：使用独立于用户账号的 `OPS_TOKEN` 保护；注册开关、管理员、OIDC、AI 默认模型、MCP、更新策略、实例统计都在网页里配置，无需改命令行。
 - **PAT 与 Scope 授权**：`pages:read`、`pages:write`、`workspace:read`、`workspace:write`、`ai:use`。
 - **自更新**：检查 GitHub Release、SHA256 校验、替换二进制，配合 systemd 自动重启；也可以完全通过 Ops 页面操作。
-- **中文 / English 界面切换**、深色模式、响应式布局、全文搜索、收藏、回收站、Markdown 导出。
+- **中文 / English 界面切换**、深色模式、响应式布局、全文搜索（带命中片段与搜索历史）、收藏、回收站、Markdown 导出。
+- **模板与新手引导**：会议记录、项目简介、每周回顾、阅读清单；移动端底部工具栏和 Slash 底部 Sheet。
+- **连接与错误状态**：离线/重连提示、路由级骨架屏、API 错误本地化。
 - **AGENTS.md 工作区指令**：在工作区创建名为 `AGENTS.md` 的页面，AI 助手会自动读取并遵循其中的规则。
 
 ![编辑器](docs/screenshots/editor.png)
@@ -27,7 +31,7 @@
 
 | 层 | 技术 |
 | --- | --- |
-| 前端 | React 19, TypeScript, Vite, TailwindCSS 4, shadcn/ui, Radix UI, cmdk, Sonner, Mermaid |
+| 前端 | React 19, TypeScript, Vite, TailwindCSS 4, shadcn/ui, Lexical, Radix UI, cmdk, Sonner, Mermaid |
 | 后端 | Go 1.26, chi, MongoDB Go Driver, JWT, OIDC, WebSocket |
 | AI | Google ADK Go, Gemini 原生 / OpenAI-compatible 适配器 |
 | 数据 | MongoDB |
@@ -40,7 +44,7 @@
 
 ```bash
 cp .env.example .env
-# 修改 JWT_SECRET / ENCRYPTION_KEY / ADMIN_EMAILS
+# 修改 JWT_SECRET / ENCRYPTION_KEY / ADMIN_EMAILS / OPS_TOKEN
 docker compose up -d --build
 ```
 
@@ -58,9 +62,9 @@ curl -fsSL https://raw.githubusercontent.com/holihur/motion/main/install.sh | su
 安装脚本会下载最新 Release、校验 SHA256、创建 `motion` 系统用户、写入 `/etc/motion/motion.env`、安装 `motion.service` 并启动服务。
 
 - 应用：`http://服务器IP:8787`
-- Ops：`http://服务器IP:8787/ops`
+- Ops：`http://服务器IP:8787/ops`（需要安装脚本输出的独立 Ops token）
 - 安装后的大部分配置都可以在 **Ops 页面** 完成，不需要继续操作命令行。
-- 不传 `--admin-email` 时，**第一个注册的账号自动成为管理员**。
+- 不传 `--admin-email` 时，**第一个注册的账号自动成为工作区管理员**；但 Ops 始终需要 `OPS_TOKEN`，与账号无关。
 
 可选参数：
 
@@ -68,6 +72,7 @@ curl -fsSL https://raw.githubusercontent.com/holihur/motion/main/install.sh | su
 --port=8787
 --mongo-uri=mongodb://127.0.0.1:27017
 --admin-email=you@example.com
+--ops-token=your-ops-token   # 可选；不传则自动生成
 --auto-update        # 下载并自动更新（配合 systemd 自动重启）
 --version=v1.2.3     # 安装指定版本
 ```
@@ -87,6 +92,13 @@ make dev-web
 
 打开 <http://localhost:5173>。演示账号：`demo@motion.app` / `demo1234`。
 
+Ops 默认关闭。开发时给它一个独立 token：
+
+```bash
+OPS_TOKEN=dev-ops-token make dev-api
+# 然后打开 http://localhost:5173/ops，输入 dev-ops-token
+```
+
 生产构建（单二进制，内嵌前端）：
 
 ```bash
@@ -96,7 +108,9 @@ make build
 
 ## Ops 管理页
 
-访问 `/ops`（管理员可见）。所有可运行时调整的配置优先读取这里保存的值，环境变量只作为初始默认值：
+访问 `/ops`。Ops **不使用用户 JWT 或管理员邮箱**，而是要求独立 `OPS_TOKEN`：安装脚本会自动生成并输出，Docker 部署需在 `.env` 中设置。解锁后 token 只保存在当前标签页的 `sessionStorage`，点击 Lock Ops 即可退出。
+
+所有可运行时调整的配置优先读取这里保存的值，环境变量只作为初始默认值：
 
 - 实例名称、注册开关、MCP 开关、管理员邮箱
 - 默认 AI 模型
@@ -233,7 +247,8 @@ Token 只在创建时显示一次，可随时撤销；MCP 和 API 都使用同�
 | `MONGODB_DB` | `motion` | 数据库名 |
 | `JWT_SECRET` | dev 默认值 | 生产必须修改 |
 | `ENCRYPTION_KEY` | 回退到 JWT_SECRET | 加密 BYOK Key / OIDC Secret |
-| `ADMIN_EMAILS` | 空 | 管理员邮箱，逗号分隔 |
+| `ADMIN_EMAILS` | 空 | 工作区管理员邮箱，逗号分隔；不授予 Ops 权限 |
+| `OPS_TOKEN` | 空 | Ops 独立访问 token；为空时 Ops 关闭 |
 | `SEED_DEMO` | `true` | 是否创建演示账号 |
 | `ALLOW_SIGNUP` | `true` | 初始注册开关 |
 | `MCP_ENABLED` | `true` | 初始 MCP 开关 |
@@ -261,8 +276,8 @@ Token 只在创建时显示一次，可随时撤销；MCP 和 API 都使用同�
 | `POST` | `/api/ai/chat` | ADK 文档助手 |
 | `GET` | `/api/ai/settings` | BYOK 配置 |
 | `GET/POST/DELETE` | `/api/tokens` | PAT 管理 |
-| `GET` | `/api/ops/settings` | Ops 配置（管理员） |
-| `POST` | `/api/ops/check-update` | 检查更新（管理员） |
+| `GET` | `/api/ops/settings` | Ops 配置（需 `X-Ops-Token`） |
+| `POST` | `/api/ops/check-update` | 检查更新（需 `X-Ops-Token`） |
 | `GET` | `/mcp` | MCP Streamable HTTP |
 
 ## 测试

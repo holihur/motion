@@ -51,9 +51,6 @@ func (s *Server) updateCheck(ctx context.Context, settings site.Settings) update
 }
 
 func (s *Server) checkUpdate(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.requireAdmin(w, r); !ok {
-		return
-	}
 	settings := s.siteSnapshot()
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -62,9 +59,6 @@ func (s *Server) checkUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) applyUpdate(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.requireAdmin(w, r); !ok {
-		return
-	}
 	settings := s.siteSnapshot()
 	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
 	defer cancel()

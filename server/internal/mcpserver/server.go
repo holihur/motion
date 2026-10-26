@@ -481,6 +481,7 @@ func (s *Server) updateBlock(ctx context.Context, _ *mcp.CallToolRequest, args U
 	for i := range page.Blocks {
 		if page.Blocks[i].ID == args.BlockID {
 			page.Blocks[i].Text = args.Text
+			page.Blocks[i].Rich = ""
 			found = true
 			break
 		}

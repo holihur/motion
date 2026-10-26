@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ArrowUp, BookOpen, Loader2, Plus, Settings2, Sparkles, X } from "lucide-react"
+import {
+  ArrowUp,
+  BookOpen,
+  CircleStop,
+  Loader2,
+  Plus,
+  RotateCcw,
+  Settings2,
+  Sparkles,
+  Undo2,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import type { AIChatMessage } from "@/lib/types"
@@ -23,11 +34,13 @@ export function AIPanel({
   onOpenChange,
   pageId,
   pageTitle,
+  onUndoRevision,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   pageId: string
   pageTitle: string
+  onUndoRevision?: (revisionId: string) => Promise<void>
 }) {
   const user = useAuthStore((state) => state.user)
   const setSettingsOpen = useUIStore((state) => state.setSettingsOpen)
@@ -39,8 +52,10 @@ export function AIPanel({
   const [creatingAgents, setCreatingAgents] = useState(false)
   const [input, setInput] = useState("")
   const [pending, setPending] = useState(false)
-  const [messages, setMessages] = useState<AIChatMessage[]>([])
+  const [elapsed, setElapsed] = useState(0)
+  const [messages, setMessages] = useState<AIChatMessage[]>(() => readChat(pageId))
   const scrollRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -54,6 +69,25 @@ export function AIPanel({
       })
       .catch(() => setConfigured(false))
   }, [open, pageId])
+
+  useEffect(() => {
+    setMessages(readChat(pageId))
+  }, [pageId])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`motion.ai.chat.${pageId}`, JSON.stringify(messages.slice(-40)))
+    } catch {
+      // Chat history is a convenience; storage may be unavailable.
+    }
+  }, [messages, pageId])
+
+  useEffect(() => {
+    if (!pending) return
+    setElapsed(0)
+    const timer = window.setInterval(() => setElapsed((value) => value + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [pending])
 
   async function createAgentsPage() {
     setCreatingAgents(true)
@@ -74,6 +108,44 @@ export function AIPanel({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
   }, [messages, pending])
 
+  async function runChat(
+    message: string,
+    history: { role: string; content: string }[],
+    base: AIChatMessage[],
+  ) {
+    const controller = new AbortController()
+    abortRef.current = controller
+    setPending(true)
+    try {
+      const response = await api.ai.chat({
+        message,
+        pageId,
+        history,
+        signal: controller.signal,
+      })
+      setMessages([
+        ...base,
+        {
+          role: "assistant",
+          content: response.reply,
+          actions: response.actions,
+          revisionId: response.revisionId,
+        },
+      ])
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setMessages([...base, { role: "assistant", content: tr("Stopped."), stopped: true }])
+      } else {
+        toast.error(error instanceof Error ? error.message : "The AI request failed")
+        setMessages(base)
+        setInput(message)
+      }
+    } finally {
+      abortRef.current = null
+      setPending(false)
+    }
+  }
+
   async function send(text?: string) {
     const message = (text ?? input).trim()
     if (!message || pending) return
@@ -82,29 +154,48 @@ export function AIPanel({
       return
     }
     const history = messages.map((item) => ({ role: item.role, content: item.content }))
-    const nextMessages: AIChatMessage[] = [...messages, { role: "user", content: message }]
-    setMessages(nextMessages)
+    const base: AIChatMessage[] = [...messages, { role: "user", content: message }]
+    setMessages(base)
     setInput("")
-    setPending(true)
+    await runChat(message, history, base)
+  }
+
+  function stop() {
+    abortRef.current?.abort()
+  }
+
+  async function regenerate() {
+    if (pending) return
+    const lastUser = [...messages].reverse().find((message) => message.role === "user")
+    if (!lastUser) return
+    const lastUserIndex = messages.lastIndexOf(lastUser)
+    const base = messages.slice(0, lastUserIndex + 1)
+    const history = messages
+      .slice(0, lastUserIndex)
+      .map((item) => ({ role: item.role, content: item.content }))
+    setMessages(base)
+    await runChat(lastUser.content, history, base)
+  }
+
+  async function undo(revisionId: string, index: number) {
+    if (!onUndoRevision) return
     try {
-      const response = await api.ai.chat({ message, pageId, history })
-      setMessages([
-        ...nextMessages,
-        { role: "assistant", content: response.reply, actions: response.actions },
-      ])
+      await onUndoRevision(revisionId)
+      setMessages((current) =>
+        current.map((message, position) =>
+          position === index ? { ...message, undone: true } : message,
+        ),
+      )
+      toast.success(tr("AI changes undone"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The AI request failed")
-      setMessages(messages)
-      setInput(message)
-    } finally {
-      setPending(false)
+      toast.error(error instanceof Error ? error.message : tr("Could not undo AI changes"))
     }
   }
 
   if (!open) return null
 
   return (
-    <aside className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col border-l bg-background shadow-2xl animate-in slide-in-from-right duration-200">
+    <aside className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col border-l bg-background shadow-2xl animate-in slide-in-from-right duration-200 max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:h-[82svh] max-md:max-w-none max-md:rounded-t-2xl max-md:border-l-0 max-md:border-t">
       <header className="flex h-12 shrink-0 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2">
           <span className="flex size-6 items-center justify-center rounded-lg brand-gradient text-white">
@@ -240,6 +331,26 @@ export function AIPanel({
                         ))}
                       </div>
                     )}
+                    {(message.revisionId || message.stopped) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {message.revisionId && onUndoRevision && (
+                          <button
+                            type="button"
+                            disabled={message.undone}
+                            onClick={() => void undo(message.revisionId!, index)}
+                            className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
+                          >
+                            <Undo2 className="size-3" />
+                            {message.undone ? tr("Changes undone") : tr("Undo AI changes")}
+                          </button>
+                        )}
+                        {message.revisionId && (
+                          <span className="text-[10px] text-muted-foreground/70">
+                            {tr("A version was saved before this run.")}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ),
@@ -250,8 +361,27 @@ export function AIPanel({
                   <Sparkles className="size-3" />
                 </span>
                 <span className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5">
-                  <Loader2 className="size-3 animate-spin" /> Thinking & working…
+                  <Loader2 className="size-3 animate-spin" /> {tr("Thinking & working…")}
+                  {elapsed > 0 && <span className="tabular-nums opacity-60">{elapsed}s</span>}
                 </span>
+                <button
+                  type="button"
+                  onClick={stop}
+                  className="flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] transition hover:bg-accent"
+                >
+                  <CircleStop className="size-3" /> {tr("Stop")}
+                </button>
+              </div>
+            )}
+            {!pending && messages.some((message) => message.role === "assistant" && !message.stopped) && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => void regenerate()}
+                  className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                >
+                  <RotateCcw className="size-3" /> {tr("Regenerate")}
+                </button>
               </div>
             )}
           </div>
@@ -277,11 +407,11 @@ export function AIPanel({
           <Button
             size="icon-sm"
             className="mb-0.5 rounded-lg"
-            onClick={() => void send()}
-            disabled={!input.trim() || pending || configured !== true}
-            aria-label={tr("Send message")}
+            onClick={() => (pending ? stop() : void send())}
+            disabled={!pending && (!input.trim() || configured !== true)}
+            aria-label={pending ? tr("Stop") : tr("Send message")}
           >
-            {pending ? <Loader2 className="size-3.5 animate-spin" /> : <ArrowUp className="size-3.5" />}
+            {pending ? <CircleStop className="size-3.5" /> : <ArrowUp className="size-3.5" />}
           </Button>
         </div>
         <p className="mt-1.5 px-1 text-[9px] text-muted-foreground/70">
@@ -290,4 +420,16 @@ export function AIPanel({
       </div>
     </aside>
   )
+}
+
+
+function readChat(pageId: string): AIChatMessage[] {
+  try {
+    const raw = localStorage.getItem(`motion.ai.chat.${pageId}`)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as AIChatMessage[]
+    return Array.isArray(parsed) ? parsed.slice(-40) : []
+  } catch {
+    return []
+  }
 }

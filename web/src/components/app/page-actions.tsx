@@ -41,10 +41,11 @@ interface PageActionsProps {
   page: PageSummary
   align?: "start" | "center" | "end"
   trigger?: React.ReactNode
+  readOnly?: boolean
   onRenameRequest?: () => void
 }
 
-export function PageActionsMenu({ page, align = "start", trigger, onRenameRequest }: PageActionsProps) {
+export function PageActionsMenu({ page, align = "start", trigger, readOnly = false, onRenameRequest }: PageActionsProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const createPage = useWorkspaceStore((state) => state.createPage)
@@ -134,10 +135,10 @@ export function PageActionsMenu({ page, align = "start", trigger, onRenameReques
           )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align={align} className="w-56">
-          <DropdownMenuItem onSelect={openRename}>
+          {!readOnly && <DropdownMenuItem onSelect={openRename}>
             <PencilLine /> {tr("Rename")}
-          </DropdownMenuItem>
-          <DropdownMenuItem
+          </DropdownMenuItem>}
+          {!readOnly && <DropdownMenuItem
             onSelect={() => {
               void toggleFavorite(page.id).then((favorite) =>
                 toast.success(favorite ? "Added to Favorites" : "Removed from Favorites"),
@@ -146,24 +147,24 @@ export function PageActionsMenu({ page, align = "start", trigger, onRenameReques
           >
             {page.favorite ? <StarOff /> : <Star />}
             {page.favorite ? tr("Remove from Favorites") : tr("Add to Favorites")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void onAddSubpage()}>
+          </DropdownMenuItem>}
+          {!readOnly && <DropdownMenuItem onSelect={() => void onAddSubpage()}>
             <FilePlus2 /> {tr("Add sub-page")}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => void onDuplicate()}>
+          </DropdownMenuItem>}
+          {!readOnly && <DropdownMenuSeparator />}
+          {!readOnly && <DropdownMenuItem onSelect={() => void onDuplicate()}>
             <Copy /> {tr("Duplicate")}
-          </DropdownMenuItem>
+          </DropdownMenuItem>}
           <DropdownMenuItem onSelect={() => void onCopyLink()}>
             <Link2 /> {tr("Copy link")}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void onExport()}>
             <Download /> {tr("Export as Markdown")}
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={() => void onArchive()}>
+          {!readOnly && <DropdownMenuSeparator />}
+          {!readOnly && <DropdownMenuItem variant="destructive" onSelect={() => void onArchive()}>
             <Trash2 /> {tr("Move to Trash")}
-          </DropdownMenuItem>
+          </DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
 

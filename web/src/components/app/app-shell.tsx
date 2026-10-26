@@ -5,6 +5,7 @@ import { useWorkspaceStore } from "@/stores/workspace"
 import { useUIStore } from "@/stores/ui"
 import { Sidebar } from "@/components/app/sidebar"
 import { Splash } from "@/components/app/splash"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const SearchDialog = lazy(() =>
   import("@/components/app/search-dialog").then((module) => ({ default: module.SearchDialog })),
@@ -75,7 +76,7 @@ export function AppShell() {
     <div className="flex h-svh overflow-hidden bg-background">
       <Sidebar />
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Suspense fallback={<Splash />}>
+        <Suspense fallback={<RouteSkeleton />}>
           <Outlet />
         </Suspense>
       </main>
@@ -89,6 +90,35 @@ export function AppShell() {
           <SettingsDialog />
         </Suspense>
       )}
+    </div>
+  )
+}
+
+
+function RouteSkeleton() {
+  return (
+    <div className="flex h-full flex-col" aria-busy="true" aria-label="Loading page">
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-3">
+        <Skeleton className="size-7 rounded-md" />
+        <Skeleton className="h-4 w-40" />
+        <div className="ml-auto flex items-center gap-2">
+          <Skeleton className="h-7 w-16 rounded-full" />
+          <Skeleton className="size-7 rounded-md" />
+          <Skeleton className="size-7 rounded-md" />
+        </div>
+      </header>
+      <div className="mx-auto w-full max-w-3xl px-6 pt-14 sm:px-10">
+        <Skeleton className="size-12 rounded-xl" />
+        <Skeleton className="mt-5 h-9 w-2/3" />
+        <div className="mt-10 space-y-3">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-11/12" />
+          <Skeleton className="h-4 w-4/5" />
+          <Skeleton className="mt-8 h-4 w-1/3" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-10/12" />
+        </div>
+      </div>
     </div>
   )
 }

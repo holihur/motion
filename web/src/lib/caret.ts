@@ -1,4 +1,13 @@
-export function focusBlockById(id: string, where: "start" | "end" = "end") {
+export function focusBlockById(
+  id: string,
+  where: "start" | "end" = "end",
+  offset?: number,
+) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("motion:focus-block", { detail: { id, where, offset } }),
+    )
+  }
   const el = document.getElementById(`block-input-${id}`)
   if (!el) return
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {

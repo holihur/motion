@@ -42,6 +42,7 @@ export function SearchDialog() {
   const [results, setResults] = useState<PageSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [active, setActive] = useState("")
+  const [history, setHistory] = useState<string[]>(() => readSearchHistory())
   const sequence = useRef(0)
 
   const recent = useMemo(
@@ -101,7 +102,16 @@ export function SearchDialog() {
     return () => window.clearTimeout(timer)
   }, [query, open, activeId])
 
+  function remember(query: string) {
+    const value = query.trim()
+    if (!value) return
+    const next = [value, ...history.filter((item) => item.toLowerCase() !== value.toLowerCase())].slice(0, 6)
+    setHistory(next)
+    localStorage.setItem("motion.search.history", JSON.stringify(next))
+  }
+
   function go(pageId: string) {
+    remember(query)
     setOpen(false)
     navigate(`/page/${pageId}`)
   }
@@ -133,7 +143,7 @@ export function SearchDialog() {
             ) : results.length > 0 ? (
               <CommandGroup heading={loading ? tr("Results") + " · " + tr("Searching…") : tr("Results")}>
                 {results.map((page) => (
-                  <ResultItem key={page.id} page={page} onSelect={() => go(page.id)} />
+                  <ResultItem key={page.id} page={page} query={query} onSelect={() => go(page.id)} />
                 ))}
               </CommandGroup>
             ) : (
@@ -153,6 +163,25 @@ export function SearchDialog() {
           </>
         ) : (
           <>
+            {history.length > 0 && (
+              <>
+                <CommandGroup heading={tr("Recent searches")}>
+                  {history.map((item) => (
+                    <CommandItem
+                      key={item}
+                      value={`history-${item}`}
+                      onSelect={() => {
+                        setQuery(item)
+                      }}
+                    >
+                      <Search className="text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{item}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+                <CommandSeparator />
+              </>
+            )}
             <CommandGroup heading={tr("Quick actions")}>
               <CommandItem value="action-new-page" onSelect={() => void newPage()}>
                 <FilePlus2 />
@@ -204,7 +233,7 @@ export function SearchDialog() {
                 <CommandSeparator />
                 <CommandGroup heading={tr("Recently edited")}>
                   {recent.map((page) => (
-                    <ResultItem key={page.id} page={page} onSelect={() => go(page.id)} />
+                    <ResultItem key={page.id} page={page} query={query} onSelect={() => go(page.id)} />
                   ))}
                 </CommandGroup>
               </>
@@ -234,18 +263,70 @@ export function SearchDialog() {
   )
 }
 
-function ResultItem({ page, onSelect }: { page: PageSummary; onSelect: () => void }) {
+function ResultItem({
+  page,
+  query,
+  onSelect,
+}: {
+  page: PageSummary
+  query: string
+  onSelect: () => void
+}) {
   return (
-    <CommandItem value={`page-${page.id}`} onSelect={onSelect}>
+    <CommandItem value={`page-${page.id}`} onSelect={onSelect} className="items-start py-2">
       {page.icon ? (
-        <span className="w-4 shrink-0 text-center text-base leading-none">{page.icon}</span>
+        <span className="mt-0.5 w-4 shrink-0 text-center text-base leading-none">{page.icon}</span>
       ) : (
-        <FileText className="text-muted-foreground" />
+        <FileText className="mt-0.5 text-muted-foreground" />
       )}
-      <span className="min-w-0 flex-1 truncate">{pageTitle(page.title)}</span>
-      <span className="shrink-0 text-[10px] text-muted-foreground">
-        {formatRelative(page.updatedAt)}
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="min-w-0 flex-1 truncate">{pageTitle(page.title)}</span>
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            {formatRelative(page.updatedAt)}
+          </span>
+        </span>
+        {page.snippet ? (
+          <span className="mt-0.5 block line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+            <HighlightedSnippet text={page.snippet} query={query} />
+          </span>
+        ) : query ? (
+          <span className="mt-0.5 block text-[10px] text-muted-foreground/70">{tr("Title match")}</span>
+        ) : null}
       </span>
     </CommandItem>
   )
+}
+
+function HighlightedSnippet({ text, query }: { text: string; query: string }) {
+  const value = query.trim()
+  if (!value) return <>{text}</>
+  const lower = text.toLowerCase()
+  const needle = value.toLowerCase()
+  const parts: React.ReactNode[] = []
+  let cursor = 0
+  let index = lower.indexOf(needle)
+  let key = 0
+  while (index >= 0) {
+    if (index > cursor) parts.push(text.slice(cursor, index))
+    parts.push(
+      <mark key={key++} className="rounded-sm bg-brand-soft px-0.5 text-foreground">
+        {text.slice(index, index + value.length)}
+      </mark>,
+    )
+    cursor = index + value.length
+    index = lower.indexOf(needle, cursor)
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor))
+  return <>{parts}</>
+}
+
+function readSearchHistory(): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem("motion.search.history") ?? "[]") as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((item): item is string => typeof item === "string").slice(0, 6)
+  } catch {
+    return []
+  }
 }

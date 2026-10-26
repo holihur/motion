@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   ArrowUpRight,
@@ -10,8 +10,11 @@ import {
   Settings,
   Sparkles,
   Star,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
+import { api } from "@/lib/api"
+import { PAGE_TEMPLATES, templateBlocks, type PageTemplate } from "@/lib/templates"
 import { formatDate, formatRelative, greeting, initials, modKey } from "@/lib/utils"
 import { pageTitle } from "@/lib/tree"
 import { tr } from "@/lib/i18n"
@@ -34,6 +37,8 @@ export function HomeView() {
   const createPage = useWorkspaceStore((state) => state.createPage)
   const setSearchOpen = useUIStore((state) => state.setSearchOpen)
   const setSettingsOpen = useUIStore((state) => state.setSettingsOpen)
+  const [showOnboarding, setShowOnboarding] = useState(() => localStorage.getItem("motion.onboarding.dismissed") !== "1")
+  const [creatingTemplate, setCreatingTemplate] = useState("")
   const navigate = useNavigate()
 
   const workspace = workspaces.find((item) => item.id === activeId)
@@ -58,6 +63,30 @@ export function HomeView() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not create page")
     }
+  }
+
+  async function useTemplate(template: PageTemplate) {
+    if (creatingTemplate) return
+    setCreatingTemplate(template.id)
+    try {
+      const page = await createPage(null)
+      const blocks = templateBlocks(template)
+      await Promise.all([
+        api.pages.update(page.id, { title: template.title, icon: template.icon }),
+        api.pages.saveBlocks(page.id, blocks),
+      ])
+      await useWorkspaceStore.getState().refreshPages()
+      navigate(`/page/${page.id}`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not create page from template"))
+    } finally {
+      setCreatingTemplate("")
+    }
+  }
+
+  function dismissOnboarding() {
+    localStorage.setItem("motion.onboarding.dismissed", "1")
+    setShowOnboarding(false)
   }
 
   return (
@@ -137,6 +166,47 @@ export function HomeView() {
               </Button>
             )}
           </div>
+
+          {showOnboarding && (
+            <OnboardingCard
+              hasPages={pages.length > 0}
+              onNewPage={() => void newPage()}
+              onDismiss={dismissOnboarding}
+            />
+          )}
+
+          <section className="mt-10">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-sm font-semibold">
+                <Sparkles className="size-4 text-brand" />
+                {tr("Start from a template")}
+              </h2>
+              <span className="text-[11px] text-muted-foreground">{tr("Faster than a blank page")}</span>
+            </div>
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+              {PAGE_TEMPLATES.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  disabled={!!creatingTemplate}
+                  onClick={() => void useTemplate(template)}
+                  className={cn(
+                    "group/template relative overflow-hidden rounded-xl border border-border/80 bg-gradient-to-br p-3.5 text-left transition hover:-translate-y-0.5 hover:border-brand/35 hover:shadow-[0_14px_30px_-22px_rgba(0,0,0,0.35)] disabled:opacity-60",
+                    template.gradient,
+                  )}
+                >
+                  <span className="text-xl leading-none">{template.icon}</span>
+                  <span className="mt-3 block text-[13px] font-medium">{tr(template.title)}</span>
+                  <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+                    {tr(template.description)}
+                  </span>
+                  <span className="mt-2 block text-[10px] font-medium text-brand opacity-0 transition group-hover/template:opacity-100">
+                    {creatingTemplate === template.id ? tr("Creating…") : tr("Use template")}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
 
           {pages.length === 0 ? (
             <EmptyWorkspace onCreate={() => void newPage()} />
@@ -251,6 +321,65 @@ export function HomeView() {
         </div>
       </div>
     </>
+  )
+}
+
+function OnboardingCard({
+  hasPages,
+  onNewPage,
+  onDismiss,
+}: {
+  hasPages: boolean
+  onNewPage: () => void
+  onDismiss: () => void
+}) {
+  const steps = [
+    { title: tr("Create your first page"), done: hasPages },
+    { title: tr("Type / to insert any block"), done: false },
+    { title: tr("Select text to leave a comment"), done: false },
+    { title: tr("Ask Motion AI to summarize or edit"), done: false },
+  ]
+  return (
+    <section className="relative mt-8 overflow-hidden rounded-2xl border border-brand/20 bg-gradient-to-br from-brand-soft/50 via-background to-brand-two/10 p-5">
+      <div className="pointer-events-none absolute -right-10 -top-16 size-44 rounded-full bg-brand/10 blur-3xl" />
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label={tr("Dismiss")}
+        className="absolute right-3 top-3 flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-background/70 hover:text-foreground"
+      >
+        <X className="size-3.5" />
+      </button>
+      <div className="relative">
+        <div className="flex items-center gap-2 text-xs font-medium text-brand">
+          <Sparkles className="size-3.5" /> {tr("A 60-second tour")}
+        </div>
+        <h2 className="mt-1.5 text-lg font-semibold tracking-tight">{tr("Make Motion yours")}</h2>
+        <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
+          {tr("Four small actions unlock the whole workspace. You can dismiss this whenever you like.")}
+        </p>
+        <div className="mt-4 grid gap-1.5 sm:grid-cols-2">
+          {steps.map((step, index) => (
+            <div key={step.title} className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-2.5 py-2 text-xs">
+              <span
+                className={cn(
+                  "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
+                  step.done ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground",
+                )}
+              >
+                {step.done ? "✓" : index + 1}
+              </span>
+              <span className={cn("min-w-0 flex-1 truncate", step.done && "text-muted-foreground line-through")}>{step.title}</span>
+            </div>
+          ))}
+        </div>
+        {!hasPages && (
+          <Button size="sm" className="mt-4 gap-1.5" onClick={onNewPage}>
+            <Plus className="size-3.5" /> {tr("Create your first page")}
+          </Button>
+        )}
+      </div>
+    </section>
   )
 }
 

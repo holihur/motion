@@ -33,11 +33,11 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<AuthPage />} />
           <Route path="/auth/callback" element={<OIDCCallbackPage />} />
+          <Route path="/ops" element={<OpsView />} />
           <Route element={<AppShell />}>
             <Route index element={<HomeView />} />
             <Route path="page/:pageId" element={<PageRoute />} />
             <Route path="trash" element={<TrashView />} />
-            <Route path="ops" element={<OpsView />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

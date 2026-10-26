@@ -1,4 +1,4 @@
-import type { PageSummary } from "./types"
+import type { PageSummary, Workspace } from "./types"
 import { tr } from "./i18n"
 
 export interface TreeNode extends PageSummary {
@@ -41,6 +41,12 @@ export function allAncestorIds(pages: PageSummary[], id: string): string[] {
   return ancestorChain(pages, id)
     .map((page) => page.id)
     .filter((pageId) => pageId !== id)
+}
+
+export function roleInWorkspace(workspace: Workspace | undefined, userId: string | undefined) {
+  if (!workspace || !userId) return ""
+  if (workspace.ownerId === userId) return "owner"
+  return workspace.members?.find((member) => member.userId === userId)?.role ?? ""
 }
 
 export function pageTitle(title: string) {

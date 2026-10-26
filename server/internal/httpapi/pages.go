@@ -135,11 +135,12 @@ func (s *Server) getPage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid page id")
 		return
 	}
-	page, _, err := s.accessiblePage(r, pageID)
+	page, role, err := s.accessiblePage(r, pageID)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "page not found")
 		return
 	}
+	page.Role = role
 	if page.Blocks == nil {
 		page.Blocks = []model.Block{}
 	}

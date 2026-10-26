@@ -22,6 +22,7 @@ services:
       SEED_DEMO: "false"
       ALLOW_SIGNUP: "true"
       ADMIN_EMAILS: "${ADMIN_EMAILS:-}"
+      OPS_TOKEN: "${OPS_TOKEN:-}"
       JWT_SECRET: "${JWT_SECRET:-change-me-motion-jwt-secret}"
       ENCRYPTION_KEY: "${ENCRYPTION_KEY:-change-me-motion-encryption-key}"
       AUTO_UPDATE: "off"

@@ -87,6 +87,9 @@ test.describe("BYOK AI agent", () => {
       await page.getByPlaceholder(/Ask about your documents/).fill("Find the welcome page")
       await page.getByLabel("Send message").click()
       await expect(page.getByText(/I found the Welcome page/)).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByRole("button", { name: "Undo AI changes" })).toBeVisible()
+      await page.getByRole("button", { name: "Undo AI changes" }).click()
+      await expect(page.getByText("AI changes undone")).toBeVisible()
       expect(calls).toBeGreaterThanOrEqual(2)
     } finally {
       await new Promise<void>((resolve) => mock.close(() => resolve()))

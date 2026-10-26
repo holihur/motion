@@ -42,11 +42,16 @@ export function SlashMenu({
     return () => window.removeEventListener("pointerdown", onPointerDown, true)
   }, [onClose])
 
-  const width = 304
-  const estimatedHeight = Math.min(340, Math.max(80, commands.length * 52 + 16))
-  const left = Math.min(Math.max(8, state.x), window.innerWidth - width - 12)
-  const openUp = state.y + estimatedHeight + 12 > window.innerHeight && state.y > estimatedHeight + 24
-  const top = openUp ? Math.max(8, state.y - estimatedHeight - 8) : Math.min(state.y + 6, window.innerHeight - 60)
+  const compact = window.innerWidth < 640
+  const width = compact ? window.innerWidth - 24 : 304
+  const estimatedHeight = Math.min(compact ? window.innerHeight * 0.6 : 340, Math.max(80, commands.length * 52 + 16))
+  const left = compact ? 12 : Math.min(Math.max(8, state.x), window.innerWidth - width - 12)
+  const openUp = !compact && state.y + estimatedHeight + 12 > window.innerHeight && state.y > estimatedHeight + 24
+  const top = compact
+    ? Math.max(60, window.innerHeight - estimatedHeight - 16)
+    : openUp
+      ? Math.max(8, state.y - estimatedHeight - 8)
+      : Math.min(state.y + 6, window.innerHeight - 60)
 
   return (
     <>
@@ -62,7 +67,7 @@ export function SlashMenu({
           </span>
           <span className="text-[10px] text-muted-foreground/60">↵ {tr("to choose")}</span>
         </div>
-        <div ref={listRef} className="max-h-[300px] overflow-y-auto p-1.5 thin-scrollbar">
+        <div ref={listRef} className="max-h-[min(300px,50svh)] overflow-y-auto p-1.5 thin-scrollbar">
           {commands.length === 0 ? (
             <div className="px-2 py-6 text-center text-xs text-muted-foreground">
               {tr("No matching blocks")}

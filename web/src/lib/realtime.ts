@@ -71,6 +71,15 @@ export class RealtimeClient {
     this.send({ type: "focus", blockId: blockId ?? "" })
   }
 
+  retryNow() {
+    if (this.closed) return
+    if (this.timer) window.clearTimeout(this.timer)
+    this.retry = 0
+    this.socket?.close()
+    this.socket = null
+    this.connect()
+  }
+
   close() {
     this.closed = true
     if (this.timer) window.clearTimeout(this.timer)

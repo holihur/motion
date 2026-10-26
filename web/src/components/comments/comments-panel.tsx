@@ -23,6 +23,7 @@ export function CommentsPanel({
   pageId,
   comments,
   loading,
+  readOnly = false,
   onReload,
 }: {
   open: boolean
@@ -30,6 +31,7 @@ export function CommentsPanel({
   pageId: string
   comments: Comment[]
   loading: boolean
+  readOnly?: boolean
   onReload: () => void
 }) {
   const user = useAuthStore((state) => state.user)
@@ -113,7 +115,7 @@ export function CommentsPanel({
   if (!open) return null
 
   return (
-    <aside aria-label="Comments panel" className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[380px] flex-col border-l bg-background shadow-2xl animate-in slide-in-from-right duration-200">
+    <aside aria-label="Comments panel" className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[380px] flex-col border-l bg-background shadow-2xl animate-in slide-in-from-right duration-200 max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:h-[78svh] max-md:max-w-none max-md:rounded-t-2xl max-md:border-l-0 max-md:border-t">
       <header className="flex h-12 shrink-0 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <MessageSquare className="size-4 text-brand" />
@@ -169,6 +171,7 @@ export function CommentsPanel({
                 onResolve={() => void toggleResolved(comment)}
                 onDelete={() => setDeleteTarget(comment)}
                 onQuoteClick={() => jumpToBlock(comment)}
+                readOnly={readOnly}
               />
             ))}
           </div>
@@ -204,6 +207,7 @@ export function CommentsPanel({
                     onDelete={() => setDeleteTarget(comment)}
                     onQuoteClick={() => jumpToBlock(comment)}
                     resolved
+                    readOnly={readOnly}
                   />
                 ))}
               </div>
@@ -244,6 +248,7 @@ function Thread({
   onDelete,
   onQuoteClick,
   resolved,
+  readOnly = false,
 }: {
   comment: Comment
   replies: Comment[]
@@ -258,6 +263,7 @@ function Thread({
   onDelete: () => void
   onQuoteClick: () => void
   resolved?: boolean
+  readOnly?: boolean
 }) {
   return (
     <div className={cn("rounded-xl border border-border/70 bg-card p-3", resolved && "bg-muted/20")}>
@@ -279,7 +285,7 @@ function Thread({
           </div>
           <p className="mt-1 whitespace-pre-wrap text-[13px] leading-5">{comment.body}</p>
           <div className="mt-2 flex items-center gap-1">
-            {!resolved && (
+            {!resolved && !readOnly && (
               <button
                 type="button"
                 onClick={onReplyOpen}
@@ -288,15 +294,15 @@ function Thread({
                 <MessageSquareReply className="size-3" /> Reply
               </button>
             )}
-            <button
+            {!readOnly && <button
               type="button"
               onClick={onResolve}
               className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               {resolved ? <RotateCcw className="size-3" /> : <CheckCheck className="size-3" />}
               {resolved ? tr("Reopen") : tr("Resolve")}
-            </button>
-            {comment.authorId === currentUserId && (
+            </button>}
+            {!readOnly && comment.authorId === currentUserId && (
               <button
                 type="button"
                 onClick={onDelete}
@@ -328,7 +334,7 @@ function Thread({
         </div>
       )}
 
-      {replyOpen && (
+      {replyOpen && !readOnly && (
         <div className="mt-2 flex items-center gap-1.5">
           <input
             autoFocus

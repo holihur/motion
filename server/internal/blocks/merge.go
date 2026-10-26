@@ -12,13 +12,14 @@ func Key(block model.Block) string {
 	data, _ := json.Marshal(struct {
 		Type     string           `json:"t"`
 		Text     string           `json:"x"`
+		Rich     string           `json:"r,omitempty"`
 		Checked  bool             `json:"c"`
 		Language string           `json:"l"`
 		Color    string           `json:"o"`
 		URL      string           `json:"u"`
 		Caption  string           `json:"p"`
 		Table    *model.TableData `json:"tb,omitempty"`
-	}{block.Type, block.Text, block.Checked, block.Language, block.Color, block.URL, block.Caption, block.Table})
+	}{block.Type, block.Text, block.Rich, block.Checked, block.Language, block.Color, block.URL, block.Caption, block.Table})
 	return string(data)
 }
 

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import {
   AlertCircle,
@@ -12,9 +12,11 @@ import {
   MessageSquare,
   MessageSquarePlus,
   MoreHorizontal,
+  Plus,
   RotateCcw,
   SmilePlus,
   Sparkles,
+  SquarePen,
   Star,
   Users,
 } from "lucide-react"
@@ -36,11 +38,25 @@ import { CoverPicker } from "@/components/editor/cover-picker"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { ShareDialog } from "@/components/app/share-dialog"
-import { HistoryDialog } from "@/components/editor/history-dialog"
-import { CommentsPanel } from "@/components/comments/comments-panel"
-import { AIPanel } from "@/components/ai/ai-panel"
-import { CommentComposer, type CommentSelection } from "@/components/comments/comment-composer"
+import type { CommentSelection } from "@/components/comments/comment-composer"
+
+const ShareDialog = lazy(() =>
+  import("@/components/app/share-dialog").then((module) => ({ default: module.ShareDialog })),
+)
+const HistoryDialog = lazy(() =>
+  import("@/components/editor/history-dialog").then((module) => ({ default: module.HistoryDialog })),
+)
+const CommentsPanel = lazy(() =>
+  import("@/components/comments/comments-panel").then((module) => ({ default: module.CommentsPanel })),
+)
+const AIPanel = lazy(() =>
+  import("@/components/ai/ai-panel").then((module) => ({ default: module.AIPanel })),
+)
+const CommentComposer = lazy(() =>
+  import("@/components/comments/comment-composer").then((module) => ({
+    default: module.CommentComposer,
+  })),
+)
 
 type SaveState = "saved" | "saving" | "error"
 
@@ -85,6 +101,7 @@ export function PageEditor() {
   const [saveState, setSaveState] = useState<SaveState>("saved")
   const [collaborators, setCollaborators] = useState<RealtimePresence[]>([])
   const [liveStatus, setLiveStatus] = useState<"connecting" | "connected" | "disconnected">("connecting")
+  const [online, setOnline] = useState(() => navigator.onLine)
   const [shareOpen, setShareOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [commentsOpen, setCommentsOpen] = useState(false)
@@ -113,6 +130,7 @@ export function PageEditor() {
 
   const summary = pages.find((item) => item.id === pageId)
   const favorite = summary?.favorite ?? page?.favorite ?? false
+  const readOnly = page?.role === "viewer"
 
   useEffect(() => {
     stateRef.current = { pageId: page?.id ?? "", title, icon, cover, blocks }
@@ -320,7 +338,7 @@ export function PageEditor() {
   }, [pageId, page?.id, commentVersion])
 
   useEffect(() => {
-    if (!page || loading || composerOpen) return
+    if (!page || loading || composerOpen || readOnly) return
     function readSelection() {
       const native = window.getSelection()
       if (!native || native.isCollapsed || native.rangeCount === 0) {
@@ -363,7 +381,7 @@ export function PageEditor() {
         startOffset,
         endOffset,
         x: rect.left + rect.width / 2,
-        y: rect.top,
+        y: rect.bottom,
       })
     }
     function clearOnScroll() {
@@ -489,6 +507,23 @@ export function PageEditor() {
   }, [pageId, page?.id])
 
   useEffect(() => {
+    function onOnline() {
+      setOnline(true)
+      if (dirtyRef.current) void saveNow()
+    }
+    function onOffline() {
+      setOnline(false)
+    }
+    window.addEventListener("online", onOnline)
+    window.addEventListener("offline", onOffline)
+    return () => {
+      window.removeEventListener("online", onOnline)
+      window.removeEventListener("offline", onOffline)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
     function onBeforeUnload(event: BeforeUnloadEvent) {
       if (!dirtyRef.current) return
       event.preventDefault()
@@ -573,6 +608,7 @@ export function PageEditor() {
   }
 
   function scheduleSave() {
+    if (readOnly) return
     dirtyRef.current = true
     if (page) setSaveState("saving")
     if (timerRef.current) window.clearTimeout(timerRef.current)
@@ -583,6 +619,7 @@ export function PageEditor() {
   }
 
   function onTitleChange(value: string) {
+    if (readOnly) return
     const singleLine = value.replace(/\n/g, " ")
     setTitle(singleLine)
     scheduleSave()
@@ -636,6 +673,47 @@ export function PageEditor() {
     setComposerOpen(true)
   }
 
+  function applyRestoredPage(restored: Page) {
+    setPage(restored)
+    setTitle(restored.title)
+    setIcon(restored.icon)
+    setCover(restored.cover)
+    setBlocks(restored.blocks)
+    baseBlocksRef.current = restored.blocks
+    dirtyRef.current = false
+    lastSavedRef.current = signature({
+      title: restored.title,
+      icon: restored.icon,
+      cover: restored.cover,
+      blocks: restored.blocks,
+    })
+    setSaveState("saved")
+    useWorkspaceStore.getState().patchSummary(restored.id, {
+      title: restored.title,
+      icon: restored.icon,
+      cover: restored.cover,
+    })
+  }
+
+  async function undoAIRevision(revisionId: string) {
+    if (!page) return
+    const restored = await api.pages.restoreRevision(page.id, revisionId)
+    applyRestoredPage(restored)
+  }
+
+  function addParagraph() {
+    if (readOnly) return
+    const last = blocks[blocks.length - 1]
+    if (last && last.type === "paragraph" && last.text === "") {
+      focusBlockById(last.id, "end")
+      return
+    }
+    const block = emptyBlock()
+    setBlocks([...blocks, block])
+    scheduleSave()
+    requestAnimationFrame(() => focusBlockById(block.id, "start"))
+  }
+
   function announceFocus(blockId: string) {
     if (lastFocusRef.current === blockId) return
     lastFocusRef.current = blockId
@@ -643,11 +721,13 @@ export function PageEditor() {
   }
 
   const commentCounts: Record<string, number> = {}
+  const blockComments: Record<string, Comment[]> = {}
   let unresolvedComments = 0
   for (const comment of comments) {
     if (comment.parentId || comment.resolved) continue
     unresolvedComments += 1
     commentCounts[comment.blockId] = (commentCounts[comment.blockId] ?? 0) + 1
+    ;(blockComments[comment.blockId] ??= []).push(comment)
   }
 
   if (!pageId) return null
@@ -700,6 +780,11 @@ export function PageEditor() {
       <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
         <SidebarToggle />
         <Breadcrumbs page={page} title={title} icon={icon} />
+        {readOnly && (
+          <span className="ml-1 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+            {tr("View only")}
+          </span>
+        )}
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
           {collaboratorsForDisplay.length > 0 && (
             <div className="mr-1 flex items-center -space-x-1.5">
@@ -726,12 +811,17 @@ export function PageEditor() {
           )}
           <span
             className={cn(
-              "hidden size-1.5 rounded-full sm:block",
-              liveStatus === "connected" ? "bg-emerald-500" : "bg-muted-foreground/40",
+              "hidden items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] sm:flex",
+              liveStatus === "connected"
+                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : "border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-200",
             )}
             title={liveStatus === "connected" ? "Live collaboration connected" : "Reconnecting…"}
-          />
-          <Tooltip>
+          >
+            <span className={cn("size-1.5 rounded-full", liveStatus === "connected" ? "bg-emerald-500" : "bg-amber-500")} />
+            {liveStatus === "connected" ? tr("Live") : tr("Reconnecting")}
+          </span>
+          {!readOnly && <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
@@ -747,7 +837,7 @@ export function PageEditor() {
               </Button>
             </TooltipTrigger>
             <TooltipContent>{tr("Ask Motion AI · BYOK")}</TooltipContent>
-          </Tooltip>
+          </Tooltip>}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -798,8 +888,8 @@ export function PageEditor() {
             </TooltipTrigger>
             <TooltipContent>{tr("Share workspace")}</TooltipContent>
           </Tooltip>
-          <SaveIndicator state={saveState} onRetry={() => void saveNow()} />
-          <Tooltip>
+          {!readOnly && <SaveIndicator state={saveState} onRetry={() => void saveNow()} />}
+          {!readOnly && <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
@@ -812,8 +902,9 @@ export function PageEditor() {
               </Button>
             </TooltipTrigger>
             <TooltipContent>{favorite ? tr("Remove from Favorites") : tr("Add to Favorites")}</TooltipContent>
-          </Tooltip>
+          </Tooltip>}
           <PageActionsMenu
+            readOnly={readOnly}
             page={{ ...page, title, icon, cover, favorite }}
             align="end"
             trigger={
@@ -828,6 +919,24 @@ export function PageEditor() {
           />
         </div>
       </header>
+
+      {(liveStatus === "disconnected" || !online) && (
+        <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-1.5 text-[11px] text-amber-900 dark:text-amber-100">
+          <AlertCircle className="size-3.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">
+            {!online
+              ? tr("You’re offline. Changes stay on this device until the connection returns.")
+              : tr("Live connection lost. Reconnecting automatically…")}
+          </span>
+          <button
+            type="button"
+            onClick={() => realtimeRef.current?.retryNow()}
+            className="shrink-0 rounded border border-amber-600/30 px-2 py-0.5 font-medium transition hover:bg-amber-500/10"
+          >
+            {tr("Retry now")}
+          </button>
+        </div>
+      )}
 
       {page.archived && (
         <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-100">
@@ -849,7 +958,7 @@ export function PageEditor() {
             style={coverStyle(cover)}
           >
             <div className="absolute inset-0 bg-gradient-to-b from-black/5 to-transparent" />
-            <div className="absolute right-3 top-3 flex items-center gap-1.5 opacity-0 transition-opacity group-hover/cover:opacity-100 focus-within:opacity-100">
+            {!readOnly && <div className="absolute right-3 top-3 flex items-center gap-1.5 opacity-0 transition-opacity group-hover/cover:opacity-100 focus-within:opacity-100">
               <CoverPicker value={cover} onSelect={onCoverChange}>
                 <button
                   type="button"
@@ -865,13 +974,15 @@ export function PageEditor() {
               >
                 Remove
               </button>
-            </div>
+            </div>}
           </div>
         )}
 
         <div className={cn("mx-auto w-full max-w-3xl px-5 pb-28 sm:px-10", !cover && "pt-6")}>
           <div className={cn("relative z-10 flex items-center gap-2", cover ? "-mt-9 mb-1" : "mt-1")}>
-            <EmojiPicker value={icon} onSelect={onIconChange}>
+            {readOnly ? (
+              icon ? <span className="rounded-xl px-1 text-[58px] leading-none">{icon}</span> : null
+            ) : <EmojiPicker value={icon} onSelect={onIconChange}>
               {icon ? (
                 <button
                   type="button"
@@ -888,8 +999,8 @@ export function PageEditor() {
                   <SmilePlus className="size-3.5" /> {tr("Add icon")}
                 </button>
               )}
-            </EmojiPicker>
-            {!cover && (
+            </EmojiPicker>}
+            {!cover && !readOnly && (
               <CoverPicker value={cover} onSelect={onCoverChange}>
                 <button
                   type="button"
@@ -906,11 +1017,12 @@ export function PageEditor() {
             data-editor-title="true"
             value={title}
             rows={1}
+            readOnly={readOnly}
             placeholder={tr("Untitled")}
             spellCheck={false}
             onChange={(event) => onTitleChange(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
+              if (event.key === "Enter" && !event.shiftKey && !readOnly) {
                 event.preventDefault()
                 const first = blocks[0]
                 if (first) {
@@ -924,13 +1036,16 @@ export function PageEditor() {
           <div className="mt-5">
             <BlockEditor
               blocks={blocks}
+              readOnly={readOnly}
               onChange={(next) => {
+                if (readOnly) return
                 setBlocks(next)
                 scheduleSave()
               }}
               onFocusBlock={announceFocus}
               remoteFocus={remoteFocus}
               commentCounts={commentCounts}
+              blockComments={blockComments}
               onOpenComments={() => setCommentsOpen(true)}
               onCommentBlock={openBlockComment}
             />
@@ -938,80 +1053,140 @@ export function PageEditor() {
         </div>
       </div>
 
-      {selection && !composerOpen && (
+      {selection && !composerOpen && !readOnly && (
         <button
           type="button"
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => setComposerOpen(true)}
-          className="fixed z-50 flex -translate-x-1/2 -translate-y-full items-center gap-1.5 rounded-full border bg-popover px-3 py-1.5 text-xs font-medium text-popover-foreground shadow-xl transition hover:bg-accent animate-in fade-in-0 zoom-in-95"
-          style={{ left: selection.x, top: Math.max(12, selection.y - 8) }}
+          className="fixed z-50 flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-popover px-3 py-1.5 text-xs font-medium text-popover-foreground shadow-xl transition hover:bg-accent animate-in fade-in-0 zoom-in-95"
+          style={{ left: selection.x, top: Math.min(selection.y + 8, window.innerHeight - 48) }}
         >
           <MessageSquarePlus className="size-3.5 text-brand" />
           Comment
         </button>
       )}
 
-      <AIPanel
-        open={aiOpen}
-        onOpenChange={setAiOpen}
-        pageId={page.id}
-        pageTitle={title}
-      />
-      <CommentsPanel
-        open={commentsOpen}
-        onOpenChange={setCommentsOpen}
-        pageId={page.id}
-        comments={comments}
-        loading={commentsLoading}
-        onReload={() => setCommentVersion((value) => value + 1)}
-      />
-      <CommentComposer
-        open={composerOpen}
-        onOpenChange={(value) => {
-          setComposerOpen(value)
-          if (!value) {
-            setSelection(null)
-            window.getSelection()?.removeAllRanges()
-          }
-        }}
-        pageId={page.id}
-        selection={selection}
-        onCreated={() => {
-          setCommentVersion((value) => value + 1)
-          setSelection(null)
-          setCommentsOpen(true)
-          window.getSelection()?.removeAllRanges()
-        }}
-      />
+      {!readOnly && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-8px_24px_-18px_rgba(0,0,0,0.35)] backdrop-blur md:hidden">
+          <div className="mx-auto flex max-w-md items-center justify-around">
+            <MobileToolButton label={tr("Add block")} onClick={addParagraph}>
+              <Plus className="size-5" />
+            </MobileToolButton>
+            <MobileToolButton
+              label={tr("Insert block")}
+              onClick={() => window.dispatchEvent(new CustomEvent("motion:open-insert"))}
+            >
+              <SquarePen className="size-5" />
+            </MobileToolButton>
+            <MobileToolButton
+              label={tr("Comments")}
+              onClick={() => {
+                setCommentsOpen(true)
+                setAiOpen(false)
+              }}
+            >
+              <span className="relative">
+                <MessageSquare className="size-5" />
+                {unresolvedComments > 0 && (
+                  <span className="absolute -right-2 -top-1.5 flex min-w-3.5 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-semibold leading-3.5 text-white">
+                    {unresolvedComments}
+                  </span>
+                )}
+              </span>
+            </MobileToolButton>
+            <MobileToolButton
+              label={tr("Ask Motion AI")}
+              onClick={() => {
+                setAiOpen(true)
+                setCommentsOpen(false)
+              }}
+            >
+              <Sparkles className="size-5" />
+            </MobileToolButton>
+          </div>
+        </div>
+      )}
 
-      <ShareDialog open={shareOpen} onOpenChange={setShareOpen} page={page} />
-      <HistoryDialog
-        open={historyOpen}
-        onOpenChange={setHistoryOpen}
-        page={page}
-        onRestored={(restored) => {
-          setPage(restored)
-          setTitle(restored.title)
-          setIcon(restored.icon)
-          setCover(restored.cover)
-          setBlocks(restored.blocks)
-          baseBlocksRef.current = restored.blocks
-          dirtyRef.current = false
-          lastSavedRef.current = signature({
-            title: restored.title,
-            icon: restored.icon,
-            cover: restored.cover,
-            blocks: restored.blocks,
-          })
-          setSaveState("saved")
-          useWorkspaceStore.getState().patchSummary(restored.id, {
-            title: restored.title,
-            icon: restored.icon,
-            cover: restored.cover,
-          })
-        }}
-      />
+      {aiOpen && (
+        <Suspense fallback={null}>
+          <AIPanel
+            open
+            onOpenChange={setAiOpen}
+            pageId={page.id}
+            pageTitle={title}
+            onUndoRevision={undoAIRevision}
+          />
+        </Suspense>
+      )}
+      {commentsOpen && (
+        <Suspense fallback={null}>
+          <CommentsPanel
+            open
+            onOpenChange={setCommentsOpen}
+            pageId={page.id}
+            comments={comments}
+            loading={commentsLoading}
+            readOnly={readOnly}
+            onReload={() => setCommentVersion((value) => value + 1)}
+          />
+        </Suspense>
+      )}
+      {composerOpen && (
+        <Suspense fallback={null}>
+          <CommentComposer
+            open
+            onOpenChange={(value) => {
+              setComposerOpen(value)
+              if (!value) {
+                setSelection(null)
+                window.getSelection()?.removeAllRanges()
+              }
+            }}
+            pageId={page.id}
+            selection={selection}
+            onCreated={() => {
+              setCommentVersion((value) => value + 1)
+              setSelection(null)
+              setCommentsOpen(true)
+              window.getSelection()?.removeAllRanges()
+            }}
+          />
+        </Suspense>
+      )}
+
+      {shareOpen && (
+        <Suspense fallback={null}>
+          <ShareDialog open onOpenChange={setShareOpen} page={page} />
+        </Suspense>
+      )}
+      {historyOpen && (
+        <Suspense fallback={null}>
+          <HistoryDialog open onOpenChange={setHistoryOpen} page={page} onRestored={applyRestoredPage} />
+        </Suspense>
+      )}
     </div>
+  )
+}
+
+function MobileToolButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="flex min-w-14 flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-muted-foreground transition active:bg-accent"
+    >
+      {children}
+      <span className="text-[9px] font-medium">{label}</span>
+    </button>
   )
 }
 

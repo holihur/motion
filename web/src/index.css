@@ -245,3 +245,38 @@
 .animate-float-slow { animation: float-slow 14s ease-in-out infinite; }
 .animate-float-slower { animation: float-slower 18s ease-in-out infinite; }
 .animate-rise { animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Lexical rich-text blocks */
+.lexical-input {
+  position: relative;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  caret-color: var(--brand);
+}
+.lexical-input p {
+  margin: 0;
+}
+.lexical-input:focus-visible {
+  outline: none;
+}
+.lexical-placeholder {
+  color: color-mix(in oklch, var(--muted-foreground) 58%, transparent);
+  pointer-events: none;
+  user-select: none;
+  top: 0.1875rem;
+  inset-inline-start: 0;
+  white-space: pre;
+}
+.inline-code {
+  border-radius: 0.3rem;
+  background: color-mix(in oklch, var(--muted) 85%, transparent);
+  padding: 0.1rem 0.28rem;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+.lexical-link {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}

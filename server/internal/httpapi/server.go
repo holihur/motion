@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"io/fs"
@@ -61,6 +62,9 @@ func New(cfg config.Config, st *store.Store, tokens *auth.Manager) *Server {
 	if err != nil {
 		slog.Warn("could not load site settings; using environment defaults", "error", err)
 	}
+	if strings.TrimSpace(cfg.OpsToken) == "" {
+		slog.Warn("OPS_TOKEN is not set; the /ops console is disabled")
+	}
 	srv.site = settings
 	return srv
 }
@@ -117,6 +121,28 @@ func (s *Server) requireAdmin(w http.ResponseWriter, r *http.Request) (model.Use
 	return user, true
 }
 
+func (s *Server) requireOpsToken(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		expected := strings.TrimSpace(s.cfg.OpsToken)
+		if expected == "" {
+			writeErr(w, http.StatusServiceUnavailable, "Ops access is not configured; set OPS_TOKEN on the server")
+			return
+		}
+		provided := strings.TrimSpace(r.Header.Get("X-Ops-Token"))
+		if provided == "" {
+			auth := strings.TrimSpace(r.Header.Get("Authorization"))
+			if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+				provided = strings.TrimSpace(auth[7:])
+			}
+		}
+		if subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
+			writeErr(w, http.StatusUnauthorized, "invalid Ops access token")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *Server) Router() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -126,7 +152,7 @@ func (s *Server) Router() http.Handler {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   s.cfg.CORSOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Ops-Token"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: false,
 		MaxAge:           300,
@@ -149,15 +175,18 @@ func (s *Server) Router() http.Handler {
 		r.Get("/ws", s.websocket)
 
 		r.Group(func(r chi.Router) {
-			r.Use(s.authenticate)
-			r.Get("/me", s.me)
-			r.Patch("/me", s.updateMe)
-
+			r.Use(s.requireOpsToken)
 			r.Get("/ops/settings", s.getOpsSettings)
 			r.Put("/ops/settings", s.saveOpsSettings)
 			r.Get("/ops/stats", s.getOpsStats)
 			r.Post("/ops/check-update", s.checkUpdate)
 			r.Post("/ops/apply-update", s.applyUpdate)
+		})
+
+		r.Group(func(r chi.Router) {
+			r.Use(s.authenticate)
+			r.Get("/me", s.me)
+			r.Patch("/me", s.updateMe)
 
 			r.Get("/tokens", s.listTokens)
 			r.Post("/tokens", s.createToken)
@@ -167,6 +196,7 @@ func (s *Server) Router() http.Handler {
 			r.Put("/ai/settings", s.saveAISettings)
 			r.Delete("/ai/settings", s.deleteAISettings)
 			r.With(s.requireScope("ai:use"), s.requireScope("pages:read")).Get("/ai/status", s.aiStatus)
+			r.Post("/ai/test", s.testAISettings)
 			r.With(s.requireScope("ai:use"), s.requireScope("pages:read")).Post("/ai/chat", s.aiChat)
 			r.With(s.requireScope("ai:use"), s.requireScope("pages:write")).Post("/ai/agents", s.createAgentsPage)
 

@@ -61,7 +61,8 @@ OpenAI 兼容适配器会自动请求 `{baseUrl}/chat/completions`，并把 ADK 
 2. 后端读取当前用户的加密 Key 并解密
 3. ADK Agent 运行，模型按需调用文档工具
 4. 工具直接修改 MongoDB，并通过 WebSocket 广播
-5. 返回最终文本和已执行动作列表
+5. 返回最终文本、已执行动作列表，以及本次运行前的版本 ID
+6. 前端可点击 **Undo AI changes** 恢复该版本；运行过程中可点击 **Stop** 取消请求，也可 **Regenerate** 重新生成
 
 ## 安全
 
@@ -69,3 +70,5 @@ OpenAI 兼容适配器会自动请求 `{baseUrl}/chat/completions`，并把 ADK 
 - PAT 需要 `ai:use` Scope；文档读写工具还会校验 `pages:read/pages:write`
 - 工作区 viewer 角色只能读
 - 不提供删除工具，避免模型误删内容
+- 每次运行前自动创建版本快照，AI 修改可一键撤销
+- 对话记录保存在当前浏览器的 `localStorage`，按页面隔离

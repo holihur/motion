@@ -10,9 +10,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	adkmodel "google.golang.org/adk/model"
+	"google.golang.org/adk/model/gemini"
+	"google.golang.org/genai"
 
 	"github.com/motion/server/internal/docagent"
 	"github.com/motion/server/internal/model"
+	"github.com/motion/server/internal/openaimodel"
 	"github.com/motion/server/internal/secret"
 )
 
@@ -287,6 +291,89 @@ func (s *Server) aiStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type aiTestResponse struct {
+	OK        bool   `json:"ok"`
+	Model     string `json:"model"`
+	Message   string `json:"message"`
+	LatencyMS int64  `json:"latencyMs"`
+}
+
+func (s *Server) testAISettings(w http.ResponseWriter, r *http.Request) {
+	setting, err := s.aiSetting(r)
+	if err == mongo.ErrNoDocuments {
+		writeErr(w, http.StatusBadRequest, "save your AI provider first")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load AI settings")
+		return
+	}
+	if !aiConfigured(setting) {
+		writeErr(w, http.StatusBadRequest, "add your API key first")
+		return
+	}
+	key := ""
+	if setting.KeyCipher != "" {
+		key, err = secret.Decrypt(s.cfg.EncryptionKey, setting.KeyCipher)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, "could not read the saved API key; save it again")
+			return
+		}
+	}
+	modelName := setting.Model
+	if modelName == "" {
+		modelName = aiDefaultModel(setting.Provider, s.siteSnapshot().AIModel)
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	var llm adkmodel.LLM
+	if setting.Provider == "gemini" {
+		llm, err = gemini.NewModel(ctx, modelName, &genai.ClientConfig{APIKey: key})
+		if err != nil {
+			writeErr(w, http.StatusBadGateway, "could not initialise Gemini: "+err.Error())
+			return
+		}
+	} else {
+		llm = openaimodel.New(openaimodel.Config{
+			Provider: setting.Provider, BaseURL: setting.BaseURL, APIKey: key, Model: modelName,
+			Client: &http.Client{Timeout: 25 * time.Second},
+		})
+	}
+	temperature := float32(0)
+	req := &adkmodel.LLMRequest{
+		Contents: []*genai.Content{{
+			Role: "user", Parts: []*genai.Part{{Text: "Reply with the single word: OK"}},
+		}},
+		Config: &genai.GenerateContentConfig{Temperature: &temperature, MaxOutputTokens: 16},
+	}
+	started := time.Now()
+	var reply strings.Builder
+	for response, err := range llm.GenerateContent(ctx, req, false) {
+		if err != nil {
+			writeErr(w, http.StatusBadGateway, "AI connection failed: "+err.Error())
+			return
+		}
+		if response == nil || response.Content == nil {
+			continue
+		}
+		for _, part := range response.Content.Parts {
+			if part != nil && part.Text != "" {
+				reply.WriteString(part.Text)
+			}
+		}
+	}
+	message := strings.TrimSpace(reply.String())
+	if message == "" {
+		writeErr(w, http.StatusBadGateway, "the provider returned an empty response")
+		return
+	}
+	writeJSON(w, http.StatusOK, aiTestResponse{
+		OK: true, Model: modelName, Message: message,
+		LatencyMS: time.Since(started).Milliseconds(),
+	})
+}
+
 type aiChatRequest struct {
 	Message string                 `json:"message"`
 	PageID  string                 `json:"pageId,omitempty"`
@@ -294,10 +381,11 @@ type aiChatRequest struct {
 }
 
 type aiChatResponse struct {
-	Reply    string   `json:"reply"`
-	Actions  []string `json:"actions,omitempty"`
-	Model    string   `json:"model"`
-	Provider string   `json:"provider"`
+	Reply      string   `json:"reply"`
+	Actions    []string `json:"actions,omitempty"`
+	Model      string   `json:"model"`
+	Provider   string   `json:"provider"`
+	RevisionID string   `json:"revisionId,omitempty"`
 }
 
 func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
@@ -347,6 +435,16 @@ func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
 	if modelName == "" {
 		modelName = aiDefaultModel(setting.Provider, s.siteSnapshot().AIModel)
 	}
+	revisionID := ""
+	if pageHex := strings.TrimSpace(req.PageID); pageHex != "" {
+		if pageID, err := primitive.ObjectIDFromHex(pageHex); err == nil {
+			if page, _, err := s.accessiblePage(r, pageID); err == nil {
+				if revision, err := s.createRevision(r, page, "Before Motion AI"); err == nil {
+					revisionID = revision.ID.Hex()
+				}
+			}
+		}
+	}
 	agent := &docagent.Runner{
 		Store: s.store, Hub: s.hub, User: user, Key: key,
 		ModelName: modelName, Provider: setting.Provider, BaseURL: setting.BaseURL,
@@ -359,6 +457,7 @@ func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, aiChatResponse{
 		Reply: reply, Actions: actions, Model: modelName, Provider: setting.Provider,
+		RevisionID: revisionID,
 	})
 }
 

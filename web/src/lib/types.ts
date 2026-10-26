@@ -24,6 +24,8 @@ export interface Block {
   id: string
   type: BlockType
   text: string
+  /** Serialized Lexical editor state for inline formatting. */
+  rich?: string
   checked?: boolean
   language?: string
   color?: string
@@ -70,10 +72,12 @@ export interface PageSummary {
   archived: boolean
   order: number
   updatedAt: string
+  snippet?: string
 }
 
 export interface Page extends PageSummary {
   workspaceId: string
+  role?: "owner" | "editor" | "viewer"
   blocks: Block[]
   createdBy: string
   createdAt: string
@@ -132,12 +136,16 @@ export interface AIChatResponse {
   reply: string
   actions?: string[]
   model: string
+  revisionId?: string
 }
 
 export interface AIChatMessage {
   role: "user" | "assistant"
   content: string
   actions?: string[]
+  revisionId?: string
+  undone?: boolean
+  stopped?: boolean
 }
 
 export interface OpsOIDCSettings {
@@ -164,6 +172,10 @@ export interface OpsSettings {
     mode: "off" | "check" | "apply"
     intervalHours: number
   }
+}
+
+export interface OpsSession {
+  configured: boolean
 }
 
 export interface OpsStats {

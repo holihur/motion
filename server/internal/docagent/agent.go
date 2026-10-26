@@ -719,6 +719,7 @@ func (r *Runner) updateBlock(ctx context.Context, input updateBlockInput) (updat
 	for i := range page.Blocks {
 		if page.Blocks[i].ID == input.BlockID {
 			page.Blocks[i].Text = input.Text
+			page.Blocks[i].Rich = ""
 			found = true
 			break
 		}

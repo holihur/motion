@@ -2,7 +2,9 @@ import { useEffect, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import {
   Check,
+  ChevronsDownUp,
   ChevronsUpDown,
+  Clock3,
   FileText,
   Home,
   LogOut,
@@ -18,7 +20,7 @@ import { useAuthStore } from "@/stores/auth"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { useUIStore } from "@/stores/ui"
 import { modKey } from "@/lib/utils"
-import { pageTitle } from "@/lib/tree"
+import { pageTitle, roleInWorkspace } from "@/lib/tree"
 import type { PageSummary } from "@/lib/types"
 import { cn, initials } from "@/lib/utils"
 import { LogoMark } from "@/components/logo"
@@ -87,14 +89,24 @@ function SidebarContent() {
   const setSearchOpen = useUIStore((state) => state.setSearchOpen)
   const setSidebarOpen = useUIStore((state) => state.setSidebarOpen)
   const [showFavorites, setShowFavorites] = useState(true)
+  const [filter, setFilter] = useState("")
 
   const favorites = pages.filter((page) => page.favorite)
+  const recent = [...pages]
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 6)
   const activePageId = location.pathname.startsWith("/page/")
     ? location.pathname.split("/")[2]
     : null
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeId)
+  const readOnly = roleInWorkspace(activeWorkspace, user?.id) === "viewer"
+  const opsUnlocked = typeof sessionStorage !== "undefined" && !!sessionStorage.getItem("motion.ops.token")
 
   async function onNewPage() {
+    if (readOnly) {
+      toast.error(tr("You only have view access"))
+      return
+    }
     try {
       const page = await createPage(null)
       navigate(`/page/${page.id}`)
@@ -133,8 +145,29 @@ function SidebarContent() {
             active={location.pathname === "/"}
             onClick={() => navigate("/")}
           />
+          <RecentMenu pages={recent} />
+          <div className="relative px-0.5 pt-1.5">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3 -translate-y-1/2 text-muted-foreground/60" />
+            <Input
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder={tr("Filter pages…")}
+              aria-label={tr("Filter pages…")}
+              className="h-7 border-sidebar-border bg-background/50 pl-7 pr-7 text-xs shadow-none"
+            />
+            {filter && (
+              <button
+                type="button"
+                onClick={() => setFilter("")}
+                aria-label={tr("Clear filter")}
+                className="absolute right-1.5 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent"
+              >
+                ×
+              </button>
+            )}
+          </div>
 
-          {favorites.length > 0 && (
+          {!filter && favorites.length > 0 && (
             <div className="pt-3">
               <SectionHeader
                 label={tr("Favorites")}
@@ -144,7 +177,7 @@ function SidebarContent() {
               {showFavorites && (
                 <div className="mt-0.5 space-y-px">
                   {favorites.map((page) => (
-                    <FavoriteRow key={page.id} page={page} active={activePageId === page.id} />
+                    <FavoriteRow key={page.id} page={page} active={activePageId === page.id} readOnly={readOnly} />
                   ))}
                 </div>
               )}
@@ -157,23 +190,38 @@ function SidebarContent() {
               open
               onToggle={() => undefined}
               action={
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => void onNewPage()}
-                      className="flex size-5 items-center justify-center rounded text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground"
-                      aria-label={tr("New page")}
-                    >
-                      <Plus className="size-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{tr("New page")}</TooltipContent>
-                </Tooltip>
+                <div className="flex items-center gap-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => window.dispatchEvent(new CustomEvent("motion:collapse-all"))}
+                        className="flex size-5 items-center justify-center rounded text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground"
+                        aria-label={tr("Collapse all")}
+                      >
+                        <ChevronsDownUp className="size-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{tr("Collapse all")}</TooltipContent>
+                  </Tooltip>
+                  {!readOnly && <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => void onNewPage()}
+                        className="flex size-5 items-center justify-center rounded text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground"
+                        aria-label={tr("New page")}
+                      >
+                        <Plus className="size-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{tr("New page")}</TooltipContent>
+                  </Tooltip>}
+                </div>
               }
             />
             <div className="mt-0.5">
-              <PageTree pages={pages} activeId={activePageId} />
+              <PageTree pages={pages} activeId={activePageId} query={filter} readOnly={readOnly} />
             </div>
           </div>
 
@@ -189,7 +237,7 @@ function SidebarContent() {
       </ScrollArea>
 
       <div className="border-t border-sidebar-border/80 p-2">
-        <button
+        {!readOnly && <button
           type="button"
           onClick={() => void onNewPage()}
           className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground"
@@ -198,11 +246,11 @@ function SidebarContent() {
             <Plus className="size-2.5" />
           </span>
           {tr("New page")}
-        </button>
+        </button>}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0.5">
             <ThemeToggle />
-            {user?.isAdmin && (
+            {opsUnlocked && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -315,7 +363,7 @@ function SidebarButton({
   )
 }
 
-function FavoriteRow({ page, active }: { page: PageSummary; active: boolean }) {
+function FavoriteRow({ page, active, readOnly = false }: { page: PageSummary; active: boolean; readOnly?: boolean }) {
   const navigate = useNavigate()
   return (
     <div
@@ -335,16 +383,17 @@ function FavoriteRow({ page, active }: { page: PageSummary; active: boolean }) {
         ) : (
           <FileText className="size-3.5 shrink-0 text-muted-foreground" />
         )}
-        <span className="truncate">{pageTitle(page.title)}</span>
+        <span className="truncate" title={pageTitle(page.title)}>{pageTitle(page.title)}</span>
         <Star className="ml-auto size-3 shrink-0 fill-amber-400 text-amber-400" />
       </button>
       <PageActionsMenu
         page={page}
+        readOnly={readOnly}
         trigger={
           <button
             type="button"
             aria-label="Page options"
-            className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-sidebar-border/70 hover:text-foreground group-hover/fav:opacity-100 data-[state=open]:bg-sidebar-border/70 data-[state=open]:opacity-100"
+            className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-sidebar-border/70 hover:text-foreground group-hover/fav:opacity-100 data-[state=open]:bg-sidebar-border/70 data-[state=open]:opacity-100 max-md:opacity-100"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <circle cx="5" cy="12" r="1.4" />
@@ -355,6 +404,50 @@ function FavoriteRow({ page, active }: { page: PageSummary; active: boolean }) {
         }
       />
     </div>
+  )
+}
+
+function RecentMenu({ pages }: { pages: PageSummary[] }) {
+  const navigate = useNavigate()
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex h-[29px] w-full items-center gap-2 rounded-md px-2 text-[13px] text-sidebar-foreground transition-colors hover:bg-sidebar-accent/65 data-[state=open]:bg-sidebar-accent"
+        >
+          <span className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+            <Clock3 className="size-3.5" />
+          </span>
+          <span className="flex-1 truncate text-left">{tr("Recent")}</span>
+          <ChevronsUpDown className="size-3 text-muted-foreground/60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-[248px]">
+        <DropdownMenuLabel>{tr("Recently edited")}</DropdownMenuLabel>
+        {pages.length === 0 ? (
+          <div className="px-2 py-3 text-xs text-muted-foreground">{tr("No pages yet.")}</div>
+        ) : (
+          pages.map((page) => (
+            <DropdownMenuItem
+              key={page.id}
+              onSelect={() => navigate(`/page/${page.id}`)}
+              className="gap-2"
+            >
+              {page.icon ? (
+                <span className="w-4 shrink-0 text-center text-sm leading-none">{page.icon}</span>
+              ) : (
+                <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+              )}
+              <span className="min-w-0 flex-1 truncate">{pageTitle(page.title)}</span>
+              <span className="shrink-0 text-[10px] text-muted-foreground">
+                {new Date(page.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              </span>
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -447,6 +540,7 @@ function AccountMenu() {
   const logout = useAuthStore((state) => state.logout)
   const setSettingsOpen = useUIStore((state) => state.setSettingsOpen)
   const navigate = useNavigate()
+  const opsUnlocked = typeof sessionStorage !== "undefined" && !!sessionStorage.getItem("motion.ops.token")
   return (
     <DropdownMenuContent align="end" className="w-56">
       <div className="px-2 py-1.5">
@@ -457,7 +551,7 @@ function AccountMenu() {
       <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
         <Settings /> {tr("Settings")}
       </DropdownMenuItem>
-      {user?.isAdmin && (
+      {opsUnlocked && (
         <DropdownMenuItem onSelect={() => navigate("/ops")}>
           <ShieldCheck /> {tr("Ops console")}
         </DropdownMenuItem>

@@ -269,6 +269,7 @@ function AISettings() {
   const [model, setModel] = useState("deepseek-chat")
   const [baseUrl, setBaseUrl] = useState("https://api.deepseek.com")
   const [pending, setPending] = useState(false)
+  const [testing, setTesting] = useState(false)
   const providerInfo = AI_PROVIDERS[provider]
 
   useEffect(() => {
@@ -324,6 +325,21 @@ function AISettings() {
       toast.error(error instanceof Error ? error.message : "Could not remove AI key")
     } finally {
       setPending(false)
+    }
+  }
+
+  async function testConnection() {
+    if (testing) return
+    setTesting(true)
+    try {
+      const result = await api.ai.test()
+      toast.success(tr("Connection works"), {
+        description: `${result.model} · ${result.latencyMs}ms · ${result.message.slice(0, 60)}`,
+      })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Connection test failed"))
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -414,13 +430,19 @@ function AISettings() {
           </p>
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
-            <div>
+            <div className="flex flex-wrap items-center gap-2">
               {configured ? (
                 <Button type="button" variant="outline" size="sm" onClick={() => void remove()} disabled={pending}>
                   <Trash2 /> {tr("Remove provider")}
                 </Button>
               ) : (
                 <span className="text-[11px] text-muted-foreground">{tr("No provider configured yet.")}</span>
+              )}
+              {configured && (
+                <Button type="button" variant="outline" size="sm" onClick={() => void testConnection()} disabled={testing || pending}>
+                  {testing ? <span className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Check className="size-3.5" />}
+                  {tr("Test connection")}
+                </Button>
               )}
             </div>
             <Button type="submit" size="sm" disabled={pending}>

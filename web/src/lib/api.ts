@@ -1,3 +1,4 @@
+import { localizeApiError } from "./i18n"
 import { uid } from "./utils"
 import type {
   AIChatResponse,
@@ -50,19 +51,25 @@ export function setToken(token: string | null) {
   else localStorage.removeItem(TOKEN_KEY)
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  opsToken?: string,
+): Promise<T> {
   const token = getToken()
   const headers = new Headers(init.headers)
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json")
   }
   if (token) headers.set("Authorization", `Bearer ${token}`)
+  if (opsToken) headers.set("X-Ops-Token", opsToken)
   headers.set("X-Motion-Client", getClientId())
 
   let response: Response
   try {
     response = await fetch(`/api${path}`, { ...init, headers })
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error
     throw new ApiError("无法连接服务器，请稍后再试", 0)
   }
 
@@ -79,14 +86,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
-    if (response.status === 401 && token && !path.startsWith("/auth/")) {
+    if (response.status === 401 && token && !opsToken && !path.startsWith("/auth/")) {
       window.dispatchEvent(new CustomEvent("motion:unauthorized"))
     }
     const message =
       payload && typeof payload === "object" && "error" in payload
         ? String((payload as { error: unknown }).error)
         : `请求失败（${response.status}）`
-    throw new ApiError(message, response.status)
+    throw new ApiError(localizeApiError(message), response.status)
   }
 
   return payload as T
@@ -148,8 +155,8 @@ export const api = {
     info: () => request<SystemInfo>("/system/info"),
   },
   ops: {
-    settings: () => request<OpsSettings>("/ops/settings"),
-    saveSettings: (input: {
+    settings: (opsToken: string) => request<OpsSettings>("/ops/settings", {}, opsToken),
+    saveSettings: (opsToken: string, input: {
       appName?: string
       allowSignup?: boolean
       mcpEnabled?: boolean
@@ -157,19 +164,26 @@ export const api = {
       adminEmails?: string[]
       oidc?: Partial<OpsSettings["oidc"]> & { clientSecret?: string; clearClientSecret?: boolean }
       update?: Partial<OpsSettings["update"]>
-    }) => request<OpsSettings>("/ops/settings", { method: "PUT", body: body(input) }),
-    stats: () => request<OpsStats>("/ops/stats"),
-    checkUpdate: () => request<UpdateCheck>("/ops/check-update", { method: "POST" }),
-    applyUpdate: () =>
-      request<{ updated: boolean; version: string; restarting: boolean }>("/ops/apply-update", {
-        method: "POST",
-      }),
+    }) => request<OpsSettings>("/ops/settings", { method: "PUT", body: body(input) }, opsToken),
+    stats: (opsToken: string) => request<OpsStats>("/ops/stats", {}, opsToken),
+    checkUpdate: (opsToken: string) =>
+      request<UpdateCheck>("/ops/check-update", { method: "POST" }, opsToken),
+    applyUpdate: (opsToken: string) =>
+      request<{ updated: boolean; version: string; restarting: boolean }>(
+        "/ops/apply-update",
+        { method: "POST" },
+        opsToken,
+      ),
   },
   ai: {
     settings: () => request<AISettings>("/ai/settings"),
     saveSettings: (input: { provider?: string; apiKey?: string; model?: string; baseUrl?: string }) =>
       request<AISettings>("/ai/settings", { method: "PUT", body: body(input) }),
     removeSettings: () => request<void>("/ai/settings", { method: "DELETE" }),
+    test: () =>
+      request<{ ok: boolean; model: string; message: string; latencyMs: number }>("/ai/test", {
+        method: "POST",
+      }),
     status: (pageId?: string) =>
       request<{
         configured: boolean
@@ -187,7 +201,13 @@ export const api = {
       message: string
       pageId?: string
       history?: { role: string; content: string }[]
-    }) => request<AIChatResponse>("/ai/chat", { method: "POST", body: body(input) }),
+      signal?: AbortSignal
+    }) =>
+      request<AIChatResponse>("/ai/chat", {
+        method: "POST",
+        body: body({ message: input.message, pageId: input.pageId, history: input.history }),
+        signal: input.signal,
+      }),
   },
   pages: {
     list: (workspaceId: string) =>

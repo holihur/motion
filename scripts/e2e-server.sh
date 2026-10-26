@@ -7,6 +7,7 @@ export MONGODB_DB="${MONGODB_DB:-motion_e2e}"
 export WEB_DIR="web/dist"
 export SEED_DEMO="false"
 export ADMIN_EMAILS="${ADMIN_EMAILS:-e2e-admin@example.com}"
+export OPS_TOKEN="${OPS_TOKEN:-e2e-ops-token}"
 
 if [[ "${MONGODB_DB}" != *"_e2e" ]]; then
   echo "Refusing to drop database '${MONGODB_DB}' (name must end with _e2e)" >&2

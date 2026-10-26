@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react"
-import { Navigate, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import {
   AlertTriangle,
   CheckCircle2,
   Database,
   Globe2,
+  KeyRound,
   Loader2,
+  LockKeyhole,
   RefreshCw,
   Save,
   ShieldCheck,
@@ -13,22 +15,59 @@ import {
   Users,
 } from "lucide-react"
 import { toast } from "sonner"
-import { api } from "@/lib/api"
+import { api, ApiError } from "@/lib/api"
 import type { OpsSettings, OpsStats } from "@/lib/types"
-import { useAuthStore } from "@/stores/auth"
-import { SidebarToggle } from "@/components/app/sidebar-toggle"
+import { LogoMark } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Skeleton } from "@/components/ui/skeleton"
 
+const OIDC_PRESETS = {
+  google: {
+    label: "Google",
+    issuer: "https://accounts.google.com",
+    name: "Continue with Google",
+    scopes: "openid, email, profile",
+  },
+  microsoft: {
+    label: "Microsoft Entra ID",
+    issuer: "https://login.microsoftonline.com/{tenant-id}/v2.0",
+    name: "Continue with Microsoft",
+    scopes: "openid, email, profile",
+  },
+  keycloak: {
+    label: "Keycloak",
+    issuer: "https://keycloak.example.com/realms/your-realm",
+    name: "Continue with Keycloak",
+    scopes: "openid, email, profile",
+  },
+  auth0: {
+    label: "Auth0",
+    issuer: "https://your-tenant.us.auth0.com/",
+    name: "Continue with Auth0",
+    scopes: "openid, email, profile",
+  },
+  authentik: {
+    label: "Authentik",
+    issuer: "https://authentik.example.com/application/o/motion/",
+    name: "Continue with Authentik",
+    scopes: "openid, email, profile",
+  },
+  custom: { label: "Custom provider", issuer: "", name: "Continue with SSO", scopes: "openid, email, profile" },
+} as const
+
+const OPS_TOKEN_KEY = "motion.ops.token"
+
 export function OpsView() {
-  const user = useAuthStore((state) => state.user)
   const navigate = useNavigate()
+  const [token, setToken] = useState(() => sessionStorage.getItem(OPS_TOKEN_KEY) ?? "")
+  const [tokenInput, setTokenInput] = useState("")
+  const [gateError, setGateError] = useState("")
   const [settings, setSettings] = useState<OpsSettings | null>(null)
   const [stats, setStats] = useState<OpsStats | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => !!sessionStorage.getItem(OPS_TOKEN_KEY))
   const [pending, setPending] = useState(false)
   const [error, setError] = useState("")
   const [secret, setSecret] = useState("")
@@ -42,22 +81,66 @@ export function OpsView() {
   const [version, setVersion] = useState("")
 
   useEffect(() => {
-    if (!user?.isAdmin) return
+    if (!token) {
+      setLoading(false)
+      return
+    }
+    let alive = true
     setLoading(true)
-    Promise.all([api.ops.settings(), api.ops.stats(), api.system.info()])
+    setError("")
+    Promise.all([api.ops.settings(token), api.ops.stats(token), api.system.info()])
       .then(([next, counts, info]) => {
+        if (!alive) return
         setVersion(info.version)
         setSettings(next)
         setStats(counts)
-        setAdminEmails(((next.adminEmails ?? []).length ? next.adminEmails : [user?.email ?? ""]).filter(Boolean).join(", "))
+        setAdminEmails(((next.adminEmails ?? []).length ? next.adminEmails : [""]).filter(Boolean).join(", "))
         setScopes((next.oidc.scopes ?? []).join(", "))
         setDomains((next.oidc.allowedDomains ?? []).join(", "))
+        setGateError("")
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Could not load Ops settings"))
-      .finally(() => setLoading(false))
-  }, [user?.isAdmin])
+      .catch((err) => {
+        if (!alive) return
+        const message = err instanceof Error ? err.message : "Could not load Ops settings"
+        if (err instanceof ApiError && [401, 403, 503].includes(err.status)) {
+          sessionStorage.removeItem(OPS_TOKEN_KEY)
+          setToken("")
+          setSettings(null)
+          setGateError(message)
+        } else {
+          setError(message)
+        }
+      })
+      .finally(() => {
+        if (alive) setLoading(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [token])
 
-  if (!user?.isAdmin) return <Navigate to="/" replace />
+  function unlock(event: React.FormEvent) {
+    event.preventDefault()
+    const next = tokenInput.trim()
+    if (!next) return
+    sessionStorage.setItem(OPS_TOKEN_KEY, next)
+    setGateError("")
+    setToken(next)
+  }
+
+  function lock() {
+    sessionStorage.removeItem(OPS_TOKEN_KEY)
+    setToken("")
+    setTokenInput("")
+    setSettings(null)
+    setStats(null)
+    setError("")
+    setGateError("")
+  }
+
+  if (!token) {
+    return <OpsGate token={tokenInput} onTokenChange={setTokenInput} onSubmit={unlock} error={gateError} />
+  }
 
   function patch(next: Partial<OpsSettings>) {
     setSettings((current) => (current ? { ...current, ...next } : current))
@@ -67,11 +150,19 @@ export function OpsView() {
     setSettings((current) => (current ? { ...current, oidc: { ...current.oidc, ...next } } : current))
   }
 
+  function applyOIDCPreset(value: keyof typeof OIDC_PRESETS) {
+    const preset = OIDC_PRESETS[value]
+    if (value === "custom") return
+    patchOIDC({ issuer: preset.issuer, name: preset.name })
+    setScopes(preset.scopes)
+  }
+
   async function save() {
     if (!settings || pending) return
     setPending(true)
     try {
-      const saved = await api.ops.saveSettings({
+      if (!token) return
+      const saved = await api.ops.saveSettings(token, {
         appName: settings.appName,
         allowSignup: settings.allowSignup,
         mcpEnabled: settings.mcpEnabled,
@@ -107,7 +198,8 @@ export function OpsView() {
     if (!updateCheck?.available || applying) return
     setApplying(true)
     try {
-      const result = await api.ops.applyUpdate()
+      if (!token) return
+      const result = await api.ops.applyUpdate(token)
       toast.success(`Updated to ${result.version}`, {
         description: result.restarting ? "Motion is restarting now." : "Restart Motion to finish.",
         duration: 8000,
@@ -122,7 +214,8 @@ export function OpsView() {
   async function checkUpdate() {
     setChecking(true)
     try {
-      const result = await api.ops.checkUpdate()
+      if (!token) return
+      const result = await api.ops.checkUpdate(token)
       setUpdateCheck(result)
       if (!result.latest) toast("No update information available yet")
       else if (result.available) toast(`Update available: ${result.latest}`)
@@ -135,9 +228,9 @@ export function OpsView() {
   }
 
   return (
-    <>
-      <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
-        <SidebarToggle />
+    <div className="flex h-svh flex-col bg-background">
+      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-3">
+        <LogoMark className="size-6 rounded-md" />
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ShieldCheck className="size-3.5 text-brand" />
           <span className="font-medium text-foreground">Ops console</span>
@@ -147,6 +240,9 @@ export function OpsView() {
         <div className="ml-auto flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
             Back to workspace
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={lock}>
+            <LockKeyhole className="size-3.5" /> Lock Ops
           </Button>
           <Button size="sm" className="gap-1.5" onClick={() => void save()} disabled={pending || !settings}>
             {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
@@ -267,6 +363,21 @@ export function OpsView() {
                     onChange={(checked) => patchOIDC({ enabled: checked })}
                   />
                 </div>
+                <div className="mt-4">
+                  <Field label="Provider preset" htmlFor="ops-oidc-preset" hint="Fills the issuer and scopes. Replace the tenant placeholders.">
+                    <select
+                      id="ops-oidc-preset"
+                      defaultValue=""
+                      onChange={(event) => applyOIDCPreset(event.target.value as keyof typeof OIDC_PRESETS)}
+                      className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none sm:max-w-xs"
+                    >
+                      <option value="" disabled>Choose a preset…</option>
+                      {Object.entries(OIDC_PRESETS).map(([value, preset]) => (
+                        <option key={value} value={value}>{preset.label}</option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <Field label="Issuer URL" htmlFor="ops-oidc-issuer">
                     <Input
@@ -320,6 +431,19 @@ export function OpsView() {
                       onChange={(event) => patchOIDC({ redirectUrl: event.target.value })}
                       placeholder={`${window.location.origin}/api/auth/oidc/callback`}
                     />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = settings.oidc.redirectUrl || `${window.location.origin}/api/auth/oidc/callback`
+                        void navigator.clipboard.writeText(url).then(
+                          () => toast.success("Callback URL copied"),
+                          () => toast.error("Could not copy callback URL"),
+                        )
+                      }}
+                      className="text-left text-[11px] font-medium text-brand hover:underline"
+                    >
+                      Copy callback URL
+                    </button>
                   </Field>
                   <Field label="Scopes" htmlFor="ops-oidc-scopes" hint="Comma separated.">
                     <Input id="ops-oidc-scopes" value={scopes} onChange={(event) => setScopes(event.target.value)} />
@@ -442,7 +566,76 @@ export function OpsView() {
           )}
         </div>
       </div>
-    </>
+    </div>
+  )
+}
+
+function OpsGate({
+  token,
+  onTokenChange,
+  onSubmit,
+  error,
+}: {
+  token: string
+  onTokenChange: (value: string) => void
+  onSubmit: (event: React.FormEvent) => void
+  error: string
+}) {
+  return (
+    <div className="flex min-h-svh flex-col bg-background">
+      <header className="flex h-11 items-center gap-2 border-b border-border/70 px-4">
+        <LogoMark className="size-6 rounded-md" />
+        <span className="text-xs font-medium">Motion</span>
+        <span className="text-xs text-muted-foreground">/ Ops</span>
+      </header>
+      <div className="flex flex-1 items-center justify-center px-5 py-12">
+        <form onSubmit={onSubmit} className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-sm">
+          <div className="flex size-11 items-center justify-center rounded-2xl brand-gradient text-white">
+            <ShieldCheck className="size-5" />
+          </div>
+          <h1 className="mt-4 text-lg font-semibold tracking-tight">Ops console</h1>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Ops uses a dedicated access token, separate from your Motion account. Enter the
+            <code className="mx-1 rounded bg-muted px-1 py-0.5 text-[10px]">OPS_TOKEN</code>
+            configured on the server.
+          </p>
+          <div className="mt-5 space-y-2">
+            <Label htmlFor="ops-access-token">Ops access token</Label>
+            <div className="relative">
+              <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="ops-access-token"
+                type="password"
+                autoFocus
+                autoComplete="off"
+                value={token}
+                onChange={(event) => onTokenChange(event.target.value)}
+                placeholder="Paste the OPS_TOKEN"
+                className="pl-9 font-mono text-xs"
+              />
+            </div>
+          </div>
+          {error && (
+            <div className="mt-3 flex items-start gap-1.5 rounded-lg border border-destructive/25 bg-destructive/5 px-2.5 py-2 text-[11px] text-destructive">
+              <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+              {error}
+            </div>
+          )}
+          <Button type="submit" className="mt-4 w-full gap-1.5" disabled={!token.trim()}>
+            <LockKeyhole className="size-3.5" /> Unlock Ops
+          </Button>
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = "/"
+            }}
+            className="mt-3 w-full text-center text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            Back to workspace
+          </button>
+        </form>
+      </div>
+    </div>
   )
 }
 

@@ -38,7 +38,7 @@
 - BYOK Key 与 OIDC Secret 使用 AES-256-GCM 加密
 - OIDC state + nonce + 一次性 HttpOnly Cookie 交换
 - 更新包校验 SHA256
-- 所有管理员接口检查邮箱/Ops 管理员列表
+- Ops 接口使用独立 `X-Ops-Token`，与用户 JWT / 管理员邮箱完全分离
 
 ## 构建
 

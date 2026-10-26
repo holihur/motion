@@ -21,6 +21,7 @@ type Config struct {
 	AllowSignup         bool
 	MCPEnabled          bool
 	AdminEmails         []string
+	OpsToken            string
 	UpdateRepo          string
 	AutoUpdate          string
 	UpdateIntervalHours int
@@ -51,6 +52,7 @@ func Load() Config {
 		AllowSignup:         env("ALLOW_SIGNUP", "true") == "true",
 		MCPEnabled:          env("MCP_ENABLED", "true") == "true",
 		AdminEmails:         split(strings.ToLower(env("ADMIN_EMAILS", ""))),
+		OpsToken:            env("OPS_TOKEN", ""),
 		UpdateRepo:          env("UPDATE_REPO", "holihur/motion"),
 		AutoUpdate:          env("AUTO_UPDATE", "off"),
 		UpdateIntervalHours: atoi(env("UPDATE_INTERVAL_HOURS", "24"), 24),

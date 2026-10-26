@@ -103,6 +103,7 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+          pattern: motion-*
       - name: Checksums
         working-directory: dist
         run: sha256sum *.tar.gz > checksums.txt

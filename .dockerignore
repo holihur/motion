@@ -1,0 +1,11 @@
+.git
+.github
+node_modules
+web/node_modules
+web/dist
+web/public/vendor
+e2e
+server/bin
+server/internal/webassets/dist
+*.log
+.env

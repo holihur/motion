@@ -1,0 +1,287 @@
+package httpapi
+
+import (
+	"net/http"
+	"strings"
+
+	"go.mongodb.org/mongo-driver/bson"
+
+	"github.com/motion/server/internal/site"
+)
+
+type opsOIDCView struct {
+	Enabled         bool     `json:"enabled"`
+	Issuer          string   `json:"issuer"`
+	ClientID        string   `json:"clientId"`
+	RedirectURL     string   `json:"redirectUrl"`
+	Name            string   `json:"name"`
+	Scopes          []string `json:"scopes"`
+	AllowedDomains  []string `json:"allowedDomains"`
+	AutoCreate      bool     `json:"autoCreate"`
+	HasClientSecret bool     `json:"hasClientSecret"`
+}
+
+type opsUpdateView struct {
+	Repo          string `json:"repo"`
+	Mode          string `json:"mode"`
+	IntervalHours int    `json:"intervalHours"`
+}
+
+type opsSettingsView struct {
+	AppName     string        `json:"appName"`
+	AllowSignup bool          `json:"allowSignup"`
+	MCPEnabled  bool          `json:"mcpEnabled"`
+	AIModel     string        `json:"aiModel"`
+	AdminEmails []string      `json:"adminEmails"`
+	OIDC        opsOIDCView   `json:"oidc"`
+	Update      opsUpdateView `json:"update"`
+}
+
+func opsView(settings site.Settings) opsSettingsView {
+	return opsSettingsView{
+		AppName: settings.AppName, AllowSignup: settings.AllowSignup,
+		MCPEnabled: settings.MCPEnabled, AIModel: settings.AIModel,
+		AdminEmails: append([]string{}, settings.AdminEmails...),
+		OIDC: opsOIDCView{
+			Enabled: settings.OIDC.Enabled, Issuer: settings.OIDC.Issuer,
+			ClientID: settings.OIDC.ClientID, RedirectURL: settings.OIDC.RedirectURL,
+			Name: settings.OIDC.Name, Scopes: append([]string{}, settings.OIDC.Scopes...),
+			AllowedDomains:  append([]string(nil), settings.OIDC.AllowedDomains...),
+			AutoCreate:      settings.OIDC.AutoCreate,
+			HasClientSecret: settings.OIDC.ClientSecret != "",
+		},
+		Update: opsUpdateView{
+			Repo: settings.Update.Repo, Mode: settings.Update.Mode, IntervalHours: settings.Update.IntervalHours,
+		},
+	}
+}
+
+func (s *Server) getOpsSettings(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, opsView(s.siteSnapshot()))
+}
+
+type opsOIDCRequest struct {
+	Enabled        *bool     `json:"enabled"`
+	Issuer         *string   `json:"issuer"`
+	ClientID       *string   `json:"clientId"`
+	ClientSecret   *string   `json:"clientSecret"`
+	ClearSecret    bool      `json:"clearClientSecret"`
+	RedirectURL    *string   `json:"redirectUrl"`
+	Name           *string   `json:"name"`
+	Scopes         *[]string `json:"scopes"`
+	AllowedDomains *[]string `json:"allowedDomains"`
+	AutoCreate     *bool     `json:"autoCreate"`
+}
+
+type opsUpdateRequest struct {
+	Repo          *string `json:"repo"`
+	Mode          *string `json:"mode"`
+	IntervalHours *int    `json:"intervalHours"`
+}
+
+type opsSettingsRequest struct {
+	AppName     *string           `json:"appName"`
+	AllowSignup *bool             `json:"allowSignup"`
+	MCPEnabled  *bool             `json:"mcpEnabled"`
+	AIModel     *string           `json:"aiModel"`
+	AdminEmails *[]string         `json:"adminEmails"`
+	OIDC        *opsOIDCRequest   `json:"oidc"`
+	Update      *opsUpdateRequest `json:"update"`
+}
+
+func (s *Server) saveOpsSettings(w http.ResponseWriter, r *http.Request) {
+	admin, ok := s.requireAdmin(w, r)
+	if !ok {
+		return
+	}
+	var req opsSettingsRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	settings := s.siteSnapshot()
+
+	if req.AppName != nil {
+		name := strings.TrimSpace(*req.AppName)
+		if name == "" || len([]rune(name)) > 80 {
+			writeErr(w, http.StatusBadRequest, "app name must be between 1 and 80 characters")
+			return
+		}
+		settings.AppName = name
+	}
+	if req.AllowSignup != nil {
+		settings.AllowSignup = *req.AllowSignup
+	}
+	if req.MCPEnabled != nil {
+		settings.MCPEnabled = *req.MCPEnabled
+	}
+	if req.AIModel != nil {
+		model := strings.TrimSpace(*req.AIModel)
+		if model == "" || len(model) > 80 {
+			writeErr(w, http.StatusBadRequest, "AI model must be between 1 and 80 characters")
+			return
+		}
+		settings.AIModel = model
+	}
+	if req.AdminEmails != nil {
+		emails := site.NormalizeEmails(*req.AdminEmails)
+		if len(emails) == 0 {
+			writeErr(w, http.StatusBadRequest, "keep at least one administrator email")
+			return
+		}
+		found := false
+		for _, email := range emails {
+			if !strings.Contains(email, "@") {
+				writeErr(w, http.StatusBadRequest, "invalid administrator email: "+email)
+				return
+			}
+			if strings.EqualFold(email, admin.Email) {
+				found = true
+			}
+		}
+		if !found {
+			writeErr(w, http.StatusBadRequest, "your own email must remain an administrator to avoid lockout")
+			return
+		}
+		settings.AdminEmails = emails
+	}
+
+	if req.OIDC != nil {
+		in := req.OIDC
+		if in.Enabled != nil {
+			settings.OIDC.Enabled = *in.Enabled
+		}
+		if in.Issuer != nil {
+			settings.OIDC.Issuer = strings.TrimSpace(*in.Issuer)
+		}
+		if in.ClientID != nil {
+			settings.OIDC.ClientID = strings.TrimSpace(*in.ClientID)
+		}
+		if in.RedirectURL != nil {
+			settings.OIDC.RedirectURL = strings.TrimSpace(*in.RedirectURL)
+		}
+		if in.Name != nil {
+			settings.OIDC.Name = strings.TrimSpace(*in.Name)
+		}
+		if in.Scopes != nil {
+			settings.OIDC.Scopes = splitList(*in.Scopes)
+		}
+		if in.AllowedDomains != nil {
+			settings.OIDC.AllowedDomains = splitList(*in.AllowedDomains)
+		}
+		if in.AutoCreate != nil {
+			settings.OIDC.AutoCreate = *in.AutoCreate
+		}
+		if in.ClearSecret {
+			settings.OIDC.ClientSecret = ""
+		}
+		if in.ClientSecret != nil && strings.TrimSpace(*in.ClientSecret) != "" {
+			settings.OIDC.ClientSecret = strings.TrimSpace(*in.ClientSecret)
+		}
+		if settings.OIDC.Enabled {
+			if settings.OIDC.Issuer == "" || !strings.HasPrefix(settings.OIDC.Issuer, "http") {
+				writeErr(w, http.StatusBadRequest, "OIDC issuer must be an https URL")
+				return
+			}
+			if settings.OIDC.ClientID == "" {
+				writeErr(w, http.StatusBadRequest, "OIDC client id is required")
+				return
+			}
+			if settings.OIDC.ClientSecret == "" {
+				writeErr(w, http.StatusBadRequest, "OIDC client secret is required")
+				return
+			}
+			if len(settings.OIDC.Scopes) == 0 {
+				settings.OIDC.Scopes = []string{"openid", "email", "profile"}
+			}
+		}
+	}
+
+	if req.Update != nil {
+		in := req.Update
+		if in.Repo != nil {
+			repo := strings.TrimSpace(*in.Repo)
+			if !strings.Contains(repo, "/") || strings.ContainsAny(repo, " \t") {
+				writeErr(w, http.StatusBadRequest, "update repo must look like owner/repository")
+				return
+			}
+			settings.Update.Repo = repo
+		}
+		if in.Mode != nil {
+			mode := strings.ToLower(strings.TrimSpace(*in.Mode))
+			if mode != "off" && mode != "check" && mode != "apply" {
+				writeErr(w, http.StatusBadRequest, "update mode must be off, check or apply")
+				return
+			}
+			settings.Update.Mode = mode
+		}
+		if in.IntervalHours != nil {
+			if *in.IntervalHours < 1 || *in.IntervalHours > 168 {
+				writeErr(w, http.StatusBadRequest, "update interval must be between 1 and 168 hours")
+				return
+			}
+			settings.Update.IntervalHours = *in.IntervalHours
+		}
+	}
+
+	if err := site.Save(r.Context(), s.store.Settings, settings, s.cfg.EncryptionKey, admin.Email); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not save settings")
+		return
+	}
+	s.setSite(settings)
+	s.invalidateOIDC()
+	writeJSON(w, http.StatusOK, opsView(settings))
+}
+
+func splitList(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		for _, part := range strings.Split(value, ",") {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				out = append(out, part)
+			}
+		}
+	}
+	return out
+}
+
+type opsStats struct {
+	Users        int64 `json:"users"`
+	Workspaces   int64 `json:"workspaces"`
+	Pages        int64 `json:"pages"`
+	Archived     int64 `json:"archived"`
+	Comments     int64 `json:"comments"`
+	Revisions    int64 `json:"revisions"`
+	Tokens       int64 `json:"tokens"`
+	AIConfigured int64 `json:"aiConfigured"`
+	DataSize     int64 `json:"dataSize"`
+	StorageSize  int64 `json:"storageSize"`
+}
+
+func (s *Server) getOpsStats(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAdmin(w, r); !ok {
+		return
+	}
+	ctx := r.Context()
+	stats := opsStats{}
+	stats.Users, _ = s.store.Users.CountDocuments(ctx, bson.M{})
+	stats.Workspaces, _ = s.store.Workspaces.CountDocuments(ctx, bson.M{})
+	stats.Pages, _ = s.store.Pages.CountDocuments(ctx, bson.M{})
+	stats.Archived, _ = s.store.Pages.CountDocuments(ctx, bson.M{"archived": true})
+	stats.Comments, _ = s.store.Comments.CountDocuments(ctx, bson.M{})
+	stats.Revisions, _ = s.store.Revisions.CountDocuments(ctx, bson.M{})
+	stats.Tokens, _ = s.store.Tokens.CountDocuments(ctx, bson.M{})
+	stats.AIConfigured, _ = s.store.AISettings.CountDocuments(ctx, bson.M{})
+	var dbStats struct {
+		DataSize    int64 `bson:"dataSize"`
+		StorageSize int64 `bson:"storageSize"`
+	}
+	_ = s.store.DB.RunCommand(ctx, bson.D{{Key: "dbStats", Value: 1}}).Decode(&dbStats)
+	stats.DataSize = dbStats.DataSize
+	stats.StorageSize = dbStats.StorageSize
+	writeJSON(w, http.StatusOK, stats)
+}

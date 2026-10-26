@@ -1,0 +1,722 @@
+import { useEffect, useRef, useState } from "react"
+import {
+  Check,
+  Code2,
+  Copy,
+  GripVertical,
+  ImageIcon,
+  MessageSquare,
+  MoreHorizontal,
+  MoreVertical,
+  Network,
+  Plus,
+  RefreshCw,
+  Table2,
+  Trash2,
+  X,
+} from "lucide-react"
+import { toast } from "sonner"
+import type { Block, BlockType } from "@/lib/types"
+import { BLOCK_LABELS, SLASH_COMMANDS } from "@/components/editor/commands"
+import { CALLOUT_COLORS, CALLOUT_EMOJI } from "@/lib/covers"
+import { cn } from "@/lib/utils"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import type { RealtimePresence } from "@/lib/realtime"
+import { MermaidDiagram } from "@/components/editor/mermaid-diagram"
+import { tr } from "@/lib/i18n"
+
+export interface BlockRowProps {
+  block: Block
+  index: number
+  number: number
+  placeholder: string
+  slashActive: boolean
+  isDragging: boolean
+  dropPosition: "before" | "after" | null
+  focusUsers?: RealtimePresence[]
+  commentCount?: number
+  onOpenComments?: () => void
+  onCommentBlock?: (blockId: string) => void
+  onFocusBlock?: (blockId: string) => void
+  onInput: (text: string, el: HTMLElement) => void
+  onKeyDown: (event: React.KeyboardEvent<HTMLElement>, index: number) => void
+  onPaste: (text: string) => void
+  onToggle: () => void
+  onUpdate: (patch: Partial<Block>) => void
+  onConvert: (type: BlockType) => void
+  onDelete: () => void
+  onDuplicate: () => void
+  onInsertAfter: (rect: DOMRect) => void
+  onDragStart: () => void
+  onDragEnd: () => void
+  onDragOver: (position: "before" | "after") => void
+  onDrop: (position: "before" | "after") => void
+}
+
+export function BlockRow(props: BlockRowProps) {
+  const {
+    block,
+    index,
+    number,
+    placeholder,
+    slashActive,
+    isDragging,
+    dropPosition,
+    focusUsers,
+    commentCount = 0,
+    onOpenComments,
+    onCommentBlock,
+    onFocusBlock,
+    onInput,
+    onKeyDown,
+    onPaste,
+    onToggle,
+    onUpdate,
+    onConvert,
+    onDelete,
+    onDuplicate,
+    onInsertAfter,
+    onDragStart,
+    onDragEnd,
+    onDragOver,
+    onDrop,
+  } = props
+
+  const editableRef = useRef<HTMLDivElement>(null)
+  const codeRef = useRef<HTMLTextAreaElement>(null)
+  const imageRef = useRef<HTMLDivElement>(null)
+  const rowRef = useRef<HTMLDivElement>(null)
+  const [imageDraft, setImageDraft] = useState("")
+  const [imageError, setImageError] = useState(false)
+  const [diagramEditing, setDiagramEditing] = useState(!block.text)
+
+  useEffect(() => {
+    const el = editableRef.current
+    if (!el) return
+    if (el.innerText !== block.text) el.innerText = block.text
+  }, [block.text, block.type])
+
+  useEffect(() => {
+    const el = codeRef.current
+    if (!el) return
+    el.style.height = "auto"
+    el.style.height = `${el.scrollHeight}px`
+  }, [block.text, block.type])
+
+  useEffect(() => {
+    setImageError(false)
+  }, [block.url])
+
+  function handleOver(event: React.DragEvent) {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = "move"
+    const rect = rowRef.current?.getBoundingClientRect()
+    if (!rect) return
+    onDragOver(event.clientY < rect.top + rect.height / 2 ? "before" : "after")
+  }
+
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault()
+    const rect = rowRef.current?.getBoundingClientRect()
+    if (!rect) return
+    onDrop(event.clientY < rect.top + rect.height / 2 ? "before" : "after")
+  }
+
+  function deleteDividerFocused(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Backspace" || event.key === "Delete") {
+      event.preventDefault()
+      onDelete()
+    } else {
+      onKeyDown(event, index)
+    }
+  }
+
+  const editableCommon = {
+    "data-block-input": true,
+    "data-empty": block.text.length === 0,
+    "data-placeholder": placeholder,
+    contentEditable: true,
+    suppressContentEditableWarning: true,
+    spellCheck: true,
+    role: "textbox",
+    id: `block-input-${block.id}`,
+    onFocus: () => onFocusBlock?.(block.id),
+  } as const
+
+  function renderEditable(className: string) {
+    return (
+      <div
+        {...editableCommon}
+        ref={editableRef}
+        className={cn("block-input w-full", className)}
+        onInput={(event) => {
+          const text = event.currentTarget.innerText
+            .replace(/\u00a0/g, " ")
+            .replace(/^\n$/, "")
+          onInput(text, event.currentTarget)
+        }}
+        onKeyDown={(event) => onKeyDown(event, index)}
+        onPaste={(event) => {
+          const text = event.clipboardData.getData("text/plain")
+          if (!text) return
+          event.preventDefault()
+          onPaste(text)
+        }}
+      />
+    )
+  }
+
+  function renderContent() {
+    switch (block.type) {
+      case "heading1":
+        return renderEditable("text-[30px] font-semibold leading-[1.25] tracking-[-0.02em] py-1.5 mt-5")
+      case "heading2":
+        return renderEditable("text-[24px] font-semibold leading-[1.3] tracking-[-0.015em] py-1 mt-4")
+      case "heading3":
+        return renderEditable("text-[19px] font-semibold leading-[1.4] py-1 mt-3")
+      case "bulleted":
+        return (
+          <div className="flex items-start gap-2.5">
+            <span className="mt-[9px] flex h-4 w-4 shrink-0 items-center justify-center">
+              <span className="size-[5px] rounded-full bg-foreground/70" />
+            </span>
+            {renderEditable("text-[15px] leading-[1.7] py-[3px]")}
+          </div>
+        )
+      case "numbered":
+        return (
+          <div className="flex items-start gap-2">
+            <span className="mt-[3px] flex h-6 w-5 shrink-0 items-center justify-end text-[14px] tabular-nums text-muted-foreground">
+              {number}.
+            </span>
+            {renderEditable("text-[15px] leading-[1.7] py-[3px]")}
+          </div>
+        )
+      case "todo":
+        return (
+          <div className="flex items-start gap-2.5">
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={!!block.checked}
+              onClick={onToggle}
+              className={cn(
+                "mt-[5px] flex size-[17px] shrink-0 items-center justify-center rounded-[4px] border transition-colors",
+                block.checked
+                  ? "border-brand bg-brand text-white"
+                  : "border-muted-foreground/40 bg-background hover:border-brand/60",
+              )}
+            >
+              {block.checked && <Check className="size-3" strokeWidth={3.2} />}
+            </button>
+            {renderEditable(
+              cn(
+                "text-[15px] leading-[1.7] py-[3px] transition-colors",
+                block.checked && "text-muted-foreground line-through decoration-muted-foreground/50",
+              ),
+            )}
+          </div>
+        )
+      case "quote":
+        return (
+          <div className="border-l-[3px] border-foreground/60 py-0.5 pl-4">
+            {renderEditable("text-[15px] leading-[1.7] py-[3px] text-foreground/90")}
+          </div>
+        )
+      case "callout": {
+        const color = block.color || "amber"
+        return (
+          <div
+            className={cn(
+              "flex items-start gap-3 rounded-lg px-3.5 py-3",
+              CALLOUT_COLORS[color] ?? CALLOUT_COLORS.amber,
+            )}
+          >
+            <span className="mt-[1px] shrink-0 select-none text-[17px] leading-6">
+              {CALLOUT_EMOJI[color] ?? "💡"}
+            </span>
+            {renderEditable("text-[15px] leading-[1.7] py-0")}
+          </div>
+        )
+      }
+      case "code":
+        return (
+          <div className="overflow-hidden rounded-lg border border-border/80 bg-muted/45">
+            <div className="flex items-center justify-between border-b border-border/60 px-3 py-1.5">
+              <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <Code2 className="size-3" />
+                {block.language || "plain text"}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(block.text).then(
+                    () => toast.success("Code copied"),
+                    () => toast.error("Could not copy code"),
+                  )
+                }}
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition hover:bg-background hover:text-foreground"
+              >
+                <Copy className="size-3" /> Copy
+              </button>
+            </div>
+            <textarea
+              ref={codeRef}
+              id={`block-input-${block.id}`}
+              data-block-input
+              value={block.text}
+              rows={1}
+              spellCheck={false}
+              placeholder={placeholder}
+              onChange={(event) => onInput(event.target.value, event.currentTarget)}
+              onKeyDown={(event) => onKeyDown(event, index)}
+              onFocus={() => onFocusBlock?.(block.id)}
+              className="block-input block-code-input min-h-[44px] w-full resize-none bg-transparent px-3.5 py-3 font-mono text-[13px] leading-6 outline-none placeholder:text-muted-foreground/50"
+            />
+          </div>
+        )
+      case "table": {
+        const table = block.table ?? {
+          columns: ["Column 1", "Column 2", "Column 3"],
+          rows: [["", "", ""], ["", "", ""]],
+          header: true,
+        }
+        const updateTable = (next: typeof table) => onUpdate({ table: next })
+        const setCell = (rowIndex: number, columnIndex: number, value: string) => {
+          const rows = table.rows.map((row, index) =>
+            index === rowIndex
+              ? table.columns.map((_, cellIndex) => (cellIndex === columnIndex ? value : (row[cellIndex] ?? "")))
+              : row,
+          )
+          updateTable({ ...table, rows })
+        }
+        const addRow = () => {
+          if (table.rows.length >= 200) return
+          updateTable({ ...table, rows: [...table.rows, table.columns.map(() => "")] })
+        }
+        const removeRow = (index: number) => {
+          updateTable({ ...table, rows: table.rows.filter((_, rowIndex) => rowIndex !== index) })
+        }
+        const addColumn = () => {
+          if (table.columns.length >= 20) return
+          const name = `Column ${table.columns.length + 1}`
+          updateTable({
+            ...table,
+            columns: [...table.columns, name],
+            rows: table.rows.map((row) => [...row, ""]),
+          })
+        }
+        const removeColumn = (index: number) => {
+          if (table.columns.length <= 1) return
+          updateTable({
+            ...table,
+            columns: table.columns.filter((_, columnIndex) => columnIndex !== index),
+            rows: table.rows.map((row) => row.filter((_, columnIndex) => columnIndex !== index)),
+          })
+        }
+        const setColumn = (index: number, value: string) => {
+          updateTable({
+            ...table,
+            columns: table.columns.map((column, columnIndex) => (columnIndex === index ? value : column)),
+          })
+        }
+        return (
+          <div className="my-2 overflow-hidden rounded-lg border border-border/80 bg-card" onFocus={() => onFocusBlock?.(block.id)}>
+            <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <Table2 className="size-3" /> Table
+              <span className="ml-auto normal-case tracking-normal text-muted-foreground/60">
+                {table.columns.length} × {table.rows.length + 1}
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr>
+                    {table.columns.map((column, columnIndex) => (
+                      <th key={columnIndex} className="group/head min-w-[110px] border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0">
+                        <div className="flex items-center gap-0.5 px-1">
+                          <input
+                            value={column}
+                            onChange={(event) => setColumn(columnIndex, event.target.value)}
+                            onFocus={() => onFocusBlock?.(block.id)}
+                            className="h-8 min-w-0 flex-1 bg-transparent px-1.5 text-xs font-semibold outline-none"
+                            placeholder={`Column ${columnIndex + 1}`}
+                          />
+                          {table.columns.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeColumn(columnIndex)}
+                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition group-hover/head:text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
+                              aria-label={tr("Delete column")}
+                            >
+                              <X className="size-3" />
+                            </button>
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                    <th className="w-6 border-b border-border/60 bg-muted/35" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {table.rows.map((row, rowIndex) => (
+                    <tr key={rowIndex} className="group/row">
+                      {table.columns.map((_, columnIndex) => (
+                        <td key={columnIndex} className="border-b border-r border-border/60 p-0 last:border-r-0">
+                          <input
+                            value={row[columnIndex] ?? ""}
+                            onChange={(event) => setCell(rowIndex, columnIndex, event.target.value)}
+                            onFocus={() => onFocusBlock?.(block.id)}
+                            className="h-9 w-full bg-transparent px-2 text-[13px] outline-none transition focus:bg-brand-soft/20"
+                            placeholder=" "
+                          />
+                        </td>
+                      ))}
+                      <td className="border-b border-border/60 p-0 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeRow(rowIndex)}
+                          className="flex size-6 items-center justify-center rounded text-muted-foreground/0 transition group-hover/row:text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
+                          aria-label={tr("Delete row")}
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center gap-1 border-t border-border/60 p-1.5">
+              <button
+                type="button"
+                onClick={addRow}
+                className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
+              >
+                <Plus className="size-3" /> Row
+              </button>
+              <button
+                type="button"
+                onClick={addColumn}
+                className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
+              >
+                <Plus className="size-3" /> Column
+              </button>
+            </div>
+          </div>
+        )
+      }
+      case "diagram":
+        return (
+          <div className="my-2 overflow-hidden rounded-lg border border-border/80 bg-card">
+            <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5">
+              <Network className="size-3 text-muted-foreground" />
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Mermaid diagram
+              </span>
+              <button
+                type="button"
+                onClick={() => setDiagramEditing((value) => !value)}
+                className="ml-auto rounded px-2 py-0.5 text-[10px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
+              >
+                {diagramEditing ? tr("Preview") : tr("Edit source")}
+              </button>
+            </div>
+            {diagramEditing ? (
+              <textarea
+                value={block.text}
+                onChange={(event) => onUpdate({ text: event.target.value })}
+                onFocus={() => onFocusBlock?.(block.id)}
+                spellCheck={false}
+                rows={Math.min(16, Math.max(5, block.text.split("\n").length + 1))}
+                placeholder={"flowchart LR\n  A[Start] --> B[Finish]"}
+                className="block w-full resize-y bg-transparent p-3 font-mono text-[12px] leading-5 outline-none placeholder:text-muted-foreground/50"
+              />
+            ) : (
+              <div className="cursor-pointer" onClick={() => setDiagramEditing(true)}>
+                <MermaidDiagram source={block.text} />
+              </div>
+            )}
+          </div>
+        )
+      case "divider":
+        return (
+          <div className="py-3">
+            <div
+              id={`block-input-${block.id}`}
+              data-block-input
+              tabIndex={0}
+              onKeyDown={deleteDividerFocused}
+              onFocus={() => onFocusBlock?.(block.id)}
+              className="rounded-sm py-1 outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+            >
+              <hr className="border-border" />
+            </div>
+          </div>
+        )
+      case "image":
+        return block.url ? (
+          <figure
+            ref={imageRef}
+            id={`block-input-${block.id}`}
+            data-block-input
+            tabIndex={0}
+            onKeyDown={(event) => onKeyDown(event, index)}
+            onFocus={() => onFocusBlock?.(block.id)}
+            className="my-2 overflow-hidden rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+          >
+            {imageError ? (
+              <div className="flex flex-col items-center gap-2 border border-dashed bg-muted/30 px-4 py-10 text-center text-xs text-muted-foreground">
+                <ImageIcon className="size-5" />
+                {tr("This image could not be loaded.")}
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ url: "" })}
+                  className="rounded border px-2 py-1 text-[11px] hover:bg-accent"
+                >
+                  Replace URL
+                </button>
+              </div>
+            ) : (
+              <img
+                src={block.url}
+                alt={block.caption || "Image"}
+                loading="lazy"
+                decoding="async"
+                onError={() => setImageError(true)}
+                className="max-h-[440px] w-full bg-muted/30 object-contain"
+              />
+            )}
+            {block.caption && (
+              <figcaption className="mt-2 text-center text-xs text-muted-foreground">
+                {block.caption}
+              </figcaption>
+            )}
+          </figure>
+        ) : (
+          <div
+            id={`block-input-${block.id}`}
+            ref={imageRef}
+            data-block-input
+            tabIndex={0}
+            onKeyDown={(event) => onKeyDown(event, index)}
+            onFocus={() => onFocusBlock?.(block.id)}
+            className="my-2 flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+          >
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <ImageIcon className="size-4" /> {tr("Embed an image")}
+            </div>
+            <div className="flex w-full max-w-md gap-1.5">
+              <input
+                value={imageDraft}
+                onChange={(event) => setImageDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault()
+                    const url = imageDraft.trim()
+                    if (url) onUpdate({ url })
+                  }
+                }}
+                placeholder={tr("Paste an image URL…")}
+                className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const url = imageDraft.trim()
+                  if (url) onUpdate({ url })
+                }}
+                className="h-8 shrink-0 rounded-md bg-primary px-3 text-[11px] font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Embed
+              </button>
+            </div>
+          </div>
+        )
+      case "paragraph":
+      default:
+        return renderEditable("text-[15px] leading-[1.7] py-[3px]")
+    }
+  }
+
+  return (
+    <div
+      ref={rowRef}
+      data-block-row
+      data-block-id={block.id}
+      className={cn(
+        "group/block relative flex items-start gap-0.5",
+        isDragging && "block-dragging",
+        dropPosition === "before" && "block-drop-before",
+        dropPosition === "after" && "block-drop-after",
+        slashActive && "z-10",
+      )}
+      onDragOver={handleOver}
+      onDrop={handleDrop}
+    >
+      <div className="absolute -left-[66px] top-0 hidden h-7 items-center gap-0.5 opacity-0 transition-opacity group-hover/block:opacity-100 has-[[data-state=open]]:opacity-100 md:flex">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={(event) => onInsertAfter(event.currentTarget.getBoundingClientRect())}
+              className="flex size-5 items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground"
+              aria-label="Add block below"
+            >
+              <Plus className="size-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Add block below</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move"
+                event.dataTransfer.setData("text/plain", block.id)
+                onDragStart()
+              }}
+              onDragEnd={onDragEnd}
+              className="flex size-5 cursor-grab items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground active:cursor-grabbing"
+              aria-label="Drag block"
+            >
+              <GripVertical className="size-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Drag to move</TooltipContent>
+        </Tooltip>
+        <BlockMenu
+          block={block}
+          onConvert={onConvert}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+          onComment={onCommentBlock ? () => onCommentBlock(block.id) : undefined}
+          trigger={
+            <button
+              type="button"
+              className="flex size-5 items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground data-[state=open]:bg-accent"
+              aria-label="Block options"
+            >
+              <MoreHorizontal className="size-3.5" />
+            </button>
+          }
+        />
+      </div>
+
+      {focusUsers && focusUsers.length > 0 && (
+        <span
+          className="absolute -left-1.5 bottom-0.5 top-0.5 w-[3px] rounded-full"
+          style={{ backgroundColor: focusUsers[0].color }}
+          title={`${focusUsers.map((person) => person.name).join(", ")} editing`}
+        />
+      )}
+
+      <div key={block.type} className="min-w-0 flex-1">
+        {renderContent()}
+      </div>
+
+      {commentCount > 0 && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={onOpenComments}
+              aria-label={`View ${commentCount} comment${commentCount === 1 ? "" : "s"}`}
+              className="ml-1 mt-1 flex h-5 shrink-0 items-center gap-1 rounded-full bg-brand-soft px-1.5 text-[10px] font-medium text-brand transition hover:bg-brand/15"
+            >
+              <MessageSquare className="size-3" />
+              {commentCount}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{commentCount} open comment{commentCount === 1 ? "" : "s"}</TooltipContent>
+        </Tooltip>
+      )}
+
+      <div className="flex size-6 shrink-0 items-center justify-center md:hidden">
+        <BlockMenu
+          block={block}
+          onConvert={onConvert}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+          onComment={onCommentBlock ? () => onCommentBlock(block.id) : undefined}
+          align="end"
+          trigger={
+            <button
+              type="button"
+              aria-label="Block options"
+              className="flex size-6 items-center justify-center rounded text-muted-foreground/40 hover:bg-accent hover:text-foreground data-[state=open]:bg-accent"
+            >
+              <MoreVertical className="size-3.5" />
+            </button>
+          }
+        />
+      </div>
+    </div>
+  )
+}
+
+function BlockMenu({
+  block,
+  trigger,
+  onConvert,
+  onDuplicate,
+  onDelete,
+  onComment,
+  align = "start",
+}: {
+  block: Block
+  trigger: React.ReactNode
+  onConvert: (type: BlockType) => void
+  onDuplicate: () => void
+  onDelete: () => void
+  onComment?: () => void
+  align?: "start" | "end"
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuContent align={align} sideOffset={6} className="w-48">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <RefreshCw /> Turn into
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="max-h-[280px] w-48 overflow-y-auto thin-scrollbar">
+            {SLASH_COMMANDS.map((command) => (
+              <DropdownMenuItem key={command.type} onSelect={() => onConvert(command.type)}>
+                <command.icon />
+                {BLOCK_LABELS[command.type]}
+                {block.type === command.type && (
+                  <Check className="ml-auto size-3.5 text-brand" />
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem onSelect={onDuplicate}>
+          <Copy /> Duplicate
+        </DropdownMenuItem>
+        {onComment && (
+          <DropdownMenuItem onSelect={onComment}>
+            <MessageSquare /> Comment
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+          <Trash2 /> Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}

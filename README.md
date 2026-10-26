@@ -306,4 +306,4 @@ motion/
 - 默认不发送邮件；邀请需要对方先注册 Motion。
 - 建议定期备份 MongoDB（`mongodump`）。
 
-更多部署、MCP、AI、OIDC 文档见 [docs/](docs/)。
+更多部署、MCP、AI、OIDC 文档见 [docs/](docs/)，块加载性能方案见 [docs/performance.md](docs/performance.md)。

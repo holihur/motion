@@ -1,12 +1,19 @@
 import type { LucideIcon } from "lucide-react"
 import {
+  Bookmark,
   CheckSquare,
   Code2,
+  FileText,
+  Frame,
   Heading1,
   Heading2,
   Heading3,
   Image,
+  KeyRound,
   List,
+  ListTree,
+  Sigma,
+  Video,
   ListOrdered,
   MessageSquareQuote,
   Minus,
@@ -40,6 +47,13 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { type: "diagram", title: "Diagram", description: "Draw a flowchart with Mermaid", icon: Network, keywords: "mermaid flowchart graph chart" },
   { type: "divider", title: "Divider", description: "Visually divide blocks", icon: Minus, keywords: "line hr separator" },
   { type: "image", title: "Image", description: "Embed an image from a URL", icon: Image, keywords: "picture photo embed" },
+  { type: "password", title: "Password area", description: "Hide secrets behind a password", icon: KeyRound, keywords: "password lock secret encrypted credentials area" },
+  { type: "bookmark", title: "Bookmark", description: "Save a link as a visual card", icon: Bookmark, keywords: "link url bookmark web" },
+  { type: "video", title: "Video", description: "Embed a YouTube or Vimeo video", icon: Video, keywords: "video youtube vimeo movie embed" },
+  { type: "embed", title: "Embed", description: "Embed any web page inline", icon: Frame, keywords: "iframe embed website frame" },
+  { type: "file", title: "File", description: "Link to a downloadable file", icon: FileText, keywords: "file attachment download pdf" },
+  { type: "equation", title: "Equation", description: "Write math with LaTeX", icon: Sigma, keywords: "math latex formula equation katex" },
+  { type: "toc", title: "Table of contents", description: "Link to every heading on the page", icon: ListTree, keywords: "toc contents outline headings index" },
 ]
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
@@ -57,6 +71,13 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   image: "Image",
   table: "Table",
   diagram: "Diagram",
+  password: "Password area",
+  bookmark: "Bookmark",
+  video: "Video",
+  embed: "Embed",
+  file: "File",
+  equation: "Equation",
+  toc: "Table of contents",
 }
 
 export function filterCommands(query: string) {

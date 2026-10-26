@@ -18,6 +18,7 @@ import { PAGE_TEMPLATES, templateBlocks, type PageTemplate } from "@/lib/templat
 import { formatDate, formatRelative, greeting, initials, modKey } from "@/lib/utils"
 import { pageTitle } from "@/lib/tree"
 import { tr } from "@/lib/i18n"
+import { markOnboardingStep, useOnboardingProgress, type OnboardingStep } from "@/lib/onboarding"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { useUIStore } from "@/stores/ui"
@@ -38,6 +39,7 @@ export function HomeView() {
   const setSearchOpen = useUIStore((state) => state.setSearchOpen)
   const setSettingsOpen = useUIStore((state) => state.setSettingsOpen)
   const [showOnboarding, setShowOnboarding] = useState(() => localStorage.getItem("motion.onboarding.dismissed") !== "1")
+  const onboardingProgress = useOnboardingProgress()
   const [creatingTemplate, setCreatingTemplate] = useState("")
   const navigate = useNavigate()
 
@@ -55,6 +57,10 @@ export function HomeView() {
   useEffect(() => {
     document.title = tr("Home") + " · Motion"
   }, [])
+
+  useEffect(() => {
+    if (pages.length > 0) markOnboardingStep("page")
+  }, [pages.length])
 
   async function newPage() {
     try {
@@ -172,6 +178,7 @@ export function HomeView() {
               hasPages={pages.length > 0}
               onNewPage={() => void newPage()}
               onDismiss={dismissOnboarding}
+              progress={onboardingProgress}
             />
           )}
 
@@ -328,17 +335,21 @@ function OnboardingCard({
   hasPages,
   onNewPage,
   onDismiss,
+  progress,
 }: {
   hasPages: boolean
   onNewPage: () => void
   onDismiss: () => void
+  progress: Set<OnboardingStep>
 }) {
   const steps = [
-    { title: tr("Create your first page"), done: hasPages },
-    { title: tr("Type / to insert any block"), done: false },
-    { title: tr("Select text to leave a comment"), done: false },
-    { title: tr("Ask Motion AI to summarize or edit"), done: false },
+    { id: "page" as const, title: tr("Create your first page"), done: hasPages || progress.has("page") },
+    { id: "slash" as const, title: tr("Type / to insert any block"), done: progress.has("slash") },
+    { id: "comment" as const, title: tr("Select text to leave a comment"), done: progress.has("comment") },
+    { id: "ai" as const, title: tr("Ask Motion AI to summarize or edit"), done: progress.has("ai") },
   ]
+  const doneCount = steps.filter((step) => step.done).length
+  const complete = doneCount === steps.length
   return (
     <section className="relative mt-8 overflow-hidden rounded-2xl border border-brand/20 bg-gradient-to-br from-brand-soft/50 via-background to-brand-two/10 p-5">
       <div className="pointer-events-none absolute -right-10 -top-16 size-44 rounded-full bg-brand/10 blur-3xl" />
@@ -352,15 +363,26 @@ function OnboardingCard({
       </button>
       <div className="relative">
         <div className="flex items-center gap-2 text-xs font-medium text-brand">
-          <Sparkles className="size-3.5" /> {tr("A 60-second tour")}
+          <Sparkles className="size-3.5" /> {complete ? tr("Workspace unlocked") : tr("A 60-second tour")}
+          <span className="ml-auto rounded-full bg-background/70 px-2 py-0.5 text-[10px] text-muted-foreground ring-1 ring-border/60">
+            {doneCount}/{steps.length}
+          </span>
         </div>
         <h2 className="mt-1.5 text-lg font-semibold tracking-tight">{tr("Make Motion yours")}</h2>
         <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
-          {tr("Four small actions unlock the whole workspace. You can dismiss this whenever you like.")}
+          {complete
+            ? tr("You have unlocked the core workflow. Keep exploring — the tour will stay out of your way.")
+            : tr("Four small actions unlock the whole workspace. You can dismiss this whenever you like.")}
         </p>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-background/70 ring-1 ring-border/40">
+          <div
+            className="h-full rounded-full brand-gradient transition-all duration-500"
+            style={{ width: `${(doneCount / steps.length) * 100}%` }}
+          />
+        </div>
         <div className="mt-4 grid gap-1.5 sm:grid-cols-2">
           {steps.map((step, index) => (
-            <div key={step.title} className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-2.5 py-2 text-xs">
+            <div key={step.id} className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-2.5 py-2 text-xs">
               <span
                 className={cn(
                   "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",

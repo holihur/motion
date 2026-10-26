@@ -21,9 +21,10 @@ import {
   Users,
 } from "lucide-react"
 import { toast } from "sonner"
-import { api, getClientId } from "@/lib/api"
+import { ApiError, api, getClientId } from "@/lib/api"
 import { tr } from "@/lib/i18n"
 import type { Block, Comment, Page } from "@/lib/types"
+import { applyBlockSync, diffBlocks } from "@/lib/blocks"
 import { cn, initials, uid } from "@/lib/utils"
 import { caretOffset, focusBlockById, setCaret } from "@/lib/caret"
 import { RealtimeClient, type RealtimePresence } from "@/lib/realtime"
@@ -123,7 +124,11 @@ export function PageEditor() {
   const loadIdRef = useRef<string | undefined>(pageId)
   const clientIdRef = useRef(getClientId())
   const baseBlocksRef = useRef<Block[]>([])
+  const blocksRevRef = useRef(0)
   const pendingRemoteRef = useRef<Block[] | null>(null)
+  const pendingOpsRef = useRef<
+    { order: string[]; upserts: Block[]; deletes: string[]; blocksRev: number }[]
+  >([])
   const realtimeRef = useRef<RealtimeClient | null>(null)
   const lastFocusRef = useRef("")
   const openedBeforeRef = useRef(false)
@@ -156,8 +161,9 @@ export function PageEditor() {
     return JSON.stringify(a) === JSON.stringify(b)
   }
 
-  function applyRemoteBlocks(next: Block[]) {
+  function applyRemoteBlocks(next: Block[], rev?: number) {
     if (stateRef.current.pageId !== pageId) return
+    if (rev) blocksRevRef.current = rev
     if (sameBlocks(stateRef.current.blocks, next)) {
       baseBlocksRef.current = next
       lastSavedRef.current = signature({
@@ -194,6 +200,10 @@ export function PageEditor() {
       requestAnimationFrame(() => {
         const el = document.getElementById(`block-input-${focusId}`) as HTMLElement | null
         if (!el) return
+        if (el.hasAttribute("data-lexical-input")) {
+          focusBlockById(focusId, "end", focusOffset)
+          return
+        }
         el.focus()
         if (el instanceof HTMLTextAreaElement) {
           const offset = Math.min(focusOffset, el.value.length)
@@ -226,6 +236,7 @@ export function PageEditor() {
         setPage(loaded)
         setBlocks(initialBlocks)
         baseBlocksRef.current = initialBlocks
+        blocksRevRef.current = loaded.blocksRev ?? 0
         setTitle(loaded.title)
         setIcon(loaded.icon)
         setCover(loaded.cover)
@@ -417,13 +428,14 @@ export function PageEditor() {
               cover: fresh.cover,
               favorite: fresh.favorite,
             })
+            blocksRevRef.current = fresh.blocksRev ?? blocksRevRef.current
             if (dirtyRef.current || savingRef.current) {
               pendingRemoteRef.current = fresh.blocks
               baseBlocksRef.current = fresh.blocks
               return
             }
             baseBlocksRef.current = fresh.blocks
-            applyRemoteBlocks(fresh.blocks)
+            applyRemoteBlocks(fresh.blocks, fresh.blocksRev)
             if (document.activeElement?.getAttribute("data-editor-title") !== "true") {
               setTitle(fresh.title)
             }
@@ -439,13 +451,40 @@ export function PageEditor() {
           return
         }
         if (event.clientId === clientIdRef.current) return
+        if (event.type === "ops") {
+          const rev = Number(event.blocksRev ?? 0)
+          const op = {
+            order: (event.order as string[]) ?? [],
+            upserts: (event.upserts as Block[]) ?? [],
+            deletes: (event.deletes as string[]) ?? [],
+            blocksRev: rev,
+          }
+          if (dirtyRef.current || savingRef.current) {
+            pendingOpsRef.current.push(op)
+            return
+          }
+          if (rev && blocksRevRef.current && rev !== blocksRevRef.current + 1) {
+            void refreshFromServer()
+            return
+          }
+          const next = applyBlockSync(
+            stateRef.current.blocks,
+            op.order,
+            op.upserts,
+            op.deletes,
+          )
+          applyRemoteBlocks(next, rev || blocksRevRef.current + 1)
+          return
+        }
         if (event.type === "blocks") {
           const remote = (event.blocks as Block[]) ?? []
+          const rev = Number(event.blocksRev ?? 0)
           baseBlocksRef.current = remote
+          if (rev) blocksRevRef.current = rev
           if (dirtyRef.current || savingRef.current) {
             pendingRemoteRef.current = remote
           } else {
-            applyRemoteBlocks(remote)
+            applyRemoteBlocks(remote, rev)
           }
           return
         }
@@ -533,6 +572,29 @@ export function PageEditor() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload)
   }, [])
 
+  async function refreshFromServer() {
+    if (!pageId) return
+    try {
+      const fresh = await api.pages.get(pageId)
+      blocksRevRef.current = fresh.blocksRev ?? 0
+      baseBlocksRef.current = fresh.blocks
+      if (dirtyRef.current || savingRef.current) {
+        pendingRemoteRef.current = fresh.blocks
+        return
+      }
+      applyRemoteBlocks(fresh.blocks, fresh.blocksRev)
+    } catch {
+      // The next autosave or reconnect will retry.
+    }
+  }
+
+  function drainPendingOps(blocks: Block[], rev: number) {
+    let next = blocks
+    for (const op of pendingOpsRef.current) next = applyBlockSync(next, op.order, op.upserts, op.deletes)
+    pendingOpsRef.current = []
+    return { blocks: next, rev: Math.max(rev, blocksRevRef.current) }
+  }
+
   async function persist(snapshot: Snapshot, silent = false) {
     if (!snapshot.pageId) return
     if (savingRef.current) {
@@ -549,16 +611,44 @@ export function PageEditor() {
     dirtyRef.current = false
     if (!silent) setSaveState("saving")
     try {
-      const [, saved] = await Promise.all([
-        api.pages.update(snapshot.pageId, {
-          title: snapshot.title,
-          icon: snapshot.icon,
-          cover: snapshot.cover,
-        }),
-        api.pages.saveBlocks(snapshot.pageId, snapshot.blocks, baseBlocksRef.current),
-      ])
+      let merged = snapshot.blocks
+      let rev = blocksRevRef.current
+      try {
+        const [, saved] = await Promise.all([
+          api.pages.update(snapshot.pageId, {
+            title: snapshot.title,
+            icon: snapshot.icon,
+            cover: snapshot.cover,
+          }),
+          api.pages.applyOps(snapshot.pageId, {
+            baseRev: blocksRevRef.current,
+            ...diffBlocks(baseBlocksRef.current, snapshot.blocks),
+          }),
+        ])
+        rev = saved.blocksRev
+        merged = applyBlockSync(snapshot.blocks, saved.order, saved.upserts, saved.deletes)
+        const known = new Set([...snapshot.blocks.map((block) => block.id), ...saved.upserts.map((block) => block.id)])
+        if (saved.order.some((id) => !known.has(id))) {
+          const fresh = await api.pages.get(snapshot.pageId)
+          merged = fresh.blocks
+          rev = fresh.blocksRev ?? rev
+        }
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 409) throw error
+        // A collaborator saved first. Fall back to the three-way merge endpoint.
+        const saved = await api.pages.saveBlocks(
+          snapshot.pageId,
+          snapshot.blocks,
+          baseBlocksRef.current,
+        )
+        merged = saved.blocks
+        rev = saved.blocksRev ?? rev
+      }
       if (stateRef.current.pageId === snapshot.pageId) {
-        const merged = saved?.blocks ?? snapshot.blocks
+        const drained = drainPendingOps(merged, rev)
+        merged = drained.blocks
+        rev = drained.rev
+        blocksRevRef.current = rev
         baseBlocksRef.current = merged
         lastSavedRef.current = signature({
           title: snapshot.title,
@@ -569,7 +659,7 @@ export function PageEditor() {
         if (dirtyRef.current) {
           pendingRemoteRef.current = merged
         } else if (!silent) {
-          applyRemoteBlocks(merged)
+          applyRemoteBlocks(merged, rev)
         }
         if (!silent) setSaveState(dirtyRef.current ? "saving" : "saved")
       }
@@ -680,6 +770,7 @@ export function PageEditor() {
     setCover(restored.cover)
     setBlocks(restored.blocks)
     baseBlocksRef.current = restored.blocks
+    blocksRevRef.current = restored.blocksRev ?? blocksRevRef.current + 1
     dirtyRef.current = false
     lastSavedRef.current = signature({
       title: restored.title,
@@ -1037,6 +1128,7 @@ export function PageEditor() {
             <BlockEditor
               blocks={blocks}
               readOnly={readOnly}
+              scrollParentRef={scrollRef}
               onChange={(next) => {
                 if (readOnly) return
                 setBlocks(next)
@@ -1113,6 +1205,7 @@ export function PageEditor() {
             open
             onOpenChange={setAiOpen}
             pageId={page.id}
+            workspaceId={page.workspaceId}
             pageTitle={title}
             onUndoRevision={undoAIRevision}
           />

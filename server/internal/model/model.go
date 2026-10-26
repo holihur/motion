@@ -45,16 +45,19 @@ type TableData struct {
 }
 
 type Block struct {
-	ID       string     `bson:"id" json:"id"`
-	Type     string     `bson:"type" json:"type"`
-	Text     string     `bson:"text" json:"text"`
-	Rich     string     `bson:"rich,omitempty" json:"rich,omitempty"`
-	Checked  bool       `bson:"checked,omitempty" json:"checked,omitempty"`
-	Language string     `bson:"language,omitempty" json:"language,omitempty"`
-	Color    string     `bson:"color,omitempty" json:"color,omitempty"`
-	URL      string     `bson:"url,omitempty" json:"url,omitempty"`
-	Caption  string     `bson:"caption,omitempty" json:"caption,omitempty"`
-	Table    *TableData `bson:"table,omitempty" json:"table,omitempty"`
+	ID         string     `bson:"id" json:"id"`
+	Type       string     `bson:"type" json:"type"`
+	Text       string     `bson:"text" json:"text"`
+	Rich       string     `bson:"rich,omitempty" json:"rich,omitempty"`
+	Checked    bool       `bson:"checked,omitempty" json:"checked,omitempty"`
+	Language   string     `bson:"language,omitempty" json:"language,omitempty"`
+	Color      string     `bson:"color,omitempty" json:"color,omitempty"`
+	URL        string     `bson:"url,omitempty" json:"url,omitempty"`
+	Caption    string     `bson:"caption,omitempty" json:"caption,omitempty"`
+	Ciphertext string     `bson:"ciphertext,omitempty" json:"ciphertext,omitempty"`
+	Salt       string     `bson:"salt,omitempty" json:"salt,omitempty"`
+	IV         string     `bson:"iv,omitempty" json:"iv,omitempty"`
+	Table      *TableData `bson:"table,omitempty" json:"table,omitempty"`
 }
 
 type Page struct {
@@ -65,6 +68,7 @@ type Page struct {
 	Icon        string              `bson:"icon" json:"icon"`
 	Cover       string              `bson:"cover" json:"cover"`
 	Blocks      []Block             `bson:"blocks" json:"blocks,omitempty"`
+	BlocksRev   int64               `bson:"blocksRev,omitempty" json:"blocksRev,omitempty"`
 	Text        string              `bson:"text" json:"-"`
 	Role        string              `bson:"-" json:"role,omitempty"`
 	Favorite    bool                `bson:"favorite" json:"favorite"`
@@ -143,4 +147,51 @@ type AISetting struct {
 	KeyHint   string             `bson:"keyHint" json:"keyHint"`
 	UpdatedAt time.Time          `bson:"updatedAt" json:"updatedAt"`
 	CreatedAt time.Time          `bson:"createdAt" json:"createdAt"`
+}
+
+type Agent struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	WorkspaceID primitive.ObjectID `bson:"workspaceId" json:"workspaceId"`
+	OwnerID     primitive.ObjectID `bson:"ownerId" json:"ownerId"`
+	Name        string             `bson:"name" json:"name"`
+	Icon        string             `bson:"icon" json:"icon"`
+	Description string             `bson:"description,omitempty" json:"description,omitempty"`
+	Mode        string             `bson:"mode" json:"mode"` // auto, approval
+	Scopes      []string           `bson:"scopes" json:"scopes"`
+	Enabled     bool               `bson:"enabled" json:"enabled"`
+	IsDefault   bool               `bson:"isDefault,omitempty" json:"isDefault,omitempty"`
+	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
+}
+
+type AIProposal struct {
+	ID          primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
+	WorkspaceID primitive.ObjectID  `bson:"workspaceId" json:"workspaceId"`
+	PageID      primitive.ObjectID  `bson:"pageId" json:"pageId"`
+	AgentID     primitive.ObjectID  `bson:"agentId" json:"agentId"`
+	AgentName   string              `bson:"agentName" json:"agentName"`
+	ActorID     primitive.ObjectID  `bson:"actorId" json:"actorId"`
+	ActorName   string              `bson:"actorName" json:"actorName"`
+	PageTitle   string              `bson:"pageTitle" json:"pageTitle"`
+	Before      *Page               `bson:"before,omitempty" json:"before,omitempty"`
+	After       Page                `bson:"after" json:"after"`
+	Created     bool                `bson:"created,omitempty" json:"created,omitempty"`
+	Status      string              `bson:"status" json:"status"` // pending, approved, rejected
+	CreatedAt   time.Time           `bson:"createdAt" json:"createdAt"`
+	ReviewedAt  *time.Time          `bson:"reviewedAt,omitempty" json:"reviewedAt,omitempty"`
+	ReviewedBy  *primitive.ObjectID `bson:"reviewedBy,omitempty" json:"reviewedBy,omitempty"`
+}
+
+type AuditLog struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	WorkspaceID primitive.ObjectID `bson:"workspaceId" json:"workspaceId"`
+	ActorID     primitive.ObjectID `bson:"actorId,omitempty" json:"actorId,omitempty"`
+	ActorName   string             `bson:"actorName" json:"actorName"`
+	AgentID     primitive.ObjectID `bson:"agentId,omitempty" json:"agentId,omitempty"`
+	AgentName   string             `bson:"agentName,omitempty" json:"agentName,omitempty"`
+	Action      string             `bson:"action" json:"action"`
+	TargetType  string             `bson:"targetType,omitempty" json:"targetType,omitempty"`
+	TargetID    string             `bson:"targetId,omitempty" json:"targetId,omitempty"`
+	Summary     string             `bson:"summary" json:"summary"`
+	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
 }

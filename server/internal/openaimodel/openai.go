@@ -1,6 +1,7 @@
 package openaimodel
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -95,6 +96,32 @@ type chatResponse struct {
 	Error *struct {
 		Message string `json:"message"`
 		Type    string `json:"type"`
+	} `json:"error"`
+}
+
+type chatStreamChunk struct {
+	Choices []struct {
+		Delta struct {
+			Content   *string `json:"content"`
+			ToolCalls []struct {
+				Index    int    `json:"index"`
+				ID       string `json:"id"`
+				Type     string `json:"type"`
+				Function struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				} `json:"function"`
+			} `json:"tool_calls"`
+		} `json:"delta"`
+		FinishReason string `json:"finish_reason"`
+	} `json:"choices"`
+	Usage *struct {
+		PromptTokens     int32 `json:"prompt_tokens"`
+		CompletionTokens int32 `json:"completion_tokens"`
+		TotalTokens      int32 `json:"total_tokens"`
+	} `json:"usage"`
+	Error *struct {
+		Message string `json:"message"`
 	} `json:"error"`
 }
 
@@ -303,6 +330,13 @@ func (m *Model) generate(ctx context.Context, request *model.LLMRequest) (*model
 	if decoded.Error != nil && decoded.Error.Message != "" {
 		return nil, fmt.Errorf("%s API error: %s", m.config.Provider, decoded.Error.Message)
 	}
+	return m.responseFromChat(decoded)
+}
+
+func (m *Model) responseFromChat(decoded chatResponse) (*model.LLMResponse, error) {
+	if decoded.Error != nil && decoded.Error.Message != "" {
+		return nil, fmt.Errorf("%s API error: %s", m.config.Provider, decoded.Error.Message)
+	}
 	if len(decoded.Choices) == 0 {
 		return nil, fmt.Errorf("%s returned no choices", m.config.Provider)
 	}
@@ -338,8 +372,185 @@ func (m *Model) generate(ctx context.Context, request *model.LLMRequest) (*model
 	return response, nil
 }
 
+func (m *Model) generateStream(
+	ctx context.Context,
+	request *model.LLMRequest,
+	yield func(*model.LLMResponse, error) bool,
+) {
+	toolIDs := map[string]string{}
+	payload := chatRequest{
+		Model:    m.config.Model,
+		Messages: m.buildMessages(request, toolIDs),
+		Tools:    m.buildTools(request),
+		Stream:   true,
+	}
+	if len(payload.Tools) > 0 {
+		payload.ToolChoice = "auto"
+	}
+	if request.Config != nil {
+		payload.Temperature = request.Config.Temperature
+		if request.Config.MaxOutputTokens > 0 {
+			maxTokens := request.Config.MaxOutputTokens
+			payload.MaxTokens = &maxTokens
+		}
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		yield(nil, err)
+		return
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint(m.config.BaseURL), bytes.NewReader(body))
+	if err != nil {
+		yield(nil, err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+	if m.config.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+m.config.APIKey)
+	}
+	resp, err := m.client.Do(req)
+	if err != nil {
+		yield(nil, err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		data, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		message := strings.TrimSpace(string(data))
+		if len(message) > 500 {
+			message = message[:500]
+		}
+		yield(nil, fmt.Errorf("%s API error (%d): %s", m.config.Provider, resp.StatusCode, message))
+		return
+	}
+	if !strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream") {
+		// Some compatible gateways ignore stream=true and return one JSON body.
+		var decoded chatResponse
+		if err := json.NewDecoder(io.LimitReader(resp.Body, 8<<20)).Decode(&decoded); err != nil {
+			yield(nil, err)
+			return
+		}
+		response, err := m.responseFromChat(decoded)
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+		yield(response, nil)
+		return
+	}
+
+	var text strings.Builder
+	type toolAccum struct {
+		ID        string
+		Name      string
+		Arguments strings.Builder
+	}
+	tools := map[int]*toolAccum{}
+	var usage *struct {
+		PromptTokens     int32 `json:"prompt_tokens"`
+		CompletionTokens int32 `json:"completion_tokens"`
+		TotalTokens      int32 `json:"total_tokens"`
+	}
+	scanner := bufio.NewScanner(resp.Body)
+	scanner.Buffer(make([]byte, 64*1024), 2*1024*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if data == "" || data == "[DONE]" {
+			continue
+		}
+		var chunk chatStreamChunk
+		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+			yield(nil, err)
+			return
+		}
+		if chunk.Error != nil && chunk.Error.Message != "" {
+			yield(nil, fmt.Errorf("%s API error: %s", m.config.Provider, chunk.Error.Message))
+			return
+		}
+		if chunk.Usage != nil {
+			usage = chunk.Usage
+		}
+		for _, choice := range chunk.Choices {
+			if choice.Delta.Content != nil && *choice.Delta.Content != "" {
+				piece := *choice.Delta.Content
+				text.WriteString(piece)
+				if !yield(&model.LLMResponse{
+					Content: &genai.Content{Role: "model", Parts: []*genai.Part{{Text: piece}}},
+					Partial: true,
+				}, nil) {
+					return
+				}
+			}
+			for _, call := range choice.Delta.ToolCalls {
+				entry := tools[call.Index]
+				if entry == nil {
+					entry = &toolAccum{}
+					tools[call.Index] = entry
+				}
+				if call.ID != "" {
+					entry.ID = call.ID
+				}
+				if call.Function.Name != "" {
+					entry.Name = call.Function.Name
+				}
+				entry.Arguments.WriteString(call.Function.Arguments)
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		yield(nil, err)
+		return
+	}
+	parts := make([]*genai.Part, 0, len(tools)+1)
+	if text.Len() > 0 {
+		parts = append(parts, &genai.Part{Text: text.String()})
+	}
+	for index := 0; index < len(tools); index++ {
+		entry := tools[index]
+		if entry == nil || entry.Name == "" {
+			continue
+		}
+		var args map[string]any
+		if strings.TrimSpace(entry.Arguments.String()) != "" {
+			_ = json.Unmarshal([]byte(entry.Arguments.String()), &args)
+		}
+		if args == nil {
+			args = map[string]any{}
+		}
+		parts = append(parts, &genai.Part{FunctionCall: &genai.FunctionCall{
+			ID: entry.ID, Name: entry.Name, Args: args,
+		}})
+	}
+	if len(parts) == 0 {
+		yield(nil, fmt.Errorf("%s stream returned no content", m.config.Provider))
+		return
+	}
+	response := &model.LLMResponse{
+		Content:      &genai.Content{Role: "model", Parts: parts},
+		TurnComplete: true,
+		FinishReason: genai.FinishReasonStop,
+		ModelVersion: m.config.Model,
+	}
+	if usage != nil {
+		response.UsageMetadata = &genai.GenerateContentResponseUsageMetadata{
+			PromptTokenCount: usage.PromptTokens, CandidatesTokenCount: usage.CompletionTokens,
+			TotalTokenCount: usage.TotalTokens,
+		}
+	}
+	yield(response, nil)
+}
+
 func (m *Model) GenerateContent(ctx context.Context, request *model.LLMRequest, stream bool) iter.Seq2[*model.LLMResponse, error] {
 	return func(yield func(*model.LLMResponse, error) bool) {
+		if stream {
+			m.generateStream(ctx, request, yield)
+			return
+		}
 		response, err := m.generate(ctx, request)
 		if err != nil {
 			yield(nil, err)

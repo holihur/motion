@@ -6,16 +6,18 @@
 
 ## 功能
 
-- **块编辑器**：标题、列表、待办、引用、Callout、代码、分割线、图片、**表格**、**Mermaid 流程图**。
+- **块编辑器**：标题、列表、待办、引用、Callout、代码、分割线、图片、**表格**、**Mermaid 流程图**、书签卡片、视频/网页嵌入、文件、LaTeX 公式、目录，以及**客户端加密的密码区域**。
 - **Lexical 富文本**：加粗、斜体、下划线、删除线、行内代码、链接、撤销/重做、Markdown 行内快捷输入和浮动格式工具栏。
+- **密码区域**：密码在浏览器内通过 PBKDF2 + AES-GCM 加密，服务端只保存密文；刷新或 10 分钟后自动重新上锁。
+- **增量同步 + 虚拟列表**：只同步变更块与顺序，WebSocket 不再广播整页；超过 80 块自动虚拟化。
 - **Markdown 快捷输入** 与 `/` 斜杠菜单，块拖拽排序，自动保存。
 - **Viewer 只读模式**：无编辑权限时真正的只读界面，不显示编辑控件，不会出现“输入后才报 403”。
 - **多人实时协作**：工作区成员共享页面，基于 WebSocket 的在线状态、正在编辑的块、实时内容同步和块级三方合并。
 - **划词评论 / 块评论 / 回复 / 解决**，评论锚点使用 CSS Custom Highlight 持久高亮，失焦后也不会丢失。
 - **文档历史**：自动快照 + 手动保存版本，可预览和恢复，恢复本身也可撤销。
-- **BYOK AI 文档助手**：支持 DeepSeek、OpenAI、OpenRouter、Groq、Ollama、Gemini 以及任意 OpenAI 兼容服务。默认 DeepSeek。可停止生成、重新生成，并在每次运行前自动保存版本，一键撤销 AI 修改。
+- **BYOK AI 文档助手**：支持 DeepSeek、OpenAI、OpenRouter、Groq、Ollama、Gemini 以及任意 OpenAI 兼容服务。默认 DeepSeek。支持 SSE 流式输出、停止生成、重新生成，并在每次运行前自动保存版本，一键撤销 AI 修改。
 - **Google ADK**：AI 助手基于 `google.golang.org/adk`，通过工具读取、搜索、创建和编辑文档。
-- **MCP 服务器**：`/mcp` 暴露搜索、读写页面、追加块、更新块、评论等工具，使用带 Scope 的 PAT 授权。
+- **MCP 服务器**：`/mcp` 暴露搜索、读写页面、追加块、更新块、批量删除页面、评论等工具，使用带 Scope 的 PAT 授权。
 - **OIDC 单点登录**：Google、Keycloak、Auth0、Authentik 等任何 OIDC Provider。
 - **Ops 管理页**：使用独立于用户账号的 `OPS_TOKEN` 保护；注册开关、管理员、OIDC、AI 默认模型、MCP、更新策略、实例统计都在网页里配置，无需改命令行。
 - **PAT 与 Scope 授权**：`pages:read`、`pages:write`、`workspace:read`、`workspace:write`、`ai:use`。
@@ -154,7 +156,7 @@ Authorization: Bearer motion_pat_...
 
 在 **Settings → Developer** 创建带 Scope 的 Token，页面会直接生成可复制的 MCP JSON 配置。
 
-可用工具：`list_workspaces`、`search_pages`、`read_page`、`create_page`、`append_blocks`、`update_page`、`update_block`、`add_comment`。
+可用工具：`list_workspaces`、`search_pages`、`read_page`、`create_page`、`append_blocks`、`update_page`、`update_block`、`delete_pages`、`add_comment`。
 
 ```json
 {
@@ -270,10 +272,12 @@ Token 只在创建时显示一次，可随时撤销；MCP 和 API 都使用同�
 | `GET` | `/api/workspaces/:id/pages` | 页面树 |
 | `GET` | `/api/workspaces/:id/search?q=` | 全文搜索 |
 | `GET` | `/api/pages/:id` | 页面 + 块 |
-| `PUT` | `/api/pages/:id/blocks` | 保存块（支持 `base` 三方合并） |
+| `PUT` | `/api/pages/:id/blocks` | 全量保存块（兼容 + 三方合并回退） |
+| `POST` | `/api/pages/:id/ops` | 增量块同步（顺序 + 变更 + 删除，`baseRev` 并发校验） |
 | `GET` | `/api/pages/:id/revisions` | 历史版本 |
 | `GET` | `/api/pages/:id/comments` | 评论 |
 | `POST` | `/api/ai/chat` | ADK 文档助手 |
+| `POST` | `/api/ai/chat/stream` | ADK 文档助手（SSE 流式） |
 | `GET` | `/api/ai/settings` | BYOK 配置 |
 | `GET/POST/DELETE` | `/api/tokens` | PAT 管理 |
 | `GET` | `/api/ops/settings` | Ops 配置（需 `X-Ops-Token`） |

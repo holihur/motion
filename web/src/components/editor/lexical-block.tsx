@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import {
   $createParagraphNode,
@@ -39,6 +39,7 @@ import {
 } from "@lexical/markdown"
 import { LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link"
 import { mergeRegister } from "@lexical/utils"
+import { caretOffset } from "@/lib/caret"
 import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 
@@ -75,6 +76,10 @@ export interface LexicalBlockProps {
   placeholder: string
   className: string
   readOnly?: boolean
+  resetKey?: number
+  autoFocus?: boolean
+  autoFocusWhere?: "start" | "end"
+  autoFocusOffset?: number
   onFocus?: () => void
   onInput: (text: string, rich: string, el: HTMLElement) => void
   onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => void
@@ -88,13 +93,17 @@ export function LexicalBlock({
   placeholder,
   className,
   readOnly = false,
+  resetKey = 0,
+  autoFocus = false,
+  autoFocusWhere,
+  autoFocusOffset,
   onFocus,
   onInput,
   onKeyDown,
   onPaste,
 }: LexicalBlockProps) {
   const lastRichRef = useRef(rich ?? "")
-  const composerKey = `${id}:${readOnly ? "ro" : "rw"}`
+  const composerKey = `${id}:${readOnly ? "ro" : "rw"}:${resetKey}`
 
   const initialConfig = {
     namespace: `motion-block-${id}`,
@@ -116,6 +125,7 @@ export function LexicalBlock({
             <ContentEditable
               id={`block-input-${id}`}
               data-block-input
+              data-lexical-input
               role="textbox"
               aria-label={placeholder || tr("Write something…")}
               aria-multiline="true"
@@ -149,12 +159,18 @@ export function LexicalBlock({
         <LinkPlugin />
         <MarkdownShortcutPlugin transformers={INLINE_TRANSFORMERS} />
         <BlockStateBridge
+          id={id}
           rich={rich}
           text={text}
           lastRichRef={lastRichRef}
           onInput={onInput}
         />
-        <FocusBridge id={id} />
+        <FocusBridge
+          id={id}
+          autoFocus={autoFocus}
+          autoFocusWhere={autoFocusWhere}
+          autoFocusOffset={autoFocusOffset}
+        />
         {!readOnly && <FloatingToolbar />}
         <EditableBridge editable={!readOnly} />
       </div>
@@ -163,17 +179,20 @@ export function LexicalBlock({
 }
 
 function BlockStateBridge({
+  id,
   rich,
   text,
   lastRichRef,
   onInput,
 }: {
+  id: string
   rich?: string
   text: string
   lastRichRef: React.MutableRefObject<string>
   onInput: (text: string, rich: string, el: HTMLElement) => void
 }) {
   const [editor] = useLexicalComposerContext()
+  const suppressChangeRef = useRef(false)
 
   useEffect(() => {
     const current = JSON.stringify(editor.getEditorState().toJSON())
@@ -185,23 +204,58 @@ function BlockStateBridge({
       return
     }
     if (rich && rich === lastRichRef.current) return
+    const currentText = editor.getEditorState().read(() => $getRoot().getTextContent())
+    if (
+      editor.getRootElement() === document.activeElement &&
+      text.length < currentText.length &&
+      currentText.startsWith(text)
+    ) {
+      // A stale prop update from a fast keystroke. Keep the newer editor state.
+      return
+    }
+
+    const root = editor.getRootElement()
+    const focused = root === document.activeElement
+    const offset = focused && root ? caretOffset(root) : null
+    const applySelection = () => {
+      if (offset == null) return
+      let remaining = Math.max(0, offset)
+      for (const node of $getRoot().getAllTextNodes()) {
+        const size = node.getTextContentSize()
+        if (remaining <= size) {
+          node.select(remaining, remaining)
+          return
+        }
+        remaining -= size
+      }
+      $getRoot().selectEnd()
+    }
+
+    suppressChangeRef.current = true
+    window.setTimeout(() => {
+      suppressChangeRef.current = false
+    }, 0)
     // The change came from a collaborator, a restore, or an AI edit.
     if (rich) {
       try {
         const parsed = editor.parseEditorState(rich)
         lastRichRef.current = rich
         editor.setEditorState(parsed)
+        if (focused) {
+          editor.update(applySelection)
+        }
         return
       } catch {
         // Fall back to plain text if the stored document is malformed.
       }
     }
     editor.update(() => {
-      const root = $getRoot()
-      root.clear()
+      const rootNode = $getRoot()
+      rootNode.clear()
       const paragraph = $createParagraphNode()
       if (text) paragraph.append($createTextNode(text))
-      root.append(paragraph)
+      rootNode.append(paragraph)
+      applySelection()
     })
   }, [editor, rich, text, lastRichRef])
 
@@ -209,6 +263,7 @@ function BlockStateBridge({
     <OnChangePlugin
       ignoreSelectionChange
       onChange={(state) => {
+        if (suppressChangeRef.current) return
         const next = JSON.stringify(state.toJSON())
         if (next === lastRichRef.current) return
         lastRichRef.current = next
@@ -222,34 +277,59 @@ function BlockStateBridge({
 
 
 /** Keeps focus commands working even though Lexical owns the selection. */
-function FocusBridge({ id }: { id: string }) {
+function FocusBridge({
+  id,
+  autoFocus,
+  autoFocusWhere,
+  autoFocusOffset,
+}: {
+  id: string
+  autoFocus?: boolean
+  autoFocusWhere?: "start" | "end"
+  autoFocusOffset?: number
+}) {
   const [editor] = useLexicalComposerContext()
-  useEffect(() => {
-    function focusAt(where: "start" | "end", offset?: number) {
-      editor.focus(undefined, { defaultSelection: where === "start" ? "rootStart" : "rootEnd" })
-      if (offset == null) return
-      requestAnimationFrame(() => {
-        editor.update(() => {
-          const root = $getRoot()
-          let remaining = Math.max(0, offset)
-          for (const node of root.getAllTextNodes()) {
-            const size = node.getTextContentSize()
-            if (remaining <= size) {
-              node.select(remaining, remaining)
-              return
-            }
-            remaining -= size
-          }
-          root.selectEnd()
-        })
-      })
+  function focusAt(where: "start" | "end", offset?: number) {
+    if (offset == null && editor.getRootElement() === document.activeElement) return
+    if (
+      offset == null &&
+      editor.getEditorState().read(() => $getRoot().getTextContent().length === 0)
+    ) {
+      // An empty block has no meaningful start/end selection. Setting one
+      // here can be committed after the user's first keystroke and move the
+      // caret back to the beginning.
+      editor.focus()
+      return
     }
+    editor.focus()
+    editor.update(() => {
+      const root = $getRoot()
+      if (offset != null) {
+        let remaining = Math.max(0, offset)
+        for (const node of root.getAllTextNodes()) {
+          const size = node.getTextContentSize()
+          if (remaining <= size) {
+            node.select(remaining, remaining)
+            return
+          }
+          remaining -= size
+        }
+      }
+      if (where === "start") root.selectStart()
+      else root.selectEnd()
+    })
+  }
 
+  useLayoutEffect(() => {
+    if (!autoFocus) return
+    focusAt(autoFocusWhere ?? "end", autoFocusOffset)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFocus])
+  useEffect(() => {
     function onFocus(event: Event) {
       const detail = (event as CustomEvent<{ id: string; where?: "start" | "end"; offset?: number }>).detail
       if (!detail || detail.id !== id) return
-      // The block may have just been created; wait for React to commit it.
-      requestAnimationFrame(() => focusAt(detail.where ?? "end", detail.offset))
+      focusAt(detail.where ?? "end", detail.offset)
     }
 
     window.addEventListener("motion:focus-block", onFocus)

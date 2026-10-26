@@ -35,6 +35,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import type { RealtimePresence } from "@/lib/realtime"
 import { MermaidDiagram } from "@/components/editor/mermaid-diagram"
 import { LexicalBlock } from "@/components/editor/lexical-block"
+import { PasswordBlock } from "@/components/editor/password-block"
+import {
+  BookmarkBlock,
+  EmbedBlock,
+  EquationBlock,
+  FileBlock,
+  TocBlock,
+  VideoBlock,
+  type HeadingItem,
+} from "@/components/editor/rich-blocks"
 import { tr } from "@/lib/i18n"
 
 export interface BlockRowProps {
@@ -46,6 +56,11 @@ export interface BlockRowProps {
   isDragging: boolean
   dropPosition: "before" | "after" | null
   readOnly?: boolean
+  resetKey?: number
+  autoFocus?: boolean
+  autoFocusWhere?: "start" | "end"
+  autoFocusOffset?: number
+  headings?: HeadingItem[]
   focusUsers?: RealtimePresence[]
   commentCount?: number
   comments?: Comment[]
@@ -77,6 +92,11 @@ export function BlockRow(props: BlockRowProps) {
     isDragging,
     dropPosition,
     readOnly = false,
+    resetKey = 0,
+    autoFocus = false,
+    autoFocusWhere,
+    autoFocusOffset,
+    headings = [],
     focusUsers,
     commentCount = 0,
     comments = [],
@@ -156,6 +176,10 @@ export function BlockRow(props: BlockRowProps) {
         placeholder={placeholder}
         className={className}
         readOnly={readOnly}
+        resetKey={resetKey}
+        autoFocus={autoFocus}
+        autoFocusWhere={autoFocusWhere}
+        autoFocusOffset={autoFocusOffset}
         onFocus={() => onFocusBlock?.(block.id)}
         onInput={(text, rich, el) => onInput(text, el, rich)}
         onKeyDown={(event) => onKeyDown(event, index)}
@@ -456,6 +480,28 @@ export function BlockRow(props: BlockRowProps) {
             </div>
           </div>
         )
+      case "password":
+        return (
+          <PasswordBlock
+            block={block}
+            readOnly={readOnly}
+            autoFocus={autoFocus}
+            onUpdate={onUpdate}
+            onFocus={() => onFocusBlock?.(block.id)}
+          />
+        )
+      case "bookmark":
+        return <BookmarkBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+      case "video":
+        return <VideoBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+      case "embed":
+        return <EmbedBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+      case "file":
+        return <FileBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+      case "equation":
+        return <EquationBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+      case "toc":
+        return <TocBlock block={block} headings={headings} readOnly={readOnly} />
       case "image":
         return block.url ? (
           <figure

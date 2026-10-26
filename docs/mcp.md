@@ -46,9 +46,24 @@ npx -y mcp-remote http://localhost:8787/mcp \
 | `append_blocks` | 追加段落、标题、列表、待办、表格、Mermaid | `pages:write` |
 | `update_page` | 修改标题/Emoji | `pages:write` |
 | `update_block` | 替换某个块的文本 | `pages:write` |
+| `delete_pages` | 批量归档/永久删除页面，可包含子页面 | `pages:write` |
 | `add_comment` | 给块添加评论 | `pages:write` |
 
 PAT 的 Scope 和用户在目标工作区中的角色都会校验。只读 Token 无法写入，viewer 角色也无法写入。
+
+### 批量删除
+
+`delete_pages` 接受最多 100 个根页面 ID。默认只归档到回收站（可恢复），设置 `permanent: true` 才会永久删除：
+
+```json
+{
+  "pageIds": ["665f...", "665f..."],
+  "mode": "subtree",
+  "permanent": false
+}
+```
+
+`mode` 默认为 `subtree`，会一并处理子页面；传 `page` 时只处理列出的页面。整批页面会先全部校验权限，任意一个 ID 无效时不会执行删除。
 
 ## 4. 实时同步
 

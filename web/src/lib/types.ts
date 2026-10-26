@@ -13,6 +13,13 @@ export type BlockType =
   | "image"
   | "table"
   | "diagram"
+  | "password"
+  | "bookmark"
+  | "video"
+  | "embed"
+  | "file"
+  | "equation"
+  | "toc"
 
 export interface TableData {
   columns: string[]
@@ -31,6 +38,10 @@ export interface Block {
   color?: string
   url?: string
   caption?: string
+  /** Client-side encrypted password area. The server never sees plaintext. */
+  ciphertext?: string
+  salt?: string
+  iv?: string
   table?: TableData
 }
 
@@ -78,6 +89,7 @@ export interface PageSummary {
 export interface Page extends PageSummary {
   workspaceId: string
   role?: "owner" | "editor" | "viewer"
+  blocksRev?: number
   blocks: Block[]
   createdBy: string
   createdAt: string
@@ -137,6 +149,59 @@ export interface AIChatResponse {
   actions?: string[]
   model: string
   revisionId?: string
+  agentId?: string
+  agentName?: string
+  mode?: AgentMode
+  proposals?: AIProposal[]
+}
+
+export type AgentMode = "auto" | "approval"
+
+export interface Agent {
+  id: string
+  workspaceId: string
+  ownerId: string
+  name: string
+  icon: string
+  description?: string
+  mode: AgentMode
+  scopes: string[]
+  enabled: boolean
+  isDefault?: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AIProposal {
+  id: string
+  workspaceId: string
+  pageId: string
+  agentId: string
+  agentName: string
+  actorId: string
+  actorName: string
+  pageTitle: string
+  before?: Page
+  after: Page
+  created?: boolean
+  status: "pending" | "approved" | "rejected"
+  createdAt: string
+  reviewedAt?: string
+  reviewedBy?: string
+}
+
+export interface AuditLog {
+  id: string
+  workspaceId: string
+  actorId?: string
+  actorName: string
+  agentId?: string
+  agentName?: string
+  action: string
+  targetType?: string
+  targetId?: string
+  summary: string
+  createdAt: string
 }
 
 export interface AIChatMessage {
@@ -146,6 +211,7 @@ export interface AIChatMessage {
   revisionId?: string
   undone?: boolean
   stopped?: boolean
+  streaming?: boolean
 }
 
 export interface OpsOIDCSettings {

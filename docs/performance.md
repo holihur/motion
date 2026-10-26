@@ -1,6 +1,20 @@
 # Block 加载性能优化方案
 
-## 当前实现与瓶颈
+## 当前状态（v0.3）
+
+已完成：
+
+- `POST /api/pages/:id/ops` 增量同步：只发送最终顺序、变更块和删除 ID，不再每次发送整页文本
+- `blocksRev` 乐观并发：协作者先保存时返回 409，客户端自动回退到三方合并
+- WebSocket `ops` 广播：只传顺序 + 变更块，不再传整页块数组
+- 超过 80 块自动启用 `@tanstack/react-virtual` 虚拟列表
+- 评论 / AI / 历史 / Share 面板全部改为按需 chunk
+- SSE 流式 AI：`/api/ai/chat/stream` + OpenAI-compatible 原生 streaming
+- 1,000 块级合成页面已做 Playwright 滚动与追加测试；当前测试覆盖 120 块
+
+仍未做：把块拆到独立集合与分页 API（适合 5,000+ 块的超长页面）。
+
+## 原始瓶颈分析
 
 当前页面内容以 `blocks[]` 内嵌在 `pages` 文档中：
 
@@ -61,11 +75,11 @@ ws-event (bytes, latency)
 
 服务端日志增加 `blocksCount`、`responseBytes`、`saveDuration`。
 
-## P2：增量块操作（核心改造）
+## P2：增量块操作（已实现轻量版）
 
 ### 数据模型
 
-将块从 `pages` 文档拆到独立集合：
+当前实现保留内嵌 `blocks`，但保存与广播已经增量。以下独立集合方案适合下一步处理 5,000+ 块：
 
 ```js
 page_blocks {
@@ -135,9 +149,9 @@ POST /api/pages/:id/ops            # 批量增量操作
 - 大页面写入 Mongo 不再重写整页文档
 - 为分页加载和虚拟化提供基础
 
-## P3：编辑器虚拟化
+## P3：编辑器虚拟化（已实现）
 
-使用 `@tanstack/react-virtual`：
+已使用 `@tanstack/react-virtual`，在块数 > 80 时启用：
 
 - 按块类型估算高度，`measureElement` 实测
 - 只渲染视口 + 上下缓冲（约 20-40 块）
@@ -181,9 +195,9 @@ POST /api/pages/:id/ops            # 批量增量操作
 ## 建议执行顺序
 
 1. P0（已完成）
-2. P1：延迟面板 + 脏块签名 + 指标
-3. P2：`page_blocks` + 增量 ops + WS delta（最高收益）
-4. P3：虚拟列表
-5. P4：历史 diff 与保留策略
+2. P1：延迟面板（已完成）+ 脏块指标（部分完成）
+3. P2：增量 ops + WS delta（已完成轻量版）；独立 `page_blocks` 集合（下一步）
+4. P3：虚拟列表（已完成）
+5. P4：历史 diff 与保留策略（未完成）
 
-不建议在没有增量 ops 之前直接做虚拟化：否则滚动时仍会触发全页保存和全量广播，收益有限，且 contentEditable 聚焦问题会显著增加复杂度。
+下一步优先做 `page_blocks` 集合与 cursor 分页 API，用于 5,000+ 块页面；当前增量 ops + 虚拟列表已覆盖大多数日常页面。

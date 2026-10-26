@@ -33,6 +33,13 @@ var blockTypes = map[string]bool{
 	"image":     true,
 	"table":     true,
 	"diagram":   true,
+	"password":  true,
+	"bookmark":  true,
+	"video":     true,
+	"embed":     true,
+	"file":      true,
+	"equation":  true,
+	"toc":       true,
 }
 
 type createPageRequest struct {
@@ -97,6 +104,7 @@ func (s *Server) createPage(w http.ResponseWriter, r *http.Request) {
 		Icon:        icon,
 		Cover:       "",
 		Blocks:      []model.Block{{ID: primitive.NewObjectID().Hex(), Type: "paragraph", Text: ""}},
+		BlocksRev:   1,
 		Text:        "",
 		Order:       order,
 		CreatedBy:   currentUserID(r),
@@ -444,6 +452,13 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		if b.Type == "table" {
 			b.Table = sanitizeTable(b.Table)
 		}
+		if b.Type == "password" {
+			if len(b.Ciphertext) > 200_000 || len(b.Salt) > 100 || len(b.IV) > 100 {
+				writeErr(w, http.StatusBadRequest, "encrypted area is too large")
+				return
+			}
+			b.Rich = ""
+		}
 	}
 
 	merged := req.Blocks
@@ -451,8 +466,13 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		merged = blocks.Merge(*req.Base, page.Blocks, req.Blocks)
 	}
 	now := time.Now().UTC()
+	rev := page.BlocksRev + 1
+	if rev < 1 {
+		rev = 1
+	}
 	if _, err := s.store.Pages.UpdateByID(r.Context(), pageID, bson.M{"$set": bson.M{
 		"blocks":    merged,
+		"blocksRev": rev,
 		"text":      textFromBlocks(merged),
 		"updatedAt": now,
 	}}); err != nil {
@@ -467,6 +487,7 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		"pageId":    page.ID.Hex(),
 		"clientId":  clientID(r),
 		"blocks":    merged,
+		"blocksRev": rev,
 		"updatedAt": now,
 		"editor":    map[string]string{"userId": userID, "name": name, "color": realtime.ColorFor(userID)},
 	}, clientID(r))
@@ -474,7 +495,136 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 	snapshot := page
 	snapshot.Blocks = merged
 	s.maybeSnapshot(r, snapshot, name)
-	writeJSON(w, http.StatusOK, map[string]any{"blocks": merged, "updatedAt": now})
+	writeJSON(w, http.StatusOK, map[string]any{"blocks": merged, "blocksRev": rev, "updatedAt": now})
+}
+
+type blockSyncRequest struct {
+	BaseRev int64         `json:"baseRev"`
+	Order   []string      `json:"order"`
+	Upserts []model.Block `json:"upserts"`
+	Deletes []string      `json:"deletes"`
+}
+
+// syncBlocks applies a compact page delta: the final order, changed blocks and
+// deleted ids. It rejects stale writers so clients can fall back to the
+// three-way merge endpoint instead of overwriting a collaborator.
+func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
+	pageID, err := primitive.ObjectIDFromHex(chiURLParam(r, "pageID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid page id")
+		return
+	}
+	page, ok := s.editablePage(w, r, pageID)
+	if !ok {
+		return
+	}
+	var req blockSyncRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(req.Order) > 2000 || len(req.Upserts) > 2000 || len(req.Deletes) > 2000 {
+		writeErr(w, http.StatusBadRequest, "page delta is too large")
+		return
+	}
+	if req.BaseRev != page.BlocksRev {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"error": "page changed on another device", "blocksRev": page.BlocksRev,
+		})
+		return
+	}
+	seen := make(map[string]bool, len(req.Upserts))
+	for i := range req.Upserts {
+		b := &req.Upserts[i]
+		if !blockTypes[b.Type] {
+			writeErr(w, http.StatusBadRequest, "unknown block type: "+b.Type)
+			return
+		}
+		if utf8.RuneCountInString(b.Text) > 50000 {
+			writeErr(w, http.StatusBadRequest, "a block is too long")
+			return
+		}
+		if b.ID == "" || seen[b.ID] {
+			b.ID = primitive.NewObjectID().Hex()
+		}
+		seen[b.ID] = true
+		b.Text = strings.ReplaceAll(strings.ReplaceAll(b.Text, "\x00", ""), "\r\n", "\n")
+		if len(b.Language) > 40 {
+			b.Language = b.Language[:40]
+		}
+		if b.Type == "table" {
+			b.Table = sanitizeTable(b.Table)
+		}
+		if b.Type == "password" {
+			if len(b.Ciphertext) > 200_000 || len(b.Salt) > 100 || len(b.IV) > 100 {
+				writeErr(w, http.StatusBadRequest, "encrypted area is too large")
+				return
+			}
+			b.Rich = ""
+		}
+	}
+	byID := make(map[string]model.Block, len(page.Blocks)+len(req.Upserts))
+	for _, b := range page.Blocks {
+		byID[b.ID] = b
+	}
+	for _, id := range req.Deletes {
+		delete(byID, id)
+	}
+	for _, b := range req.Upserts {
+		byID[b.ID] = b
+	}
+	next := make([]model.Block, 0, len(byID))
+	used := make(map[string]bool, len(byID))
+	for _, id := range req.Order {
+		if b, ok := byID[id]; ok && !used[id] {
+			next = append(next, b)
+			used[id] = true
+		}
+	}
+	// Preserve blocks another collaborator added while this client was editing.
+	for _, b := range page.Blocks {
+		if !used[b.ID] {
+			if _, exists := byID[b.ID]; exists {
+				next = append(next, byID[b.ID])
+				used[b.ID] = true
+			}
+		}
+	}
+	for _, b := range req.Upserts {
+		if !used[b.ID] {
+			next = append(next, b)
+			used[b.ID] = true
+		}
+	}
+	now := time.Now().UTC()
+	rev := page.BlocksRev + 1
+	if rev < 1 {
+		rev = 1
+	}
+	if _, err := s.store.Pages.UpdateByID(r.Context(), pageID, bson.M{"$set": bson.M{
+		"blocks": next, "blocksRev": rev, "text": textFromBlocks(next), "updatedAt": now,
+	}}); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not save page")
+		return
+	}
+	order := make([]string, len(next))
+	for i, b := range next {
+		order[i] = b.ID
+	}
+	_, name := s.editorFor(r)
+	userID := currentUserID(r).Hex()
+	s.hub.Broadcast(page.ID.Hex(), map[string]any{
+		"type": "ops", "pageId": page.ID.Hex(), "clientId": clientID(r),
+		"blocksRev": rev, "order": order, "upserts": req.Upserts, "deletes": req.Deletes,
+		"updatedAt": now,
+		"editor":    map[string]string{"userId": userID, "name": name, "color": realtime.ColorFor(userID)},
+	}, clientID(r))
+	snapshot := page
+	snapshot.Blocks = next
+	s.maybeSnapshot(r, snapshot, name)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"blocksRev": rev, "order": order, "upserts": req.Upserts, "deletes": req.Deletes, "updatedAt": now,
+	})
 }
 
 func (s *Server) duplicatePage(w http.ResponseWriter, r *http.Request) {
@@ -515,6 +665,7 @@ func (s *Server) duplicatePage(w http.ResponseWriter, r *http.Request) {
 		Icon:        original.Icon,
 		Cover:       original.Cover,
 		Blocks:      blocks,
+		BlocksRev:   1,
 		Text:        original.Text,
 		Order:       order,
 		CreatedBy:   currentUserID(r),

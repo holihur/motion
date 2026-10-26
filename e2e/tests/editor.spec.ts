@@ -26,7 +26,7 @@ test.describe("page editor", () => {
     await waitForPageTitle(request, account.token, welcome.id, "Field Notes")
 
     await page.getByRole("button", { name: "Add a block" }).click()
-    await page.waitForTimeout(80)
+    await expect(page.locator("[data-block-input]").last()).toBeFocused()
     await page.keyboard.type("#")
     await page.keyboard.press(" ")
     await page.waitForTimeout(100)
@@ -53,7 +53,7 @@ test.describe("page editor", () => {
     await page.goto(`/page/${welcome.id}`)
 
     await page.getByRole("button", { name: "Add a block" }).click()
-    await page.waitForTimeout(80)
+    await expect(page.locator("[data-block-input]").last()).toBeFocused()
     await page.keyboard.type("/")
     await expect(page.getByText("Turn into", { exact: true })).toBeVisible()
     await page.keyboard.type("co")
@@ -63,7 +63,8 @@ test.describe("page editor", () => {
     await code.fill("const answer = 42;")
 
     await page.getByRole("button", { name: "Add a block" }).click()
-    await page.waitForTimeout(200)
+    const todoInput = page.locator("[data-block-input]").last()
+    await expect(todoInput).toBeFocused()
     await page.keyboard.type("[]")
     await page.keyboard.press(" ")
     const firstTodo = page.locator("[data-block-row]").last()

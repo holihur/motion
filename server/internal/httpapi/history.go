@@ -163,6 +163,7 @@ func (s *Server) restoreRevision(w http.ResponseWriter, r *http.Request) {
 		"icon":      revision.Icon,
 		"cover":     revision.Cover,
 		"blocks":    blocks,
+		"blocksRev": page.BlocksRev + 1,
 		"text":      textFromBlocks(blocks),
 		"updatedAt": now,
 	}}); err != nil {
@@ -170,6 +171,7 @@ func (s *Server) restoreRevision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page.Title, page.Icon, page.Cover, page.Blocks = revision.Title, revision.Icon, revision.Cover, blocks
+	page.BlocksRev++
 
 	userID := currentUserID(r).Hex()
 	s.hub.Broadcast(page.ID.Hex(), map[string]any{
@@ -179,7 +181,7 @@ func (s *Server) restoreRevision(w http.ResponseWriter, r *http.Request) {
 	}, clientID(r))
 	s.hub.Broadcast(page.ID.Hex(), map[string]any{
 		"type": "meta", "pageId": page.ID.Hex(), "clientId": clientID(r),
-		"page": map[string]any{"title": page.Title, "icon": page.Icon, "cover": page.Cover},
+		"page":   map[string]any{"title": page.Title, "icon": page.Icon, "cover": page.Cover},
 		"editor": map[string]string{"userId": userID, "name": name, "color": realtime.ColorFor(userID)},
 	}, clientID(r))
 	s.broadcastTree(page.WorkspaceID, clientID(r))

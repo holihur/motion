@@ -2,7 +2,10 @@ import { localizeApiError } from "./i18n"
 import { uid } from "./utils"
 import type {
   AIChatResponse,
+  AIProposal,
   AISettings,
+  Agent,
+  AuditLog,
   Block,
   SystemInfo,
   UpdateCheck,
@@ -103,6 +106,94 @@ function body(value: unknown): string {
   return JSON.stringify(value)
 }
 
+async function streamChat(
+  input: {
+    message: string
+    pageId?: string
+    agentId?: string
+    history?: { role: string; content: string }[]
+    signal?: AbortSignal
+  },
+  onToken: (text: string) => void,
+): Promise<AIChatResponse> {
+  const token = getToken()
+  const headers = new Headers({ "Content-Type": "application/json" })
+  if (token) headers.set("Authorization", `Bearer ${token}`)
+  headers.set("X-Motion-Client", getClientId())
+  let response: Response
+  try {
+    response = await fetch("/api/ai/chat/stream", {
+      method: "POST",
+      headers,
+      body: body({
+        message: input.message,
+        pageId: input.pageId,
+        agentId: input.agentId,
+        history: input.history,
+      }),
+      signal: input.signal,
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error
+    throw new ApiError("无法连接服务器，请稍后再试", 0)
+  }
+  if (!response.ok) {
+    const raw = await response.text()
+    let message = `请求失败（${response.status}）`
+    try {
+      const payload = JSON.parse(raw) as { error?: string }
+      if (payload.error) message = payload.error
+    } catch {
+      // Keep the generic message.
+    }
+    if (response.status === 401 && token) {
+      window.dispatchEvent(new CustomEvent("motion:unauthorized"))
+    }
+    throw new ApiError(localizeApiError(message), response.status)
+  }
+  if (!response.body) throw new ApiError("服务器不支持流式响应", 0)
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let done: AIChatResponse | null = null
+  let streamError: string | null = null
+
+  function consume(block: string) {
+    let event = "message"
+    const dataLines: string[] = []
+    for (const line of block.split("\n")) {
+      if (line.startsWith("event:")) event = line.slice(6).trim()
+      else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim())
+    }
+    if (dataLines.length === 0) return
+    let payload: Record<string, unknown>
+    try {
+      payload = JSON.parse(dataLines.join("\n")) as Record<string, unknown>
+    } catch {
+      return
+    }
+    if (event === "token" && typeof payload.text === "string") onToken(payload.text)
+    else if (event === "done") done = payload as unknown as AIChatResponse
+    else if (event === "error") streamError = String(payload.error ?? "AI request failed")
+  }
+
+  while (true) {
+    const { value, done: finished } = await reader.read()
+    if (finished) break
+    buffer += decoder.decode(value, { stream: true })
+    let index = buffer.indexOf("\n\n")
+    while (index >= 0) {
+      consume(buffer.slice(0, index))
+      buffer = buffer.slice(index + 2)
+      index = buffer.indexOf("\n\n")
+    }
+  }
+  if (buffer.trim()) consume(buffer)
+  if (streamError) throw new ApiError(localizeApiError(streamError), 502)
+  if (!done) throw new ApiError("AI 连接提前结束", 0)
+  return done
+}
+
 export const api = {
   auth: {
     login: (email: string, password: string) =>
@@ -154,6 +245,26 @@ export const api = {
   system: {
     info: () => request<SystemInfo>("/system/info"),
   },
+  agents: {
+    list: (workspaceId: string) => request<Agent[]>(`/workspaces/${workspaceId}/agents`),
+    create: (workspaceId: string, input: Partial<Pick<Agent, "name" | "icon" | "description" | "mode" | "scopes" | "enabled">>) =>
+      request<Agent>(`/workspaces/${workspaceId}/agents`, { method: "POST", body: body(input) }),
+    update: (agentId: string, input: Partial<Pick<Agent, "name" | "icon" | "description" | "mode" | "scopes" | "enabled">>) =>
+      request<Agent>(`/agents/${agentId}`, { method: "PATCH", body: body(input) }),
+    remove: (agentId: string) => request<void>(`/agents/${agentId}`, { method: "DELETE" }),
+  },
+  proposals: {
+    list: (workspaceId: string, status?: string) =>
+      request<AIProposal[]>(
+        `/workspaces/${workspaceId}/proposals${status ? `?status=${encodeURIComponent(status)}` : ""}`,
+      ),
+    get: (id: string) => request<AIProposal>(`/proposals/${id}`),
+    approve: (id: string) => request<AIProposal>(`/proposals/${id}/approve`, { method: "POST" }),
+    reject: (id: string) => request<AIProposal>(`/proposals/${id}/reject`, { method: "POST" }),
+  },
+  audit: {
+    list: (workspaceId: string) => request<AuditLog[]>(`/workspaces/${workspaceId}/audit`),
+  },
   ops: {
     settings: (opsToken: string) => request<OpsSettings>("/ops/settings", {}, opsToken),
     saveSettings: (opsToken: string, input: {
@@ -200,14 +311,30 @@ export const api = {
     chat: (input: {
       message: string
       pageId?: string
+      agentId?: string
       history?: { role: string; content: string }[]
       signal?: AbortSignal
     }) =>
       request<AIChatResponse>("/ai/chat", {
         method: "POST",
-        body: body({ message: input.message, pageId: input.pageId, history: input.history }),
+        body: body({
+          message: input.message,
+          pageId: input.pageId,
+          agentId: input.agentId,
+          history: input.history,
+        }),
         signal: input.signal,
       }),
+    chatStream: (
+      input: {
+        message: string
+        pageId?: string
+        agentId?: string
+        history?: { role: string; content: string }[]
+        signal?: AbortSignal
+      },
+      onToken: (text: string) => void,
+    ) => streamChat(input, onToken),
   },
   pages: {
     list: (workspaceId: string) =>
@@ -233,10 +360,21 @@ export const api = {
       },
     ) => request<Page>(`/pages/${id}`, { method: "PATCH", body: body(patch) }),
     saveBlocks: (id: string, blocks: Block[], base?: Block[]) =>
-      request<{ blocks: Block[]; updatedAt: string }>(`/pages/${id}/blocks`, {
+      request<{ blocks: Block[]; blocksRev?: number; updatedAt: string }>(`/pages/${id}/blocks`, {
         method: "PUT",
         body: body(base ? { blocks, base } : { blocks }),
       }),
+    applyOps: (
+      id: string,
+      input: { baseRev: number; order: string[]; upserts: Block[]; deletes: string[] },
+    ) =>
+      request<{
+        blocksRev: number
+        order: string[]
+        upserts: Block[]
+        deletes: string[]
+        updatedAt: string
+      }>(`/pages/${id}/ops`, { method: "POST", body: body(input) }),
     comments: (id: string) => request<Comment[]>(`/pages/${id}/comments`),
     createComment: (
       id: string,

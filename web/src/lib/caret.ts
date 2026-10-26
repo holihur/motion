@@ -10,6 +10,9 @@ export function focusBlockById(
   }
   const el = document.getElementById(`block-input-${id}`)
   if (!el) return
+  // Lexical owns its selection. The event above is handled by FocusBridge;
+  // touching the DOM selection here can move the caret to the start.
+  if (el.hasAttribute("data-lexical-input")) return
   if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
     el.focus()
     const position = where === "end" ? el.value.length : 0

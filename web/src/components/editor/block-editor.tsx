@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Plus } from "lucide-react"
 import type { Block, BlockType, Comment } from "@/lib/types"
 import { uid } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
+import { markOnboardingStep } from "@/lib/onboarding"
 import { caretOffset, caretRect, focusBlockById, setCaret } from "@/lib/caret"
 import { BlockRow } from "@/components/editor/block-row"
 import { SlashMenu, type SlashState } from "@/components/editor/slash-menu"
+import { VirtualBlockList } from "@/components/editor/virtual-block-list"
+import type { HeadingItem } from "@/components/editor/rich-blocks"
 import type { RealtimePresence } from "@/lib/realtime"
 import { filterCommands, type SlashCommand } from "@/components/editor/commands"
 
@@ -57,7 +60,7 @@ function focusAt(id: string, offset: number) {
       new CustomEvent("motion:focus-block", { detail: { id, where: "end", offset } }),
     )
     const el = document.getElementById(`block-input-${id}`) as HTMLElement | null
-    if (!el) return
+    if (!el || el.hasAttribute("data-lexical-input")) return
     el.focus()
     if (el instanceof HTMLTextAreaElement) {
       el.setSelectionRange(offset, offset)
@@ -80,6 +83,7 @@ export function BlockEditor({
   blockComments,
   onOpenComments,
   onCommentBlock,
+  scrollParentRef,
   readOnly = false,
 }: {
   blocks: Block[]
@@ -90,8 +94,28 @@ export function BlockEditor({
   blockComments?: Record<string, Comment[]>
   onOpenComments?: () => void
   onCommentBlock?: (blockId: string) => void
+  scrollParentRef?: React.RefObject<HTMLDivElement | null>
   readOnly?: boolean
 }) {
+  const blocksRef = useRef(blocks)
+  blocksRef.current = blocks
+  const resetKeysRef = useRef<Record<string, number>>({})
+  const [, setResetVersion] = useState(0)
+  const [autoFocus, setAutoFocus] = useState<{ id: string; where: "start" | "end"; offset?: number } | null>(null)
+
+  useEffect(() => {
+    if (!autoFocus) return
+    const timer = window.setTimeout(() => setAutoFocus(null), 1200)
+    return () => window.clearTimeout(timer)
+  }, [autoFocus])
+  function bumpReset(id: string) {
+    resetKeysRef.current[id] = (resetKeysRef.current[id] ?? 0) + 1
+    setResetVersion((value) => value + 1)
+  }
+
+  function focusNew(id: string, where: "start" | "end" = "end", offset?: number) {
+    setAutoFocus({ id, where, offset })
+  }
   const [slash, setSlash] = useState<SlashState | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)
   const [drop, setDrop] = useState<{ index: number; position: "before" | "after" } | null>(null)
@@ -109,6 +133,18 @@ export function BlockEditor({
     return () => window.removeEventListener("motion:open-insert", onInsert)
   }, [blocks, readOnly])
 
+  const headings = useMemo<HeadingItem[]>(
+    () =>
+      blocks
+        .filter((block) => block.type === "heading1" || block.type === "heading2" || block.type === "heading3")
+        .map((block) => ({
+          id: block.id,
+          text: block.text,
+          level: block.type === "heading1" ? 1 : block.type === "heading2" ? 2 : 3,
+        })),
+    [blocks],
+  )
+
   const numbers = useMemo(() => {
     let current = 0
     let previousNumbered = false
@@ -123,8 +159,13 @@ export function BlockEditor({
     })
   }, [blocks])
 
+  function commit(next: Block[]) {
+    blocksRef.current = next
+    onChange(next)
+  }
+
   function updateBlock(index: number, patch: Partial<Block>) {
-    onChange(blocks.map((block, position) => (position === index ? { ...block, ...patch } : block)))
+    commit(blocksRef.current.map((block, position) => (position === index ? { ...block, ...patch } : block)))
   }
 
   function openSlash(
@@ -133,10 +174,10 @@ export function BlockEditor({
     query: string,
     rect?: DOMRect | null,
   ) {
-    const fallback = document.getElementById(`block-input-${blocks[index]?.id}`)
+    const fallback = document.getElementById(`block-input-${blocksRef.current[index]?.id}`)
     const box = rect ?? (fallback ? caretRect(fallback) : null) ?? fallback?.getBoundingClientRect()
     setSlash({
-      blockId: blocks[index]?.id ?? "",
+      blockId: blocksRef.current[index]?.id ?? "",
       index,
       mode,
       query,
@@ -151,7 +192,7 @@ export function BlockEditor({
   }
 
   function convertBlock(index: number, type: BlockType, clearText = false) {
-    const block = blocks[index]
+    const block = blocksRef.current[index]
     if (!block) return
     const clear = clearText || type === "divider" || type === "image" || type === "table" || type === "diagram"
     const nextText = clear
@@ -176,24 +217,25 @@ export function BlockEditor({
           }
         : {}),
     })
-    focusSoon(block.id, clear ? "start" : "end")
+    focusNew(block.id, clear ? "start" : "end")
     closeSlash()
   }
 
   function applyCommand(command: SlashCommand) {
     if (!slash) return
+    markOnboardingStep("slash")
     const index = slash.index
     if (slash.mode === "insert") {
       const block = createBlock(command.type)
-      const next = [...blocks.slice(0, index + 1), block, ...blocks.slice(index + 1)]
+      const next = [...blocksRef.current.slice(0, index + 1), block, ...blocksRef.current.slice(index + 1)]
       if (command.type === "divider" || command.type === "image") {
         const paragraph = createBlock("paragraph")
         next.splice(index + 2, 0, paragraph)
-        onChange(next)
-        focusSoon(paragraph.id, "start")
+        commit(next)
+        focusNew(paragraph.id, "start")
       } else {
-        onChange(next)
-        focusSoon(block.id, "end")
+        commit(next)
+        focusNew(block.id, "end")
       }
     } else {
       convertBlock(index, command.type, true)
@@ -202,7 +244,7 @@ export function BlockEditor({
   }
 
   function handleInput(index: number, text: string, el: HTMLElement, rich?: string) {
-    const block = blocks[index]
+    const block = blocksRef.current[index]
     if (!block) return
 
     if (block.type === "code") {
@@ -221,7 +263,7 @@ export function BlockEditor({
         ...(type === "code" ? { language: "plain text" } : {}),
       })
       closeSlash()
-      focusSoon(block.id, "start")
+      focusNew(block.id, "start")
       return
     }
 
@@ -257,7 +299,7 @@ export function BlockEditor({
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLElement>, index: number) {
-    const block = blocks[index]
+    const block = blocksRef.current[index]
     if (!block) return
 
     if (slash && slash.blockId === block.id) {
@@ -300,17 +342,17 @@ export function BlockEditor({
       if (event.key === "Enter") {
         event.preventDefault()
         const paragraph = createBlock("paragraph")
-        onChange([...blocks.slice(0, index + 1), paragraph, ...blocks.slice(index + 1)])
-        focusSoon(paragraph.id, "start")
+        commit([...blocksRef.current.slice(0, index + 1), paragraph, ...blocksRef.current.slice(index + 1)])
+        focusNew(paragraph.id, "start")
       } else if ((event.key === "Backspace" || event.key === "Delete") && block.type === "divider") {
         event.preventDefault()
         deleteBlock(index)
       } else if (event.key === "ArrowUp" && index > 0) {
         event.preventDefault()
-        focusSoon(blocks[index - 1].id, "end")
-      } else if (event.key === "ArrowDown" && index < blocks.length - 1) {
+        focusSoon(blocksRef.current[index - 1].id, "end")
+      } else if (event.key === "ArrowDown" && index < blocksRef.current.length - 1) {
         event.preventDefault()
-        focusSoon(blocks[index + 1].id, "start")
+        focusSoon(blocksRef.current[index + 1].id, "start")
       }
       return
     }
@@ -335,13 +377,15 @@ export function BlockEditor({
       }
       const fresh = createBlock(nextType)
       fresh.text = after
-      onChange([
-        ...blocks.slice(0, index),
-        { ...block, text: before },
+      fresh.rich = ""
+      commit([
+        ...blocksRef.current.slice(0, index),
+        { ...block, text: before, rich: after ? "" : block.rich },
         fresh,
-        ...blocks.slice(index + 1),
+        ...blocksRef.current.slice(index + 1),
       ])
-      focusSoon(fresh.id, "start")
+      if (after) bumpReset(block.id)
+      focusNew(fresh.id, "start")
       return
     }
 
@@ -353,38 +397,39 @@ export function BlockEditor({
         }
         return
       }
-      const previous = blocks[index - 1]
+      const previous = blocksRef.current[index - 1]
       event.preventDefault()
       if (previous.type === "divider" || previous.type === "image") return
       if (block.text === "") {
-        onChange(blocks.filter((_, position) => position !== index))
+        commit(blocksRef.current.filter((_, position) => position !== index))
         focusSoon(previous.id, "end")
         return
       }
       const merged = { ...previous, text: previous.text + block.text, rich: "" }
       const offset = previous.text.length
-      onChange([
-        ...blocks.slice(0, index - 1),
+      commit([
+        ...blocksRef.current.slice(0, index - 1),
         merged,
-        ...blocks.slice(index + 1),
+        ...blocksRef.current.slice(index + 1),
       ])
-      focusAt(merged.id, offset)
+      bumpReset(merged.id)
+      focusNew(merged.id, "end", offset)
       return
     }
 
     if (event.key === "ArrowUp" && !event.shiftKey && caretOffset(el) === 0 && index > 0) {
       event.preventDefault()
-      focusSoon(blocks[index - 1].id, "end")
+      focusSoon(blocksRef.current[index - 1].id, "end")
       return
     }
     if (
       event.key === "ArrowDown" &&
       !event.shiftKey &&
       caretOffset(el) === block.text.length &&
-      index < blocks.length - 1
+      index < blocksRef.current.length - 1
     ) {
       event.preventDefault()
-      focusSoon(blocks[index + 1].id, "start")
+      focusSoon(blocksRef.current[index + 1].id, "start")
     }
   }
 
@@ -415,21 +460,21 @@ export function BlockEditor({
     }
     if (event.key === "ArrowUp" && el.selectionStart === 0 && index > 0) {
       event.preventDefault()
-      focusSoon(blocks[index - 1].id, "end")
+      focusSoon(blocksRef.current[index - 1].id, "end")
       return
     }
     if (
       event.key === "ArrowDown" &&
       el.selectionStart === block.text.length &&
-      index < blocks.length - 1
+      index < blocksRef.current.length - 1
     ) {
       event.preventDefault()
-      focusSoon(blocks[index + 1].id, "start")
+      focusSoon(blocksRef.current[index + 1].id, "start")
     }
   }
 
   function handlePaste(index: number, raw: string) {
-    const block = blocks[index]
+    const block = blocksRef.current[index]
     const el = document.getElementById(`block-input-${block.id}`) as HTMLElement | null
     const offset = el ? caretOffset(el) : block.text.length
     const text = raw.replace(/\r/g, "")
@@ -444,36 +489,38 @@ export function BlockEditor({
     const after = block.text.slice(offset)
     const middle = lines.slice(1, -1).map((line) => ({ ...createBlock("paragraph"), text: line }))
     const last = { ...createBlock("paragraph"), text: lines[lines.length - 1] + after }
+    const first = { ...createBlock("paragraph"), text: before + lines[0], rich: "" }
     const next = [
-      ...blocks.slice(0, index),
-      { ...createBlock("paragraph"), text: before + lines[0] },
+      ...blocksRef.current.slice(0, index),
+      first,
       ...middle,
       last,
-      ...blocks.slice(index + 1),
+      ...blocksRef.current.slice(index + 1),
     ]
-    onChange(next)
-    focusSoon(last.id, "end")
+    commit(next)
+    bumpReset(first.id)
+    focusNew(last.id, "end")
   }
 
   function deleteBlock(index: number) {
-    const block = blocks[index]
-    const next = blocks.filter((_, position) => position !== index)
+    const block = blocksRef.current[index]
+    const next = blocksRef.current.filter((_, position) => position !== index)
     if (next.length === 0) {
       const fresh = createBlock("paragraph")
-      onChange([fresh])
-      focusSoon(fresh.id, "start")
+      commit([fresh])
+      focusNew(fresh.id, "start")
       return
     }
-    const target = blocks[index - 1] ?? blocks[index + 1]
-    onChange(next)
+    const target = blocksRef.current[index - 1] ?? blocksRef.current[index + 1]
+    commit(next)
     focusSoon(target.id, index === 0 ? "start" : "end")
   }
 
   function duplicateBlock(index: number) {
-    const block = blocks[index]
+    const block = blocksRef.current[index]
     const copy = { ...block, id: uid() }
-    onChange([...blocks.slice(0, index + 1), copy, ...blocks.slice(index + 1)])
-    focusSoon(copy.id, "end")
+    commit([...blocksRef.current.slice(0, index + 1), copy, ...blocksRef.current.slice(index + 1)])
+    focusNew(copy.id, "end")
   }
 
   function moveBlock(from: number, target: number, position: "before" | "after") {
@@ -483,25 +530,25 @@ export function BlockEditor({
       return
     }
     let insert = position === "after" ? target + 1 : target
-    const next = [...blocks]
+    const next = [...blocksRef.current]
     const [item] = next.splice(from, 1)
     if (from < insert) insert -= 1
     next.splice(insert, 0, item)
-    onChange(next)
+    commit(next)
     setDragging(null)
     setDrop(null)
     focusSoon(item.id, "end")
   }
 
   function appendBlock() {
-    const last = blocks[blocks.length - 1]
+    const last = blocksRef.current[blocksRef.current.length - 1]
     if (last && last.type === "paragraph" && last.text === "") {
       focusSoon(last.id, "end")
       return
     }
     const block = createBlock("paragraph")
-    onChange([...blocks, block])
-    focusSoon(block.id, "start")
+    commit([...blocksRef.current, block])
+    focusNew(block.id, "start")
   }
 
   function placeholderFor(block: Block, index: number) {
@@ -529,54 +576,65 @@ export function BlockEditor({
     }
   }
 
+  function renderRow(block: Block, index: number) {
+    return (
+      <BlockRow
+        block={block}
+        index={index}
+        number={numbers[index]}
+        placeholder={placeholderFor(block, index)}
+        slashActive={slash?.blockId === block.id}
+        isDragging={dragging === index}
+        dropPosition={drop?.index === index ? drop.position : null}
+        focusUsers={remoteFocus?.[block.id]}
+        commentCount={commentCounts?.[block.id] ?? 0}
+        comments={blockComments?.[block.id]}
+        onOpenComments={onOpenComments}
+        onCommentBlock={onCommentBlock}
+        onFocusBlock={onFocusBlock}
+        readOnly={readOnly}
+        resetKey={resetKeysRef.current[block.id] ?? 0}
+        autoFocus={autoFocus?.id === block.id}
+        autoFocusWhere={autoFocus?.where}
+        autoFocusOffset={autoFocus?.offset}
+        headings={headings}
+        onInput={(text, el, rich) => handleInput(index, text, el, rich)}
+        onKeyDown={handleKeyDown}
+        onPaste={(text) => handlePaste(index, text)}
+        onToggle={() => updateBlock(index, { checked: !block.checked })}
+        onUpdate={(patch) => updateBlock(index, patch)}
+        onConvert={(type) => convertBlock(index, type)}
+        onDelete={() => deleteBlock(index)}
+        onDuplicate={() => duplicateBlock(index)}
+        onInsertAfter={(rect) => openSlash(index, "insert", "", rect)}
+        onDragStart={() => setDragging(index)}
+        onDragEnd={() => {
+          setDragging(null)
+          setDrop(null)
+        }}
+        onDragOver={(position) => {
+          if (dragging === null) return
+          setDrop((current) =>
+            current && current.index === index && current.position === position
+              ? current
+              : { index, position },
+          )
+        }}
+        onDrop={(position) => {
+          if (dragging !== null) moveBlock(dragging, index, position)
+        }}
+      />
+    )
+  }
+
   return (
     <div className="relative">
-      <div className="space-y-0.5">
-        {blocks.map((block, index) => (
-          <BlockRow
-            key={block.id}
-            block={block}
-            index={index}
-            number={numbers[index]}
-            placeholder={placeholderFor(block, index)}
-            slashActive={slash?.blockId === block.id}
-            isDragging={dragging === index}
-            dropPosition={drop?.index === index ? drop.position : null}
-            focusUsers={remoteFocus?.[block.id]}
-            commentCount={commentCounts?.[block.id] ?? 0}
-            comments={blockComments?.[block.id]}
-            onOpenComments={onOpenComments}
-            onCommentBlock={onCommentBlock}
-            onFocusBlock={onFocusBlock}
-            readOnly={readOnly}
-            onInput={(text, el, rich) => handleInput(index, text, el, rich)}
-            onKeyDown={handleKeyDown}
-            onPaste={(text) => handlePaste(index, text)}
-            onToggle={() => updateBlock(index, { checked: !block.checked })}
-            onUpdate={(patch) => updateBlock(index, patch)}
-            onConvert={(type) => convertBlock(index, type)}
-            onDelete={() => deleteBlock(index)}
-            onDuplicate={() => duplicateBlock(index)}
-            onInsertAfter={(rect) => openSlash(index, "insert", "", rect)}
-            onDragStart={() => setDragging(index)}
-            onDragEnd={() => {
-              setDragging(null)
-              setDrop(null)
-            }}
-            onDragOver={(position) => {
-              if (dragging === null) return
-              setDrop((current) =>
-                current && current.index === index && current.position === position
-                  ? current
-                  : { index, position },
-              )
-            }}
-            onDrop={(position) => {
-              if (dragging !== null) moveBlock(dragging, index, position)
-            }}
-          />
-        ))}
-      </div>
+      {blocks.length > 80 && scrollParentRef ? (
+        <VirtualBlockList blocks={blocks} scrollParentRef={scrollParentRef} renderRow={renderRow} />
+      ) : (
+        <div className="space-y-0.5">{blocks.map(renderRow)}</div>
+      )}
+
 
       {!readOnly && <button
         type="button"

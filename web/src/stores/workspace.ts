@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { api } from "@/lib/api"
+import { markOnboardingStep } from "@/lib/onboarding"
 import type { Page, PageSummary, Workspace } from "@/lib/types"
 
 const ACTIVE_KEY = "motion.workspace"
@@ -162,6 +163,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       parentId: parentId ?? null,
       title: "",
     })
+    markOnboardingStep("page")
     await get().refreshPages(activeId)
     return page
   },

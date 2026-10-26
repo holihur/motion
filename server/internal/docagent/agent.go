@@ -32,16 +32,73 @@ type ChatMessage struct {
 	Content string `json:"content"`
 }
 
+type TouchedPage struct {
+	Before  *model.Page
+	After   model.Page
+	Created bool
+}
+
 type Runner struct {
-	Store     *store.Store
-	Hub       *realtime.Hub
-	User      model.User
-	Key       string
-	ModelName string
-	Provider  string
-	BaseURL   string
-	Scopes    map[string]bool
-	Actions   []string
+	Store        *store.Store
+	Hub          *realtime.Hub
+	User         model.User
+	Key          string
+	ModelName    string
+	Provider     string
+	BaseURL      string
+	Scopes       map[string]bool
+	Actions      []string
+	TrackChanges bool
+	Touched      map[string]*TouchedPage
+}
+
+func copyPage(page model.Page) model.Page {
+	page.Blocks = append([]model.Block(nil), page.Blocks...)
+	return page
+}
+
+func (r *Runner) trackBefore(page model.Page) {
+	if !r.TrackChanges {
+		return
+	}
+	if r.Touched == nil {
+		r.Touched = map[string]*TouchedPage{}
+	}
+	id := page.ID.Hex()
+	if entry, ok := r.Touched[id]; ok {
+		if entry.Before == nil {
+			before := copyPage(page)
+			entry.Before = &before
+		}
+		return
+	}
+	before := copyPage(page)
+	r.Touched[id] = &TouchedPage{Before: &before}
+}
+
+func (r *Runner) trackAfter(page model.Page) {
+	if !r.TrackChanges {
+		return
+	}
+	if r.Touched == nil {
+		r.Touched = map[string]*TouchedPage{}
+	}
+	entry := r.Touched[page.ID.Hex()]
+	if entry == nil {
+		entry = &TouchedPage{}
+		r.Touched[page.ID.Hex()] = entry
+	}
+	entry.After = copyPage(page)
+}
+
+func (r *Runner) trackCreated(page model.Page) {
+	if !r.TrackChanges {
+		return
+	}
+	if r.Touched == nil {
+		r.Touched = map[string]*TouchedPage{}
+	}
+	r.Touched[page.ID.Hex()] = &TouchedPage{After: copyPage(page), Created: true}
 }
 
 // FindAgentsPage returns the workspace's AGENTS.md instructions page.
@@ -209,6 +266,18 @@ func markdownFor(page model.Page) string {
 			builder.WriteString("---\n\n")
 		case "image":
 			builder.WriteString("![image](" + block.URL + ")\n\n")
+		case "bookmark", "video", "embed", "file":
+			label := strings.TrimSpace(block.Text)
+			if label == "" {
+				label = block.URL
+			}
+			builder.WriteString("[" + label + "](" + block.URL + ")\n\n")
+		case "equation":
+			builder.WriteString("$$\n" + block.Text + "\n$$\n\n")
+		case "toc":
+			builder.WriteString("**Table of contents**\n\n")
+		case "password":
+			builder.WriteString("🔒 " + block.Text + "\n\n")
 		default:
 			builder.WriteString(block.Text + "\n\n")
 		}
@@ -506,6 +575,7 @@ func (r *Runner) createPage(ctx context.Context, input createPageInput) (createP
 	if _, err := r.Store.Pages.InsertOne(ctx, page); err != nil {
 		return createPageOutput{}, err
 	}
+	r.trackCreated(page)
 	r.broadcastTree(workspace.ID)
 	r.snapshot(ctx, page)
 	r.record("Created page “" + title + "”")
@@ -635,6 +705,7 @@ func (r *Runner) appendBlocks(ctx context.Context, input appendBlocksInput) (app
 	if len(page.Blocks)+len(fresh) > 2000 {
 		return appendBlocksOutput{}, fmt.Errorf("page has too many blocks")
 	}
+	r.trackBefore(page)
 	page.Blocks = append(page.Blocks, fresh...)
 	now := time.Now().UTC()
 	if _, err := r.Store.Pages.UpdateByID(ctx, page.ID, bson.M{"$set": bson.M{
@@ -642,6 +713,7 @@ func (r *Runner) appendBlocks(ctx context.Context, input appendBlocksInput) (app
 	}}); err != nil {
 		return appendBlocksOutput{}, err
 	}
+	r.trackAfter(page)
 	r.broadcastBlocks(page, page.Blocks, now)
 	r.snapshot(ctx, page)
 	r.record(fmt.Sprintf("Added %d block(s) to “%s”", len(fresh), page.Title))
@@ -671,6 +743,7 @@ func (r *Runner) updatePage(ctx context.Context, input updatePageInput) (updateP
 	if role == "viewer" {
 		return updatePageOutput{}, fmt.Errorf("you only have view access")
 	}
+	r.trackBefore(page)
 	updates := bson.M{"updatedAt": time.Now().UTC()}
 	if title := strings.TrimSpace(input.Title); title != "" {
 		if len([]rune(title)) > 200 {
@@ -686,6 +759,7 @@ func (r *Runner) updatePage(ctx context.Context, input updatePageInput) (updateP
 	if _, err := r.Store.Pages.UpdateByID(ctx, page.ID, bson.M{"$set": updates}); err != nil {
 		return updatePageOutput{}, err
 	}
+	r.trackAfter(page)
 	r.broadcastMeta(page)
 	r.broadcastTree(page.WorkspaceID)
 	r.snapshot(ctx, page)
@@ -715,6 +789,7 @@ func (r *Runner) updateBlock(ctx context.Context, input updateBlockInput) (updat
 	if role == "viewer" {
 		return updateBlockOutput{}, fmt.Errorf("you only have view access")
 	}
+	r.trackBefore(page)
 	found := false
 	for i := range page.Blocks {
 		if page.Blocks[i].ID == input.BlockID {
@@ -733,6 +808,7 @@ func (r *Runner) updateBlock(ctx context.Context, input updateBlockInput) (updat
 	}}); err != nil {
 		return updateBlockOutput{}, err
 	}
+	r.trackAfter(page)
 	r.broadcastBlocks(page, page.Blocks, now)
 	r.snapshot(ctx, page)
 	r.record("Updated a block in “" + page.Title + "”")
@@ -864,6 +940,29 @@ func (r *Runner) tools() ([]tool.Tool, error) {
 
 // Run executes the ADK document agent with the user's BYOK Gemini key.
 func (r *Runner) Run(ctx context.Context, history []ChatMessage, message, focusPageID string) (string, []string, error) {
+	return r.run(ctx, history, message, focusPageID, false, nil)
+}
+
+// RunStream is like Run, but invokes onText for each partial model chunk. The
+// callback returns false to abort the run (for example after a client
+// disconnects). Providers that do not support streaming simply produce no
+// partial callbacks and still return the final response.
+func (r *Runner) RunStream(
+	ctx context.Context,
+	history []ChatMessage,
+	message, focusPageID string,
+	onText func(string) bool,
+) (string, []string, error) {
+	return r.run(ctx, history, message, focusPageID, true, onText)
+}
+
+func (r *Runner) run(
+	ctx context.Context,
+	history []ChatMessage,
+	message, focusPageID string,
+	stream bool,
+	onText func(string) bool,
+) (string, []string, error) {
 	if strings.TrimSpace(r.Key) == "" {
 		return "", nil, fmt.Errorf("no API key configured")
 	}
@@ -963,11 +1062,15 @@ func (r *Runner) Run(ctx context.Context, history []ChatMessage, message, focusP
 	msg := genai.NewContentFromText(prompt.String(), genai.RoleUser)
 	sessionID := primitive.NewObjectID().Hex()
 	final := ""
-	for event, runErr := range engine.Run(ctx, r.User.ID.Hex(), sessionID, msg, agent.RunConfig{}) {
+	runConfig := agent.RunConfig{}
+	if stream {
+		runConfig.StreamingMode = agent.StreamingModeSSE
+	}
+	for event, runErr := range engine.Run(ctx, r.User.ID.Hex(), sessionID, msg, runConfig) {
 		if runErr != nil {
 			return "", r.Actions, runErr
 		}
-		if event == nil || event.Content == nil || !event.IsFinalResponse() {
+		if event == nil || event.Content == nil {
 			continue
 		}
 		var text strings.Builder
@@ -976,8 +1079,15 @@ func (r *Runner) Run(ctx context.Context, history []ChatMessage, message, focusP
 				text.WriteString(part.Text)
 			}
 		}
-		if strings.TrimSpace(text.String()) != "" {
-			final = text.String()
+		chunk := text.String()
+		if stream && event.Partial && chunk != "" {
+			if onText != nil && !onText(chunk) {
+				return "", r.Actions, context.Canceled
+			}
+			continue
+		}
+		if event.IsFinalResponse() && strings.TrimSpace(chunk) != "" {
+			final = chunk
 		}
 	}
 	if strings.TrimSpace(final) == "" {

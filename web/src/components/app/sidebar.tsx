@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 import {
   Check,
   ChevronsDownUp,
+  Inbox,
   ChevronsUpDown,
   Clock3,
   FileText,
@@ -16,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react"
 import { toast } from "sonner"
+import { api } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { useUIStore } from "@/stores/ui"
@@ -90,6 +92,7 @@ function SidebarContent() {
   const setSidebarOpen = useUIStore((state) => state.setSidebarOpen)
   const [showFavorites, setShowFavorites] = useState(true)
   const [filter, setFilter] = useState("")
+  const [pendingProposals, setPendingProposals] = useState(0)
 
   const favorites = pages.filter((page) => page.favorite)
   const recent = [...pages]
@@ -101,6 +104,25 @@ function SidebarContent() {
   const activeWorkspace = workspaces.find((workspace) => workspace.id === activeId)
   const readOnly = roleInWorkspace(activeWorkspace, user?.id) === "viewer"
   const opsUnlocked = typeof sessionStorage !== "undefined" && !!sessionStorage.getItem("motion.ops.token")
+
+  useEffect(() => {
+    if (!activeId) return
+    let alive = true
+    function loadPending() {
+      api.proposals
+        .list(activeId!, "pending")
+        .then((items) => {
+          if (alive) setPendingProposals(items.length)
+        })
+        .catch(() => undefined)
+    }
+    loadPending()
+    window.addEventListener("motion:proposals-changed", loadPending)
+    return () => {
+      alive = false
+      window.removeEventListener("motion:proposals-changed", loadPending)
+    }
+  }, [activeId])
 
   async function onNewPage() {
     if (readOnly) {
@@ -144,6 +166,17 @@ function SidebarContent() {
             label={tr("Home")}
             active={location.pathname === "/"}
             onClick={() => navigate("/")}
+          />
+          <SidebarButton
+            icon={<Inbox className="size-3.5" />}
+            label={tr("Agent Inbox")}
+            trailing={pendingProposals > 0 ? (
+              <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-300">
+                {pendingProposals}
+              </span>
+            ) : undefined}
+            active={location.pathname === "/inbox"}
+            onClick={() => navigate("/inbox")}
           />
           <RecentMenu pages={recent} />
           <div className="relative px-0.5 pt-1.5">

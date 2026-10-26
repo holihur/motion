@@ -17,6 +17,11 @@ const PageEditor = lazy(() =>
 const TrashView = lazy(() =>
   import("@/components/app/trash-view").then((module) => ({ default: module.TrashView })),
 )
+const AgentInboxView = lazy(() =>
+  import("@/components/agents/agent-inbox-view").then((module) => ({
+    default: module.AgentInboxView,
+  })),
+)
 const OpsView = lazy(() =>
   import("@/components/ops/ops-view").then((module) => ({ default: module.OpsView })),
 )
@@ -37,6 +42,7 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route index element={<HomeView />} />
             <Route path="page/:pageId" element={<PageRoute />} />
+            <Route path="inbox" element={<AgentInboxView />} />
             <Route path="trash" element={<TrashView />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

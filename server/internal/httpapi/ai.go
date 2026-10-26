@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -377,15 +379,20 @@ func (s *Server) testAISettings(w http.ResponseWriter, r *http.Request) {
 type aiChatRequest struct {
 	Message string                 `json:"message"`
 	PageID  string                 `json:"pageId,omitempty"`
+	AgentID string                 `json:"agentId,omitempty"`
 	History []docagent.ChatMessage `json:"history,omitempty"`
 }
 
 type aiChatResponse struct {
-	Reply      string   `json:"reply"`
-	Actions    []string `json:"actions,omitempty"`
-	Model      string   `json:"model"`
-	Provider   string   `json:"provider"`
-	RevisionID string   `json:"revisionId,omitempty"`
+	Reply      string             `json:"reply"`
+	Actions    []string           `json:"actions,omitempty"`
+	Model      string             `json:"model"`
+	Provider   string             `json:"provider"`
+	RevisionID string             `json:"revisionId,omitempty"`
+	AgentID    string             `json:"agentId,omitempty"`
+	AgentName  string             `json:"agentName,omitempty"`
+	Mode       string             `json:"mode,omitempty"`
+	Proposals  []model.AIProposal `json:"proposals,omitempty"`
 }
 
 func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
@@ -428,7 +435,6 @@ func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, "account no longer exists")
 		return
 	}
-	auth := currentAuth(r)
 	timeout, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
 	modelName := setting.Model
@@ -445,19 +451,171 @@ func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	workspaceID, _, ok := s.aiWorkspaceFor(r, req.PageID)
+	if !ok {
+		writeErr(w, http.StatusBadRequest, "no workspace found")
+		return
+	}
+	agentConfig, err := s.agentForRun(r.Context(), workspaceID, currentUserID(r), req.AgentID)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "agent not found or disabled")
+		return
+	}
+	agentScopes := make(map[string]bool, len(agentConfig.Scopes))
+	for _, scope := range agentConfig.Scopes {
+		agentScopes[scope] = true
+	}
 	agent := &docagent.Runner{
 		Store: s.store, Hub: s.hub, User: user, Key: key,
 		ModelName: modelName, Provider: setting.Provider, BaseURL: setting.BaseURL,
-		Scopes: auth.Scopes,
+		Scopes: agentScopes, TrackChanges: agentConfig.Mode == "approval",
 	}
 	reply, actions, err := agent.Run(timeout, req.History, req.Message, strings.TrimSpace(req.PageID))
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "AI request failed: "+err.Error())
 		return
 	}
+	proposals := []model.AIProposal{}
+	if agentConfig.Mode == "approval" {
+		proposals = s.finalizeApproval(r.Context(), agentConfig, agent, user)
+	}
+	if len(proposals) > 0 {
+		reply = strings.TrimSpace(reply) + fmt.Sprintf("\n\nPrepared %d change(s) for review in Agent Inbox.", len(proposals))
+	}
+	s.writeAudit(r.Context(), workspaceID, user.ID, user.Name, agentConfig.ID, agentConfig.Name,
+		"agent.run", "agent", agentConfig.ID.Hex(), "Ran "+agentConfig.Name+" with "+fmt.Sprint(len(actions))+" action(s)")
 	writeJSON(w, http.StatusOK, aiChatResponse{
 		Reply: reply, Actions: actions, Model: modelName, Provider: setting.Provider,
-		RevisionID: revisionID,
+		RevisionID: revisionID, AgentID: agentConfig.ID.Hex(), AgentName: agentConfig.Name,
+		Mode: agentConfig.Mode, Proposals: proposals,
+	})
+}
+
+func (s *Server) aiChatStream(w http.ResponseWriter, r *http.Request) {
+	var req aiChatRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.Message = strings.TrimSpace(req.Message)
+	if req.Message == "" || len([]rune(req.Message)) > 12000 {
+		writeErr(w, http.StatusBadRequest, "message must be between 1 and 12000 characters")
+		return
+	}
+	if len(req.History) > 30 {
+		req.History = req.History[len(req.History)-30:]
+	}
+	setting, err := s.aiSetting(r)
+	if err == mongo.ErrNoDocuments {
+		writeErr(w, http.StatusBadRequest, "configure your AI provider in Settings → AI first")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load AI settings")
+		return
+	}
+	if !aiConfigured(setting) {
+		writeErr(w, http.StatusBadRequest, "add your API key in Settings → AI first")
+		return
+	}
+	key := ""
+	if setting.KeyCipher != "" {
+		key, err = secret.Decrypt(s.cfg.EncryptionKey, setting.KeyCipher)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, "could not read the saved API key; save it again in Settings → AI")
+			return
+		}
+	}
+	var user model.User
+	if err := s.store.Users.FindOne(r.Context(), bson.M{"_id": currentUserID(r)}).Decode(&user); err != nil {
+		writeErr(w, http.StatusUnauthorized, "account no longer exists")
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeErr(w, http.StatusInternalServerError, "streaming is not supported by this server")
+		return
+	}
+	modelName := setting.Model
+	if modelName == "" {
+		modelName = aiDefaultModel(setting.Provider, s.siteSnapshot().AIModel)
+	}
+	revisionID := ""
+	if pageHex := strings.TrimSpace(req.PageID); pageHex != "" {
+		if pageID, err := primitive.ObjectIDFromHex(pageHex); err == nil {
+			if page, _, err := s.accessiblePage(r, pageID); err == nil {
+				if revision, err := s.createRevision(r, page, "Before Motion AI"); err == nil {
+					revisionID = revision.ID.Hex()
+				}
+			}
+		}
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	writeEvent := func(event string, data any) bool {
+		payload, err := json.Marshal(data)
+		if err != nil {
+			return false
+		}
+		if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, payload); err != nil {
+			return false
+		}
+		flusher.Flush()
+		return true
+	}
+	if !writeEvent("meta", map[string]any{
+		"model": modelName, "provider": setting.Provider, "revisionId": revisionID,
+	}) {
+		return
+	}
+	timeout, cancel := context.WithTimeout(r.Context(), 120*time.Second)
+	defer cancel()
+	workspaceID, _, ok := s.aiWorkspaceFor(r, req.PageID)
+	if !ok {
+		writeEvent("error", map[string]string{"error": "no workspace found"})
+		return
+	}
+	agentConfig, err := s.agentForRun(r.Context(), workspaceID, currentUserID(r), req.AgentID)
+	if err != nil {
+		writeEvent("error", map[string]string{"error": "agent not found or disabled"})
+		return
+	}
+	agentScopes := make(map[string]bool, len(agentConfig.Scopes))
+	for _, scope := range agentConfig.Scopes {
+		agentScopes[scope] = true
+	}
+	agent := &docagent.Runner{
+		Store: s.store, Hub: s.hub, User: user, Key: key,
+		ModelName: modelName, Provider: setting.Provider, BaseURL: setting.BaseURL,
+		Scopes: agentScopes, TrackChanges: agentConfig.Mode == "approval",
+	}
+	reply, actions, err := agent.RunStream(timeout, req.History, req.Message, strings.TrimSpace(req.PageID),
+		func(text string) bool {
+			return writeEvent("token", map[string]string{"text": text})
+		})
+	if err != nil {
+		if timeout.Err() != nil {
+			writeEvent("error", map[string]string{"error": "AI request timed out"})
+		} else {
+			writeEvent("error", map[string]string{"error": "AI request failed: " + err.Error()})
+		}
+		return
+	}
+	proposals := []model.AIProposal{}
+	if agentConfig.Mode == "approval" {
+		proposals = s.finalizeApproval(r.Context(), agentConfig, agent, user)
+	}
+	if len(proposals) > 0 {
+		reply = strings.TrimSpace(reply) + fmt.Sprintf("\n\nPrepared %d change(s) for review in Agent Inbox.", len(proposals))
+	}
+	s.writeAudit(r.Context(), workspaceID, user.ID, user.Name, agentConfig.ID, agentConfig.Name,
+		"agent.run", "agent", agentConfig.ID.Hex(), "Ran "+agentConfig.Name+" with "+fmt.Sprint(len(actions))+" action(s)")
+	writeEvent("done", aiChatResponse{
+		Reply: reply, Actions: actions, Model: modelName, Provider: setting.Provider,
+		RevisionID: revisionID, AgentID: agentConfig.ID.Hex(), AgentName: agentConfig.Name,
+		Mode: agentConfig.Mode, Proposals: proposals,
 	})
 }
 

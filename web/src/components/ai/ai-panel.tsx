@@ -14,13 +14,15 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
-import type { AIChatMessage } from "@/lib/types"
+import type { AIChatMessage, Agent, AIProposal } from "@/lib/types"
 import { cn, initials } from "@/lib/utils"
 import { useAuthStore } from "@/stores/auth"
 import { tr } from "@/lib/i18n"
+import { markOnboardingStep } from "@/lib/onboarding"
 import { useUIStore } from "@/stores/ui"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { ProposalDialog } from "@/components/agents/proposal-dialog"
 
 const QUICK_PROMPTS = [
   "Summarize this page in a few bullets",
@@ -33,12 +35,14 @@ export function AIPanel({
   open,
   onOpenChange,
   pageId,
+  workspaceId,
   pageTitle,
   onUndoRevision,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   pageId: string
+  workspaceId: string
   pageTitle: string
   onUndoRevision?: (revisionId: string) => Promise<void>
 }) {
@@ -50,6 +54,12 @@ export function AIPanel({
   const [provider, setProvider] = useState("")
   const [agentsPageId, setAgentsPageId] = useState("")
   const [creatingAgents, setCreatingAgents] = useState(false)
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [selectedAgentId, setSelectedAgentId] = useState("")
+  const [proposals, setProposals] = useState<AIProposal[]>([])
+  const [reviewingProposal, setReviewingProposal] = useState<AIProposal | null>(null)
+  const [reviewing, setReviewing] = useState(false)
+  const [reviewCount, setReviewCount] = useState(0)
   const [input, setInput] = useState("")
   const [pending, setPending] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -71,8 +81,25 @@ export function AIPanel({
   }, [open, pageId])
 
   useEffect(() => {
+    if (!open || !workspaceId) return
+    api.agents
+      .list(workspaceId)
+      .then((items) => {
+        setAgents(items)
+        setSelectedAgentId((current) => {
+          if (current && items.some((agent) => agent.id === current)) return current
+          return (items.find((agent) => agent.isDefault) ?? items[0])?.id ?? ""
+        })
+      })
+      .catch(() => setAgents([]))
+  }, [open, workspaceId])
+
+  useEffect(() => {
     setMessages(readChat(pageId))
+    setProposals([])
+    setReviewCount(0)
   }, [pageId])
+
 
   useEffect(() => {
     try {
@@ -108,6 +135,9 @@ export function AIPanel({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
   }, [messages, pending])
 
+  const selectedAgent =
+    agents.find((agent) => agent.id === selectedAgentId) ?? agents[0]
+
   async function runChat(
     message: string,
     history: { role: string; content: string }[],
@@ -116,29 +146,76 @@ export function AIPanel({
     const controller = new AbortController()
     abortRef.current = controller
     setPending(true)
+    const assistantIndex = base.length
+    setMessages([...base, { role: "assistant", content: "", streaming: true }])
+    let partialText = ""
     try {
-      const response = await api.ai.chat({
-        message,
-        pageId,
-        history,
-        signal: controller.signal,
-      })
-      setMessages([
-        ...base,
+      const response = await api.ai.chatStream(
         {
-          role: "assistant",
-          content: response.reply,
-          actions: response.actions,
-          revisionId: response.revisionId,
+          message,
+          pageId,
+          agentId: selectedAgent?.id,
+          history,
+          signal: controller.signal,
         },
-      ])
+        (text) => {
+          partialText += text
+          setMessages((current) =>
+            current.map((item, index) =>
+              index === assistantIndex
+                ? { ...item, content: item.content + text, streaming: true }
+                : item,
+            ),
+          )
+        },
+      )
+      markOnboardingStep("ai")
+      setMessages((current) =>
+        current.map((item, index) =>
+          index === assistantIndex
+            ? {
+                role: "assistant",
+                content: response.reply,
+                actions: response.actions,
+                revisionId: response.revisionId,
+              }
+            : item,
+        ),
+      )
+      if (response.proposals && response.proposals.length > 0) {
+        setProposals(response.proposals)
+        setReviewCount(response.proposals.length)
+        window.dispatchEvent(new CustomEvent("motion:proposals-changed"))
+        // Online users get the review request immediately, in context.
+        // Inbox is the asynchronous/offline fallback and audit trail.
+        if (navigator.onLine) {
+          setReviewingProposal(response.proposals[0])
+        } else {
+          toast.success(tr("{n} AI change(s) waiting in Agent Inbox", { n: response.proposals.length }))
+        }
+      }
     } catch (error) {
+      const partial = partialText
       if (error instanceof DOMException && error.name === "AbortError") {
-        setMessages([...base, { role: "assistant", content: tr("Stopped."), stopped: true }])
+        setMessages((current) =>
+          current.map((item, index) =>
+            index === assistantIndex
+              ? { ...item, content: item.content || tr("Stopped."), stopped: true, streaming: false }
+              : item,
+          ),
+        )
       } else {
         toast.error(error instanceof Error ? error.message : "The AI request failed")
-        setMessages(base)
-        setInput(message)
+        if (partial) {
+          setMessages((current) =>
+            current.map((item, index) =>
+              index === assistantIndex ? { ...item, stopped: true, streaming: false } : item,
+            ),
+          )
+        } else {
+          setMessages(base)
+          setInput(message)
+        }
       }
     } finally {
       abortRef.current = null
@@ -192,6 +269,24 @@ export function AIPanel({
     }
   }
 
+  async function reviewProposal(proposal: AIProposal, action: "approve" | "reject") {
+    if (reviewing) return
+    setReviewing(true)
+    try {
+      await (action === "approve" ? api.proposals.approve(proposal.id) : api.proposals.reject(proposal.id))
+      toast.success(action === "approve" ? tr("AI changes applied") : tr("AI changes rejected"))
+      const next = proposals.filter((item) => item.id !== proposal.id)
+      setProposals(next)
+      setReviewCount(next.length)
+      setReviewingProposal(next[0] ?? null)
+      window.dispatchEvent(new CustomEvent("motion:proposals-changed"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not review this proposal"))
+    } finally {
+      setReviewing(false)
+    }
+  }
+
   if (!open) return null
 
   return (
@@ -201,13 +296,33 @@ export function AIPanel({
           <span className="flex size-6 items-center justify-center rounded-lg brand-gradient text-white">
             <Sparkles className="size-3.5" />
           </span>
-          <div>
-            <div className="text-sm font-semibold leading-tight">{tr("Motion AI")}</div>
-            <div className="text-[10px] text-muted-foreground">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-sm font-semibold leading-tight">
+              <span>{selectedAgent?.icon || "✨"}</span>
+              <span className="truncate">{selectedAgent?.name || tr("Motion AI")}</span>
+              {selectedAgent?.mode === "approval" && (
+                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                  {tr("Approval")}
+                </span>
+              )}
+            </div>
+            <div className="truncate text-[10px] text-muted-foreground">
               {configured ? `${provider || "BYOK"} · ${model || "AI"}` : tr("Reads & edits your pages")}
             </div>
           </div>
         </div>
+        {agents.length > 1 && (
+          <select
+            value={selectedAgentId}
+            onChange={(event) => setSelectedAgentId(event.target.value)}
+            aria-label={tr("Agent")}
+            className="mr-1 h-7 max-w-[120px] rounded-md border bg-background px-1.5 text-[10px] text-muted-foreground outline-none"
+          >
+            {agents.map((agent) => (
+              <option key={agent.id} value={agent.id}>{agent.icon} {agent.name}</option>
+            ))}
+          </select>
+        )}
         <button
           type="button"
           onClick={() => onOpenChange(false)}
@@ -244,6 +359,18 @@ export function AIPanel({
             </button>
           )}
         </div>
+      )}
+
+      {reviewCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setReviewingProposal(proposals[0] ?? null)}
+          className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-left text-[11px] text-amber-900 transition hover:bg-amber-500/15 dark:text-amber-100"
+        >
+          <span className="flex size-5 items-center justify-center rounded-full bg-amber-500 text-white">✓</span>
+          <span className="flex-1">{tr("{n} change(s) waiting for your review", { n: reviewCount })}</span>
+          <span className="font-medium underline underline-offset-2">{tr("Review")}</span>
+        </button>
       )}
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4 thin-scrollbar">
@@ -318,6 +445,9 @@ export function AIPanel({
                   <div className="min-w-0 flex-1">
                     <div className="whitespace-pre-wrap rounded-2xl rounded-tl-md bg-muted/60 px-3.5 py-2.5 text-[13px] leading-6">
                       {message.content}
+                      {message.streaming && (
+                        <span className="ml-0.5 inline-block h-3.5 w-1 animate-pulse rounded-full bg-brand align-middle" />
+                      )}
                     </div>
                     {message.actions && message.actions.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -355,7 +485,7 @@ export function AIPanel({
                 </div>
               ),
             )}
-            {pending && (
+            {pending && !messages[messages.length - 1]?.content && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="flex size-6 items-center justify-center rounded-full brand-gradient text-white">
                   <Sparkles className="size-3" />
@@ -415,9 +545,19 @@ export function AIPanel({
           </Button>
         </div>
         <p className="mt-1.5 px-1 text-[9px] text-muted-foreground/70">
-          {tr("Motion AI can make changes to your workspace. Review important edits.")}
+          {selectedAgent?.mode === "approval"
+            ? tr("Changes are staged for approval in Agent Inbox before they are applied.")
+            : tr("Motion AI can make changes to your workspace. Review important edits.")}
         </p>
       </div>
+      <ProposalDialog
+        proposal={reviewingProposal}
+        onOpenChange={(next) => {
+          if (!next) setReviewingProposal(null)
+        }}
+        onReview={reviewProposal}
+        reviewing={reviewing}
+      />
     </aside>
   )
 }
@@ -428,7 +568,9 @@ function readChat(pageId: string): AIChatMessage[] {
     const raw = localStorage.getItem(`motion.ai.chat.${pageId}`)
     if (!raw) return []
     const parsed = JSON.parse(raw) as AIChatMessage[]
-    return Array.isArray(parsed) ? parsed.slice(-40) : []
+    return Array.isArray(parsed)
+      ? parsed.slice(-40).map((message) => ({ ...message, streaming: false }))
+      : []
   } catch {
     return []
   }

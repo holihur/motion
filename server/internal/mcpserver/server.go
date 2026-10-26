@@ -54,7 +54,7 @@ func New(st *store.Store, hub *realtime.Hub) *Server {
 		Name: "motion", Version: "1.0.0",
 		Title: "Motion documents",
 	}, &mcp.ServerOptions{
-		Instructions: "Motion is a document workspace. Use search_pages and read_page before editing. Prefer append_blocks over rewriting content.",
+		Instructions: "Motion is a document workspace. Use search_pages and read_page before editing. Prefer append_blocks over rewriting content. Deleting pages is destructive: delete_pages archives by default and only deletes permanently when permanent=true.",
 	})
 	s.registerTools()
 	s.handler = mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s.mcp }, nil)
@@ -357,7 +357,7 @@ func (s *Server) createPage(ctx context.Context, _ *mcp.CallToolRequest, args Cr
 }
 
 type BlockArg struct {
-	Type     string           `json:"type" jsonschema:"paragraph, heading1, heading2, heading3, bulleted, numbered, todo, quote, callout, code, divider, image, table or diagram"`
+	Type     string           `json:"type" jsonschema:"paragraph, heading1, heading2, heading3, bulleted, numbered, todo, quote, callout, code, divider, image, table, diagram, bookmark, video, embed, file, equation or toc"`
 	Text     string           `json:"text,omitempty"`
 	Checked  bool             `json:"checked,omitempty"`
 	Language string           `json:"language,omitempty"`
@@ -390,7 +390,8 @@ func (s *Server) appendBlocks(ctx context.Context, _ *mcp.CallToolRequest, args 
 		"paragraph": true, "heading1": true, "heading2": true, "heading3": true,
 		"bulleted": true, "numbered": true, "todo": true, "quote": true,
 		"callout": true, "code": true, "divider": true, "image": true,
-		"table": true, "diagram": true,
+		"table": true, "diagram": true, "bookmark": true, "video": true,
+		"embed": true, "file": true, "equation": true, "toc": true,
 	}
 	now := time.Now().UTC()
 	for _, input := range args.Blocks {
@@ -547,6 +548,148 @@ func (s *Server) addComment(ctx context.Context, _ *mcp.CallToolRequest, args Ad
 	return toolResult(map[string]any{"commentId": comment.ID.Hex()})
 }
 
+type DeletePagesArgs struct {
+	PageIDs   []string `json:"pageIds" jsonschema:"Page ids to delete. Accepts up to 100 root pages per call."`
+	Mode      string   `json:"mode,omitempty" jsonschema:"subtree (default) deletes descendants too; page deletes only the listed pages."`
+	Permanent bool     `json:"permanent,omitempty" jsonschema:"Permanently delete instead of moving pages to Trash. This cannot be undone."`
+}
+
+// descendantIDs returns every page below rootID in the same workspace.
+func (s *Server) descendantIDs(ctx context.Context, workspaceID, rootID primitive.ObjectID) (map[primitive.ObjectID]bool, error) {
+	cur, err := s.store.Pages.Find(ctx, bson.M{"workspaceId": workspaceID},
+		options.Find().SetProjection(bson.M{"parentId": 1}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	var all []struct {
+		ID       primitive.ObjectID  `bson:"_id"`
+		ParentID *primitive.ObjectID `bson:"parentId"`
+	}
+	if err := cur.All(ctx, &all); err != nil {
+		return nil, err
+	}
+	children := make(map[primitive.ObjectID][]primitive.ObjectID, len(all))
+	for _, page := range all {
+		if page.ParentID != nil {
+			children[*page.ParentID] = append(children[*page.ParentID], page.ID)
+		}
+	}
+	found := map[primitive.ObjectID]bool{}
+	queue := []primitive.ObjectID{rootID}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		for _, child := range children[current] {
+			if !found[child] {
+				found[child] = true
+				queue = append(queue, child)
+			}
+		}
+	}
+	return found, nil
+}
+
+// deletePages batch-deletes page subtrees. It validates every root page first so
+// a typo in one id cannot leave a half-applied batch behind.
+func (s *Server) deletePages(ctx context.Context, _ *mcp.CallToolRequest, args DeletePagesArgs) (*mcp.CallToolResult, any, error) {
+	auth, ok := authFrom(ctx)
+	if !ok || !allowed(auth, "pages:write") {
+		return toolError("missing pages:write scope")
+	}
+	if len(args.PageIDs) == 0 {
+		return toolError("no page ids provided")
+	}
+	if len(args.PageIDs) > 100 {
+		return toolError("too many page ids (maximum 100 per call)")
+	}
+	mode := strings.ToLower(strings.TrimSpace(args.Mode))
+	if mode == "" {
+		mode = "subtree"
+	}
+	if mode != "subtree" && mode != "page" {
+		return toolError("mode must be subtree or page")
+	}
+
+	seen := map[string]bool{}
+	roots := make([]model.Page, 0, len(args.PageIDs))
+	for _, raw := range args.PageIDs {
+		id := strings.TrimSpace(raw)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		page, _, role, err := s.pageFor(ctx, auth.UserID, id)
+		if err != nil {
+			return toolError(fmt.Sprintf("page %s: %v", id, err))
+		}
+		if role == "viewer" {
+			return toolError(fmt.Sprintf("page %s: you only have view access", id))
+		}
+		roots = append(roots, page)
+	}
+	if len(roots) == 0 {
+		return toolError("no valid page ids provided")
+	}
+
+	ids := make(map[primitive.ObjectID]bool, len(roots))
+	workspaces := make(map[primitive.ObjectID]bool, 1)
+	for _, root := range roots {
+		workspaces[root.WorkspaceID] = true
+		ids[root.ID] = true
+		if mode == "subtree" {
+			descendants, err := s.descendantIDs(ctx, root.WorkspaceID, root.ID)
+			if err != nil {
+				return toolError(err.Error())
+			}
+			for id := range descendants {
+				ids[id] = true
+			}
+		}
+	}
+	list := make([]primitive.ObjectID, 0, len(ids))
+	for id := range ids {
+		list = append(list, id)
+	}
+
+	now := time.Now().UTC()
+	action := "archived"
+	if args.Permanent {
+		action = "deleted"
+		if _, err := s.store.Pages.DeleteMany(ctx, bson.M{"_id": bson.M{"$in": list}}); err != nil {
+			return toolError("could not delete pages: " + err.Error())
+		}
+		for _, root := range roots {
+			s.hub.Broadcast(root.ID.Hex(), map[string]any{
+				"type": "deleted", "pageId": root.ID.Hex(),
+			}, "")
+		}
+	} else {
+		if _, err := s.store.Pages.UpdateMany(ctx, bson.M{"_id": bson.M{"$in": list}}, bson.M{
+			"$set": bson.M{"archived": true, "archivedAt": now, "updatedAt": now},
+		}); err != nil {
+			return toolError("could not archive pages: " + err.Error())
+		}
+		for _, root := range roots {
+			root.Archived = true
+			s.broadcastMeta(auth, root)
+		}
+	}
+	for workspaceID := range workspaces {
+		s.broadcastTree(workspaceID)
+	}
+
+	rootIDs := make([]string, 0, len(roots))
+	for _, root := range roots {
+		rootIDs = append(rootIDs, root.ID.Hex())
+	}
+	return toolResult(map[string]any{
+		"action": action, "permanent": args.Permanent, "mode": mode,
+		"rootCount": len(roots), "pageCount": len(list), "pageIds": rootIDs,
+	})
+}
+
 func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, &mcp.Tool{Name: "list_workspaces", Description: "List workspaces and the current user's role."}, s.listWorkspaces)
 	mcp.AddTool(s.mcp, &mcp.Tool{Name: "search_pages", Description: "Search page titles and content, or list recent pages."}, s.searchPages)
@@ -555,5 +698,6 @@ func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, &mcp.Tool{Name: "append_blocks", Description: "Append paragraphs, headings, lists, tasks, tables or diagrams to a page."}, s.appendBlocks)
 	mcp.AddTool(s.mcp, &mcp.Tool{Name: "update_page", Description: "Update a page title or emoji icon."}, s.updatePage)
 	mcp.AddTool(s.mcp, &mcp.Tool{Name: "update_block", Description: "Replace the text of a block."}, s.updateBlock)
+	mcp.AddTool(s.mcp, &mcp.Tool{Name: "delete_pages", Description: "Batch move pages to Trash or permanently delete them, optionally including descendants."}, s.deletePages)
 	mcp.AddTool(s.mcp, &mcp.Tool{Name: "add_comment", Description: "Add a comment to a page block."}, s.addComment)
 }

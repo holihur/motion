@@ -3,6 +3,7 @@ import { Loader2, MessageSquarePlus } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { tr } from "@/lib/i18n"
+import { markOnboardingStep } from "@/lib/onboarding"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -52,6 +53,7 @@ export function CommentComposer({
         endOffset: selection.endOffset,
         body: body.trim(),
       })
+      markOnboardingStep("comment")
       toast.success(tr("Comment added"))
       onCreated()
       onOpenChange(false)

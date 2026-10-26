@@ -20,6 +20,9 @@ type Store struct {
 	Comments   *mongo.Collection
 	AISettings *mongo.Collection
 	Settings   *mongo.Collection
+	Agents     *mongo.Collection
+	Proposals  *mongo.Collection
+	Audit      *mongo.Collection
 }
 
 func Connect(ctx context.Context, uri, dbName string) (*Store, error) {
@@ -46,6 +49,9 @@ func Connect(ctx context.Context, uri, dbName string) (*Store, error) {
 		Comments:   db.Collection("comments"),
 		AISettings: db.Collection("ai_settings"),
 		Settings:   db.Collection("settings"),
+		Agents:     db.Collection("agents"),
+		Proposals:  db.Collection("ai_proposals"),
+		Audit:      db.Collection("audit_logs"),
 	}, nil
 }
 
@@ -102,6 +108,26 @@ func (s *Store) EnsureIndexes(ctx context.Context) error {
 	_, err = s.AISettings.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys:    bson.D{{Key: "userId", Value: 1}},
 		Options: options.Index().SetUnique(true),
+	})
+	if err != nil {
+		return err
+	}
+	_, err = s.Agents.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "createdAt", Value: 1}}},
+		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "isDefault", Value: 1}}},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = s.Proposals.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "status", Value: 1}, {Key: "createdAt", Value: -1}}},
+		{Keys: bson.D{{Key: "pageId", Value: 1}, {Key: "createdAt", Value: -1}}},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = s.Audit.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "createdAt", Value: -1}},
 	})
 	return err
 }

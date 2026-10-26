@@ -38,6 +38,7 @@ OpenAI 兼容适配器会自动请求 `{baseUrl}/chat/completions`，并把 ADK 
 - `append_blocks`
 - `update_page`
 - `update_block`
+- `delete_pages`
 - `add_comment`
 
 助手会先搜索/读取真实页面，再执行修改，避免编造页面 ID。
@@ -57,11 +58,11 @@ OpenAI 兼容适配器会自动请求 `{baseUrl}/chat/completions`，并把 ADK 
 
 ## 请求流程
 
-1. 浏览器发送消息和最近对话历史到 `POST /api/ai/chat`
+1. 浏览器使用 `POST /api/ai/chat/stream` 发送消息和最近对话历史（SSE）
 2. 后端读取当前用户的加密 Key 并解密
 3. ADK Agent 运行，模型按需调用文档工具
 4. 工具直接修改 MongoDB，并通过 WebSocket 广播
-5. 返回最终文本、已执行动作列表，以及本次运行前的版本 ID
+5. 通过 SSE 逐个 token 推送文本；结束后返回最终文本、动作列表和版本 ID
 6. 前端可点击 **Undo AI changes** 恢复该版本；运行过程中可点击 **Stop** 取消请求，也可 **Regenerate** 重新生成
 
 ## 安全

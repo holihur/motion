@@ -10,16 +10,19 @@ import (
 // position. It is used for three-way merges during collaborative editing.
 func Key(block model.Block) string {
 	data, _ := json.Marshal(struct {
-		Type     string           `json:"t"`
-		Text     string           `json:"x"`
-		Rich     string           `json:"r,omitempty"`
-		Checked  bool             `json:"c"`
-		Language string           `json:"l"`
-		Color    string           `json:"o"`
-		URL      string           `json:"u"`
-		Caption  string           `json:"p"`
-		Table    *model.TableData `json:"tb,omitempty"`
-	}{block.Type, block.Text, block.Rich, block.Checked, block.Language, block.Color, block.URL, block.Caption, block.Table})
+		Type       string           `json:"t"`
+		Text       string           `json:"x"`
+		Rich       string           `json:"r,omitempty"`
+		Checked    bool             `json:"c"`
+		Language   string           `json:"l"`
+		Color      string           `json:"o"`
+		URL        string           `json:"u"`
+		Caption    string           `json:"p"`
+		Ciphertext string           `json:"e,omitempty"`
+		Salt       string           `json:"s,omitempty"`
+		IV         string           `json:"i,omitempty"`
+		Table      *model.TableData `json:"tb,omitempty"`
+	}{block.Type, block.Text, block.Rich, block.Checked, block.Language, block.Color, block.URL, block.Caption, block.Ciphertext, block.Salt, block.IV, block.Table})
 	return string(data)
 }
 

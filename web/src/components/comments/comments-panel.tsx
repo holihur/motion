@@ -105,6 +105,9 @@ export function CommentsPanel({
   }
 
   function jumpToBlock(comment: Comment) {
+    window.dispatchEvent(
+      new CustomEvent("motion:scroll-block", { detail: { id: comment.blockId } }),
+    )
     const row = document.querySelector<HTMLElement>(`[data-block-id="${comment.blockId}"]`)
     if (!row) return
     row.scrollIntoView({ behavior: "smooth", block: "center" })

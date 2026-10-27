@@ -49,6 +49,9 @@ var blockTypes = map[string]bool{
 	"pageLink":       true,
 	"breadcrumb":     true,
 	"columns":        true,
+	"qrcode":         true,
+	"barcode":        true,
+	"form":           true,
 }
 
 type createPageRequest struct {
@@ -461,6 +464,24 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" || b.Type == "columns" {
 			b.Table = sanitizeTable(b.Table)
 		}
+		if b.Type == "form" && b.Form != nil {
+			b.Form.Title = truncateRunes(b.Form.Title, 200)
+			b.Form.Description = truncateRunes(b.Form.Description, 1000)
+			b.Form.SubmitLabel = truncateRunes(b.Form.SubmitLabel, 60)
+			if len(b.Form.Fields) > 50 {
+				b.Form.Fields = b.Form.Fields[:50]
+			}
+			for i := range b.Form.Fields {
+				field := &b.Form.Fields[i]
+				field.Label = truncateRunes(field.Label, 200)
+				if len(field.Options) > 50 {
+					field.Options = field.Options[:50]
+				}
+				for j := range field.Options {
+					field.Options[j] = truncateRunes(field.Options[j], 200)
+				}
+			}
+		}
 		if b.Indent < 0 {
 			b.Indent = 0
 		}
@@ -569,6 +590,24 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 		}
 		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" || b.Type == "columns" {
 			b.Table = sanitizeTable(b.Table)
+		}
+		if b.Type == "form" && b.Form != nil {
+			b.Form.Title = truncateRunes(b.Form.Title, 200)
+			b.Form.Description = truncateRunes(b.Form.Description, 1000)
+			b.Form.SubmitLabel = truncateRunes(b.Form.SubmitLabel, 60)
+			if len(b.Form.Fields) > 50 {
+				b.Form.Fields = b.Form.Fields[:50]
+			}
+			for i := range b.Form.Fields {
+				field := &b.Form.Fields[i]
+				field.Label = truncateRunes(field.Label, 200)
+				if len(field.Options) > 50 {
+					field.Options = field.Options[:50]
+				}
+				for j := range field.Options {
+					field.Options[j] = truncateRunes(field.Options[j], 200)
+				}
+			}
 		}
 		if b.Indent < 0 {
 			b.Indent = 0
@@ -879,4 +918,80 @@ func (s *Server) lockPage(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) unlockPage(w http.ResponseWriter, r *http.Request) {
 	s.setPageLocked(w, r, false)
+}
+
+type movePageRequest struct {
+	ParentID *string  `json:"parentId"`
+	Order    *float64 `json:"order"`
+}
+
+func (s *Server) movePage(w http.ResponseWriter, r *http.Request) {
+	pageID, err := primitive.ObjectIDFromHex(chiURLParam(r, "pageID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid page id")
+		return
+	}
+	page, ok := s.editablePage(w, r, pageID)
+	if !ok {
+		return
+	}
+	var req movePageRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	updates := bson.M{"updatedAt": time.Now().UTC()}
+	if req.ParentID != nil && strings.TrimSpace(*req.ParentID) != "" {
+		pid, err := primitive.ObjectIDFromHex(*req.ParentID)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid parent page id")
+			return
+		}
+		if pid == pageID {
+			writeErr(w, http.StatusBadRequest, "a page cannot be its own parent")
+			return
+		}
+		descendants, err := s.descendantIDs(r, page.WorkspaceID, pageID)
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "could not move page")
+			return
+		}
+		if descendants[pid] {
+			writeErr(w, http.StatusBadRequest, "a page cannot be moved inside itself")
+			return
+		}
+		var parent model.Page
+		if err := s.store.Pages.FindOne(r.Context(), bson.M{"_id": pid, "workspaceId": page.WorkspaceID}).Decode(&parent); err != nil {
+			writeErr(w, http.StatusBadRequest, "parent page not found")
+			return
+		}
+		updates["parentId"] = pid
+	} else if req.ParentID != nil {
+		updates["parentId"] = nil
+	}
+	if req.Order != nil {
+		updates["order"] = *req.Order
+	}
+	if len(updates) == 1 {
+		writeJSON(w, http.StatusOK, page)
+		return
+	}
+	if _, err := s.store.Pages.UpdateByID(r.Context(), pageID, bson.M{"$set": updates}); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not move page")
+		return
+	}
+	if err := s.store.Pages.FindOne(r.Context(), bson.M{"_id": pageID}).Decode(&page); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load page")
+		return
+	}
+	s.broadcastTree(page.WorkspaceID, clientID(r))
+	writeJSON(w, http.StatusOK, page)
+}
+
+func truncateRunes(value string, limit int) string {
+	runes := []rune(value)
+	if len(runes) <= limit {
+		return value
+	}
+	return string(runes[:limit])
 }

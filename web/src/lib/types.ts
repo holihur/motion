@@ -22,6 +22,9 @@ export type BlockType =
   | "toc"
   | "gantt"
   | "chart"
+  | "qrcode"
+  | "barcode"
+  | "form"
   | "toggle"
   | "toggleHeading1"
   | "toggleHeading2"
@@ -34,6 +37,21 @@ export interface TableData {
   columns: string[]
   rows: string[][]
   header: boolean
+}
+
+export interface FormField {
+  id: string
+  label: string
+  type: "text" | "email" | "number" | "date" | "textarea" | "select" | "checkbox"
+  required?: boolean
+  options?: string[]
+}
+
+export interface FormData {
+  title?: string
+  description?: string
+  submitLabel?: string
+  fields?: FormField[]
 }
 
 export interface Block {
@@ -52,6 +70,7 @@ export interface Block {
   salt?: string
   iv?: string
   table?: TableData
+  form?: FormData
   /** 0 = root. Used by toggles and nested content. */
   indent?: number
   collapsed?: boolean

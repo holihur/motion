@@ -42,6 +42,8 @@ import { LexicalBlock } from "@/components/editor/lexical-block"
 import { PasswordBlock } from "@/components/editor/password-block"
 import { CodeBlock } from "@/components/editor/code-block"
 import { ChartBlock, GanttBlock } from "@/components/editor/data-blocks"
+import { BarcodeBlock, QRCodeBlock } from "@/components/editor/code-image-blocks"
+import { FormBlock } from "@/components/editor/form-block"
 import { BreadcrumbBlock, ColumnsBlock, PageLinkBlock } from "@/components/editor/link-blocks"
 import {
   BookmarkBlock,
@@ -73,6 +75,7 @@ export interface BlockRowProps {
   headings?: HeadingItem[]
   breadcrumb?: { id: string; title: string; icon: string }[]
   workspaceId?: string
+  pageId?: string
   members?: Member[]
   focusUsers?: RealtimePresence[]
   commentCount?: number
@@ -115,6 +118,7 @@ export function BlockRow(props: BlockRowProps) {
     headings = [],
     breadcrumb = [],
     workspaceId = "",
+    pageId = "",
     members = [],
     focusUsers,
     commentCount = 0,
@@ -557,6 +561,12 @@ export function BlockRow(props: BlockRowProps) {
         return <BreadcrumbBlock block={block} breadcrumb={breadcrumb} />
       case "columns":
         return <ColumnsBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
+      case "qrcode":
+        return <QRCodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+      case "barcode":
+        return <BarcodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+      case "form":
+        return <FormBlock block={block} pageId={pageId} readOnly={pageReadOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "image":
         return block.url ? (
           <figure

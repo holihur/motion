@@ -29,6 +29,7 @@
 - **Ops 管理页**：使用独立于用户账号的 `OPS_TOKEN` 保护；注册开关、管理员、OIDC、AI 默认模型、MCP、更新策略、实例统计都在网页里配置，无需改命令行。
 - **PAT 与 Scope 授权**：`pages:read`、`pages:write`、`workspace:read`、`workspace:write`、`ai:use`。
 - **自更新**：检查 GitHub Release、SHA256 校验、替换二进制，配合 systemd 自动重启；也可以完全通过 Ops 页面操作。
+- **导出**：Markdown、HTML、PDF（内嵌中文 Noto Sans SC 字体）和 Word `.docx`。
 - **中文 / English 界面切换**、深色模式、响应式布局、全文搜索（带命中片段与搜索历史）、收藏、回收站、Markdown 导出。
 - **模板与新手引导**：会议记录、项目简介、每周回顾、阅读清单；移动端底部工具栏和 Slash 底部 Sheet。
 - **连接与错误状态**：离线/重连提示、路由级骨架屏、API 错误本地化。
@@ -169,7 +170,7 @@ Authorization: Bearer motion_pat_...
 
 在 **Settings → Developer** 创建带 Scope 的 Token，页面会直接生成可复制的 MCP JSON 配置。
 
-可用工具：`list_workspaces`、`search_pages`、`read_page`、`create_page`、`append_blocks`、`update_page`、`update_block`、`delete_pages`、`add_comment`。
+可用工具：`list_workspaces`、`search_pages`、`read_page`、`create_page`、`append_blocks`、`update_page`、`update_block`、`delete_page`、`delete_pages`、`add_comment`。
 
 ```json
 {

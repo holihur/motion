@@ -11,6 +11,7 @@ import { VirtualBlockList } from "@/components/editor/virtual-block-list"
 import type { HeadingItem } from "@/components/editor/rich-blocks"
 import { defaultChartTable, defaultGanttTable } from "@/components/editor/data-blocks"
 import { defaultColumnsTable } from "@/components/editor/link-blocks"
+import { defaultForm } from "@/components/editor/form-block"
 import { hasMarkdownSyntax, parseMarkdownToBlocks } from "@/lib/markdown-import"
 import type { RealtimePresence } from "@/lib/realtime"
 import { filterCommands, type SlashCommand } from "@/components/editor/commands"
@@ -52,6 +53,9 @@ function createBlock(type: BlockType = "paragraph"): Block {
     ...(type === "gantt" ? { table: defaultGanttTable() } : {}),
     ...(type === "chart" ? { table: defaultChartTable(), language: "bar" } : {}),
     ...(type === "columns" ? { table: defaultColumnsTable() } : {}),
+    ...(type === "qrcode" ? { language: "280" } : {}),
+    ...(type === "barcode" ? { language: "CODE128" } : {}),
+    ...(type === "form" ? { form: defaultForm() } : {}),
   }
 }
 
@@ -94,6 +98,7 @@ export function BlockEditor({
   readOnly = false,
   breadcrumb = [],
   workspaceId = "",
+  pageId = "",
   members = [],
 }: {
   blocks: Block[]
@@ -108,6 +113,7 @@ export function BlockEditor({
   readOnly?: boolean
   breadcrumb?: { id: string; title: string; icon: string }[]
   workspaceId?: string
+  pageId?: string
   members?: Member[]
 }) {
   const blocksRef = useRef(blocks)
@@ -674,6 +680,7 @@ export function BlockEditor({
         headings={headings}
         breadcrumb={breadcrumb}
         workspaceId={workspaceId}
+        pageId={pageId}
         members={members}
         hasChildren={toggleHasChildren.has(block.id)}
         onToggleCollapsed={() => updateBlock(index, { collapsed: !block.collapsed })}

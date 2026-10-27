@@ -23,7 +23,6 @@ import { useAuthStore } from "@/stores/auth"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { useUIStore } from "@/stores/ui"
 import { SidebarToggle } from "@/components/app/sidebar-toggle"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -117,7 +116,6 @@ export function HomeView() {
               {modKey()} K
             </span>
           </button>
-          <ThemeToggle />
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon-sm" onClick={() => setSettingsOpen(true)} aria-label={tr("Settings")}>
@@ -350,6 +348,15 @@ function OnboardingCard({
   ]
   const doneCount = steps.filter((step) => step.done).length
   const complete = doneCount === steps.length
+
+  useEffect(() => {
+    if (!complete) return
+    // Completing the tour should dismiss it automatically; the close button
+    // remains available if someone wants to leave early.
+    const timer = window.setTimeout(onDismiss, 2200)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [complete])
   return (
     <section className="relative mt-8 overflow-hidden rounded-2xl border border-brand/20 bg-gradient-to-br from-brand-soft/50 via-background to-brand-two/10 p-5">
       <div className="pointer-events-none absolute -right-10 -top-16 size-44 rounded-full bg-brand/10 blur-3xl" />
@@ -357,12 +364,12 @@ function OnboardingCard({
         type="button"
         onClick={onDismiss}
         aria-label={tr("Dismiss")}
-        className="absolute right-3 top-3 flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-background/70 hover:text-foreground"
+        className="absolute right-3 top-3 z-20 flex size-7 items-center justify-center rounded-md bg-background/80 text-muted-foreground transition hover:bg-background hover:text-foreground"
       >
         <X className="size-3.5" />
       </button>
       <div className="relative">
-        <div className="flex items-center gap-2 text-xs font-medium text-brand">
+        <div className="flex items-center gap-2 pr-8 text-xs font-medium text-brand">
           <Sparkles className="size-3.5" /> {complete ? tr("Workspace unlocked") : tr("A 60-second tour")}
           <span className="ml-auto rounded-full bg-background/70 px-2 py-0.5 text-[10px] text-muted-foreground ring-1 ring-border/60">
             {doneCount}/{steps.length}
@@ -398,6 +405,11 @@ function OnboardingCard({
         {!hasPages && (
           <Button size="sm" className="mt-4 gap-1.5" onClick={onNewPage}>
             <Plus className="size-3.5" /> {tr("Create your first page")}
+          </Button>
+        )}
+        {complete && (
+          <Button size="sm" variant="outline" className="mt-4" onClick={onDismiss}>
+            {tr("Done")}
           </Button>
         )}
       </div>

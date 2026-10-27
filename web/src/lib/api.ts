@@ -223,6 +223,8 @@ export const api = {
     list: () => request<Workspace[]>("/workspaces"),
     create: (name: string, icon = "🧭") =>
       request<Workspace>("/workspaces", { method: "POST", body: body({ name, icon }) }),
+    move: (id: string, input: { parentId: string | null; order: number }) =>
+      request<Page>(`/pages/${id}/move`, { method: "POST", body: body(input) }),
     lock: (id: string) => request<Page>(`/pages/${id}/lock`, { method: "POST" }),
     unlock: (id: string) => request<Page>(`/pages/${id}/unlock`, { method: "POST" }),
     update: (id: string, patch: { name?: string; icon?: string }) =>
@@ -425,6 +427,26 @@ export const api = {
       ),
     get: (id: string) => request<Page>(`/pages/${id}`),
     backlinks: (id: string) => request<Backlink[]>(`/pages/${id}/backlinks`),
+    submitForm: (pageId: string, blockId: string, values: Record<string, string>) =>
+      request<{ id: string; submittedAt: string }>(`/pages/${pageId}/form-submissions`, {
+        method: "POST",
+        body: body({ blockId, values }),
+      }),
+    formSubmissions: (pageId: string, blockId: string) =>
+      request<{ id: string; values: Record<string, string>; submittedAt: string }[]>(`/pages/${pageId}/form-submissions?blockId=${encodeURIComponent(blockId)}`),
+    exportFile: async (id: string, format: "html" | "pdf" | "docx") => {
+      const headers = new Headers()
+      const token = getToken()
+      if (token) headers.set("Authorization", `Bearer ${token}`)
+      const response = await fetch(`/api/pages/${id}/export?format=${format}`, { headers })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null
+        throw new ApiError(localizeApiError(payload?.error || `请求失败（${response.status}）`), response.status)
+      }
+      return response.blob()
+    },
+    move: (id: string, input: { parentId: string | null; order: number }) =>
+      request<Page>(`/pages/${id}/move`, { method: "POST", body: body(input) }),
     lock: (id: string) => request<Page>(`/pages/${id}/lock`, { method: "POST" }),
     unlock: (id: string) => request<Page>(`/pages/${id}/unlock`, { method: "POST" }),
     create: (input: { workspaceId: string; parentId?: string | null; title?: string; icon?: string }) =>

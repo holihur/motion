@@ -357,7 +357,7 @@ func (s *Server) createPage(ctx context.Context, _ *mcp.CallToolRequest, args Cr
 }
 
 type BlockArg struct {
-	Type      string           `json:"type" jsonschema:"paragraph, heading1, heading2, heading3, bulleted, numbered, todo, quote, callout, code, divider, image, table, diagram, bookmark, video, embed, file, equation, toc, gantt, chart, toggle, toggleHeading1, toggleHeading2, toggleHeading3, pageLink, breadcrumb or columns"`
+	Type      string           `json:"type" jsonschema:"paragraph, heading1, heading2, heading3, bulleted, numbered, todo, quote, callout, code, divider, image, table, diagram, bookmark, video, embed, file, equation, toc, gantt, chart, qrcode, barcode, toggle, toggleHeading1, toggleHeading2, toggleHeading3, pageLink, breadcrumb or columns"`
 	Text      string           `json:"text,omitempty"`
 	Checked   bool             `json:"checked,omitempty"`
 	Language  string           `json:"language,omitempty"`
@@ -397,9 +397,9 @@ func (s *Server) appendBlocks(ctx context.Context, _ *mcp.CallToolRequest, args 
 		"callout": true, "code": true, "divider": true, "image": true,
 		"table": true, "diagram": true, "bookmark": true, "video": true,
 		"embed": true, "file": true, "equation": true, "toc": true,
-		"gantt": true, "chart": true, "toggle": true,
+		"gantt": true, "chart": true, "qrcode": true, "barcode": true, "toggle": true,
 		"toggleHeading1": true, "toggleHeading2": true, "toggleHeading3": true,
-		"pageLink": true, "breadcrumb": true, "columns": true,
+		"pageLink": true, "breadcrumb": true, "columns": true, "form": true,
 	}
 	now := time.Now().UTC()
 	for _, input := range args.Blocks {
@@ -614,6 +614,17 @@ func (s *Server) descendantIDs(ctx context.Context, workspaceID, rootID primitiv
 	return found, nil
 }
 
+type DeletePageArgs struct {
+	PageID    string `json:"pageId" jsonschema:"Page id to delete."`
+	Permanent bool   `json:"permanent,omitempty" jsonschema:"Permanently delete instead of moving to Trash."`
+}
+
+func (s *Server) deletePage(ctx context.Context, req *mcp.CallToolRequest, args DeletePageArgs) (*mcp.CallToolResult, any, error) {
+	return s.deletePages(ctx, req, DeletePagesArgs{
+		PageIDs: []string{args.PageID}, Mode: "subtree", Permanent: args.Permanent,
+	})
+}
+
 // deletePages batch-deletes page subtrees. It validates every root page first so
 // a typo in one id cannot leave a half-applied batch behind.
 func (s *Server) deletePages(ctx context.Context, _ *mcp.CallToolRequest, args DeletePagesArgs) (*mcp.CallToolResult, any, error) {
@@ -724,6 +735,7 @@ func (s *Server) registerTools() {
 	mcp.AddTool(s.mcp, &mcp.Tool{Name: "append_blocks", Description: "Append paragraphs, headings, lists, tasks, tables or diagrams to a page."}, s.appendBlocks)
 	mcp.AddTool(s.mcp, &mcp.Tool{Name: "update_page", Description: "Update a page title or emoji icon."}, s.updatePage)
 	mcp.AddTool(s.mcp, &mcp.Tool{Name: "update_block", Description: "Replace the text of a block."}, s.updateBlock)
+	mcp.AddTool(s.mcp, &mcp.Tool{Name: "delete_page", Description: "Move a page to Trash, or permanently delete it and its descendants."}, s.deletePage)
 	mcp.AddTool(s.mcp, &mcp.Tool{Name: "delete_pages", Description: "Batch move pages to Trash or permanently delete them, optionally including descendants."}, s.deletePages)
 	mcp.AddTool(s.mcp, &mcp.Tool{Name: "add_comment", Description: "Add a comment to a page block."}, s.addComment)
 }

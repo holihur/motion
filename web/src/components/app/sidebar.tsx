@@ -29,7 +29,6 @@ import { LogoMark } from "@/components/logo"
 import { PageTree } from "@/components/app/page-tree"
 import { tr } from "@/lib/i18n"
 import { PageActionsMenu } from "@/components/app/page-actions"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -282,7 +281,6 @@ function SidebarContent() {
         </button>}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0.5">
-            <ThemeToggle />
             {opsUnlocked && (
               <Tooltip>
                 <TooltipTrigger asChild>

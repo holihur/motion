@@ -22,10 +22,11 @@ func Key(block model.Block) string {
 		Salt       string           `json:"s,omitempty"`
 		IV         string           `json:"i,omitempty"`
 		Table      *model.TableData `json:"tb,omitempty"`
+		Form       *model.FormData  `json:"fm,omitempty"`
 		Indent     int              `json:"in,omitempty"`
 		Collapsed  bool             `json:"co,omitempty"`
 		Locked     bool             `json:"lk,omitempty"`
-	}{block.Type, block.Text, block.Rich, block.Checked, block.Language, block.Color, block.URL, block.Caption, block.Ciphertext, block.Salt, block.IV, block.Table, block.Indent, block.Collapsed, block.Locked})
+	}{block.Type, block.Text, block.Rich, block.Checked, block.Language, block.Color, block.URL, block.Caption, block.Ciphertext, block.Salt, block.IV, block.Table, block.Form, block.Indent, block.Collapsed, block.Locked})
 	return string(data)
 }
 

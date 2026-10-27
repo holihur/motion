@@ -61,6 +61,32 @@ type TableData struct {
 	Header  bool       `bson:"header" json:"header"`
 }
 
+type FormField struct {
+	ID       string   `bson:"id" json:"id"`
+	Label    string   `bson:"label" json:"label"`
+	Type     string   `bson:"type" json:"type"`
+	Required bool     `bson:"required,omitempty" json:"required,omitempty"`
+	Options  []string `bson:"options,omitempty" json:"options,omitempty"`
+}
+
+type FormData struct {
+	Title       string      `bson:"title,omitempty" json:"title,omitempty"`
+	Description string      `bson:"description,omitempty" json:"description,omitempty"`
+	SubmitLabel string      `bson:"submitLabel,omitempty" json:"submitLabel,omitempty"`
+	Fields      []FormField `bson:"fields,omitempty" json:"fields,omitempty"`
+}
+
+type FormSubmission struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	PageID      primitive.ObjectID `bson:"pageId" json:"pageId"`
+	BlockID     string             `bson:"blockId" json:"blockId"`
+	WorkspaceID primitive.ObjectID `bson:"workspaceId" json:"workspaceId"`
+	FormTitle   string             `bson:"formTitle" json:"formTitle"`
+	Values      map[string]string  `bson:"values" json:"values"`
+	SubmittedBy primitive.ObjectID `bson:"submittedBy" json:"submittedBy"`
+	SubmittedAt time.Time          `bson:"submittedAt" json:"submittedAt"`
+}
+
 type Block struct {
 	ID         string     `bson:"id" json:"id"`
 	Type       string     `bson:"type" json:"type"`
@@ -75,6 +101,7 @@ type Block struct {
 	Salt       string     `bson:"salt,omitempty" json:"salt,omitempty"`
 	IV         string     `bson:"iv,omitempty" json:"iv,omitempty"`
 	Table      *TableData `bson:"table,omitempty" json:"table,omitempty"`
+	Form       *FormData  `bson:"form,omitempty" json:"form,omitempty"`
 	Indent     int        `bson:"indent,omitempty" json:"indent,omitempty"`
 	Collapsed  bool       `bson:"collapsed,omitempty" json:"collapsed,omitempty"`
 	Locked     bool       `bson:"locked,omitempty" json:"locked,omitempty"`

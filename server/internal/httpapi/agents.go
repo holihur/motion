@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -472,7 +473,7 @@ func blocksEqual(a, b model.Block) bool {
 	return a.ID == b.ID && a.Type == b.Type && a.Text == b.Text && a.Rich == b.Rich &&
 		a.Checked == b.Checked && a.Language == b.Language && a.Color == b.Color &&
 		a.URL == b.URL && a.Caption == b.Caption && a.Ciphertext == b.Ciphertext &&
-		a.Salt == b.Salt && a.IV == b.IV && tableEqual(a.Table, b.Table) &&
+		a.Salt == b.Salt && a.IV == b.IV && tableEqual(a.Table, b.Table) && formEqual(a.Form, b.Form) &&
 		a.Indent == b.Indent && a.Collapsed == b.Collapsed && a.Locked == b.Locked
 }
 
@@ -568,3 +569,8 @@ func (s *Server) broadcastProposalPage(page model.Page, now time.Time) {
 		"type": "tree", "workspaceId": page.WorkspaceID.Hex(),
 	}, "")
 }
+
+func formEqual(a, b *model.FormData) bool {
+	return string(mustJSON(a)) == string(mustJSON(b))
+}
+func mustJSON(value any) []byte { data, _ := json.Marshal(value); return data }

@@ -1312,6 +1312,7 @@ export function PageEditor() {
                 icon: item.icon,
               }))}
               workspaceId={page.workspaceId}
+              pageId={page.id}
               members={members}
             />
           </div>

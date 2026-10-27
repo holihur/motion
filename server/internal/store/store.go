@@ -10,22 +10,23 @@ import (
 )
 
 type Store struct {
-	Client        *mongo.Client
-	DB            *mongo.Database
-	Users         *mongo.Collection
-	Workspaces    *mongo.Collection
-	Pages         *mongo.Collection
-	Tokens        *mongo.Collection
-	Revisions     *mongo.Collection
-	Comments      *mongo.Collection
-	AISettings    *mongo.Collection
-	Settings      *mongo.Collection
-	Agents        *mongo.Collection
-	Proposals     *mongo.Collection
-	Audit         *mongo.Collection
-	Integrations  *mongo.Collection
-	Deliveries    *mongo.Collection
-	PublishGroups *mongo.Collection
+	Client          *mongo.Client
+	DB              *mongo.Database
+	Users           *mongo.Collection
+	Workspaces      *mongo.Collection
+	Pages           *mongo.Collection
+	Tokens          *mongo.Collection
+	Revisions       *mongo.Collection
+	Comments        *mongo.Collection
+	AISettings      *mongo.Collection
+	Settings        *mongo.Collection
+	Agents          *mongo.Collection
+	Proposals       *mongo.Collection
+	Audit           *mongo.Collection
+	Integrations    *mongo.Collection
+	Deliveries      *mongo.Collection
+	PublishGroups   *mongo.Collection
+	FormSubmissions *mongo.Collection
 }
 
 func Connect(ctx context.Context, uri, dbName string) (*Store, error) {
@@ -42,22 +43,23 @@ func Connect(ctx context.Context, uri, dbName string) (*Store, error) {
 
 	db := client.Database(dbName)
 	return &Store{
-		Client:        client,
-		DB:            db,
-		Users:         db.Collection("users"),
-		Workspaces:    db.Collection("workspaces"),
-		Pages:         db.Collection("pages"),
-		Tokens:        db.Collection("api_tokens"),
-		Revisions:     db.Collection("page_revisions"),
-		Comments:      db.Collection("comments"),
-		AISettings:    db.Collection("ai_settings"),
-		Settings:      db.Collection("settings"),
-		Agents:        db.Collection("agents"),
-		Proposals:     db.Collection("ai_proposals"),
-		Audit:         db.Collection("audit_logs"),
-		Integrations:  db.Collection("integrations"),
-		Deliveries:    db.Collection("webhook_deliveries"),
-		PublishGroups: db.Collection("publish_groups"),
+		Client:          client,
+		DB:              db,
+		Users:           db.Collection("users"),
+		Workspaces:      db.Collection("workspaces"),
+		Pages:           db.Collection("pages"),
+		Tokens:          db.Collection("api_tokens"),
+		Revisions:       db.Collection("page_revisions"),
+		Comments:        db.Collection("comments"),
+		AISettings:      db.Collection("ai_settings"),
+		Settings:        db.Collection("settings"),
+		Agents:          db.Collection("agents"),
+		Proposals:       db.Collection("ai_proposals"),
+		Audit:           db.Collection("audit_logs"),
+		Integrations:    db.Collection("integrations"),
+		Deliveries:      db.Collection("webhook_deliveries"),
+		PublishGroups:   db.Collection("publish_groups"),
+		FormSubmissions: db.Collection("form_submissions"),
 	}, nil
 }
 
@@ -133,6 +135,12 @@ func (s *Store) EnsureIndexes(ctx context.Context) error {
 	}
 	_, err = s.PublishGroups.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "createdAt", Value: 1}},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = s.FormSubmissions.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys: bson.D{{Key: "pageId", Value: 1}, {Key: "blockId", Value: 1}, {Key: "submittedAt", Value: -1}},
 	})
 	if err != nil {
 		return err

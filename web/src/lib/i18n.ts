@@ -787,6 +787,10 @@ const zh: Record<string, string> = {
   "Could not remove action group": "无法删除动作分组",
   "None of this group's targets are enabled": "此分组没有已启用的发布目标",
   "Published to {n} target(s)": "已发布到 {n} 个目标",
+  "Export as HTML": "导出为 HTML",
+  "Export as PDF": "导出为 PDF",
+  "Export as Word": "导出为 Word",
+  "Export ready": "导出完成",
 }
 
 

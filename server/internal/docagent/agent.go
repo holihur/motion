@@ -288,6 +288,16 @@ func markdownFor(page model.Page) string {
 				}
 				builder.WriteString("\n")
 			}
+		case "qrcode", "barcode":
+			builder.WriteString("[" + block.Type + "] " + block.Text + "\n\n")
+		case "form":
+			if block.Form != nil {
+				builder.WriteString("**" + block.Form.Title + "**\n\n")
+				for _, field := range block.Form.Fields {
+					builder.WriteString("- " + field.Label + " (" + field.Type + ")\n")
+				}
+				builder.WriteString("\n")
+			}
 		case "pageLink":
 			builder.WriteString("[" + block.Text + "](/page/" + block.URL + ")\n\n")
 		case "toggle", "toggleHeading1", "toggleHeading2", "toggleHeading3":

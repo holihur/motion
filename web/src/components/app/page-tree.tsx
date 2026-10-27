@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ChevronRight, FileText, LockKeyhole, Plus, Star } from "lucide-react"
 import { toast } from "sonner"
+import { api } from "@/lib/api"
 import { buildTree, pageTitle, type TreeNode } from "@/lib/tree"
 import { allAncestorIds } from "@/lib/tree"
 import { tr } from "@/lib/i18n"
@@ -65,6 +66,9 @@ export function PageTree({
   const preSearchExpandedRef = useRef<Set<string> | null>(null)
   const navigate = useNavigate()
   const createPage = useWorkspaceStore((state) => state.createPage)
+  const refreshPages = useWorkspaceStore((state) => state.refreshPages)
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ id: string; position: "before" | "after" | "inside" } | null>(null)
 
   useEffect(() => {
     if (initialized.current || pages.length === 0) return
@@ -137,6 +141,52 @@ export function PageTree({
     })
   }
 
+  function descendantIDs(id: string) {
+    const ids = new Set<string>()
+    const walk = (parent: string) => {
+      for (const page of pages) {
+        if (page.parentId === parent && !ids.has(page.id)) {
+          ids.add(page.id)
+          walk(page.id)
+        }
+      }
+    }
+    walk(id)
+    return ids
+  }
+
+  async function movePage(dragId: string, targetId: string, position: "before" | "after" | "inside") {
+    if (dragId === targetId) return
+    const dragged = pages.find((page) => page.id === dragId)
+    const target = pages.find((page) => page.id === targetId)
+    if (!dragged || !target) return
+    if (descendantIDs(dragId).has(targetId)) return
+    const parentId = position === "inside" ? target.id : (target.parentId ?? null)
+    const siblings = pages
+      .filter((page) => (page.parentId ?? null) === parentId && page.id !== dragId)
+      .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title))
+    let order = 1024
+    if (position === "inside") {
+      order = (siblings.at(-1)?.order ?? 0) + 1024
+    } else {
+      const targetIndex = siblings.findIndex((page) => page.id === targetId)
+      const insert = position === "before" ? targetIndex : targetIndex + 1
+      const before = siblings[insert - 1]
+      const after = siblings[insert]
+      order = before && after ? (before.order + after.order) / 2 : before ? before.order + 1024 : after ? after.order - 1024 : 1024
+    }
+    try {
+      await api.pages.move(dragId, { parentId, order })
+      if (parentId) setExpanded((current) => new Set(current).add(parentId))
+      await refreshPages()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not move page"))
+    } finally {
+      setDraggedId(null)
+      setDropTarget(null)
+    }
+  }
+
   async function createFirstPage() {
     try {
       const page = await createPage(null)
@@ -175,6 +225,13 @@ export function PageTree({
           toggle={toggle}
           activeId={activeId}
           readOnly={readOnly}
+          draggedId={draggedId}
+          dropTarget={dropTarget}
+          onDragStart={setDraggedId}
+          onDragOver={(id, position) => setDropTarget({ id, position })}
+          onDragLeave={(id) => setDropTarget((current) => current?.id === id ? null : current)}
+          onDrop={(id, position) => void movePage(draggedId ?? "", id, position)}
+          onDragEnd={() => { setDraggedId(null); setDropTarget(null) }}
         />
       ))}
     </div>
@@ -188,6 +245,13 @@ function TreeItem({
   toggle,
   activeId,
   readOnly,
+  draggedId,
+  dropTarget,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
 }: {
   node: TreeNode
   depth: number
@@ -195,6 +259,13 @@ function TreeItem({
   toggle: (id: string) => void
   activeId: string | null
   readOnly?: boolean
+  draggedId: string | null
+  dropTarget: { id: string; position: "before" | "after" | "inside" } | null
+  onDragStart: (id: string) => void
+  onDragOver: (id: string, position: "before" | "after" | "inside") => void
+  onDragLeave: (id: string) => void
+  onDrop: (id: string, position: "before" | "after" | "inside") => void
+  onDragEnd: () => void
 }) {
   const navigate = useNavigate()
   const isActive = activeId === node.id
@@ -211,13 +282,39 @@ function TreeItem({
       <div
         ref={rowRef}
         data-page-id={node.id}
+        style={{ paddingLeft: 4 + depth * 13 }}
+        draggable={!readOnly}
+        onDragStart={(event) => {
+          event.dataTransfer.effectAllowed = "move"
+          event.dataTransfer.setData("text/plain", node.id)
+          onDragStart(node.id)
+        }}
+        onDragEnd={onDragEnd}
+        onDragOver={(event) => {
+          event.preventDefault()
+          event.dataTransfer.dropEffect = "move"
+          const rect = event.currentTarget.getBoundingClientRect()
+          const ratio = (event.clientY - rect.top) / rect.height
+          onDragOver(node.id, ratio < 0.28 ? "before" : ratio > 0.72 ? "after" : "inside")
+        }}
+        onDragLeave={() => onDragLeave(node.id)}
+        onDrop={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          const rect = event.currentTarget.getBoundingClientRect()
+          const ratio = (event.clientY - rect.top) / rect.height
+          onDrop(node.id, ratio < 0.28 ? "before" : ratio > 0.72 ? "after" : "inside")
+        }}
         className={cn(
           "group/tree relative flex h-[29px] items-center rounded-md pr-1 text-[13px] transition-colors",
           isActive
             ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
             : "text-sidebar-foreground hover:bg-sidebar-accent/65",
+          draggedId === node.id && "opacity-40",
+          dropTarget?.id === node.id && dropTarget.position === "inside" && "bg-brand-soft/60 ring-1 ring-inset ring-brand/30",
+          dropTarget?.id === node.id && dropTarget.position === "before" && "before:absolute before:inset-x-1 before:top-0 before:h-0.5 before:bg-brand",
+          dropTarget?.id === node.id && dropTarget.position === "after" && "after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:bg-brand",
         )}
-        style={{ paddingLeft: 4 + depth * 13 }}
       >
         <button
           type="button"
@@ -237,7 +334,14 @@ function TreeItem({
 
         <button
           type="button"
+          draggable={!readOnly}
           onClick={() => navigate(`/page/${node.id}`)}
+          onDragStart={(event) => {
+            event.dataTransfer.effectAllowed = "move"
+            event.dataTransfer.setData("text/plain", node.id)
+            onDragStart(node.id)
+          }}
+          onDragEnd={onDragEnd}
           className="flex min-w-0 flex-1 items-center gap-1.5 rounded py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
         >
           {node.icon ? (
@@ -283,6 +387,13 @@ function TreeItem({
               toggle={toggle}
               activeId={activeId}
               readOnly={readOnly}
+              draggedId={draggedId}
+              dropTarget={dropTarget}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              onDragEnd={onDragEnd}
             />
           ))}
         </div>

@@ -7,7 +7,10 @@ import {
   GitBranch,
   Bug,
   BookOpen,
+  FileCode2,
   FilePlus2,
+  FileText,
+  FileType2,
   FileUp,
   Link2,
   LockKeyhole,
@@ -155,6 +158,21 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     }
   }
 
+  async function exportFile(format: "html" | "pdf" | "docx") {
+    try {
+      const blob = await api.pages.exportFile(page.id, format)
+      const href = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = href
+      link.download = `${pageTitle(page.title)}.${format}`
+      link.click()
+      URL.revokeObjectURL(href)
+      toast.success(tr("Export ready"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not export page"))
+    }
+  }
+
   async function onPublishAtlassian(provider: "jira" | "confluence") {
     if (!activeId) return
     try {
@@ -293,6 +311,15 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void onExport()}>
             <Download /> {tr("Export as Markdown")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void exportFile("html")}>
+            <FileCode2 /> {tr("Export as HTML")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void exportFile("pdf")}>
+            <FileText /> {tr("Export as PDF")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => void exportFile("docx")}>
+            <FileType2 /> {tr("Export as Word")}
           </DropdownMenuItem>
           {!readOnly && enabledProviders.has("git") && <DropdownMenuItem onSelect={() => void onPublishGit()}>
             <GitBranch /> {tr("Publish to Git")}

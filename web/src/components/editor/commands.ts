@@ -4,6 +4,7 @@ import {
   ChartColumn,
   ChartGantt,
   CheckSquare,
+  ClipboardList,
   Columns2,
   Code2,
   FileText,
@@ -26,6 +27,8 @@ import {
   Quote,
   Table2,
   Network,
+  QrCode,
+  ScanBarcode,
   Type,
 } from "lucide-react"
 import type { BlockType } from "@/lib/types"
@@ -69,6 +72,9 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { type: "pageLink", title: "Page link", description: "Mention another page", icon: Link2, keywords: "page mention link reference backlink" },
   { type: "breadcrumb", title: "Breadcrumb", description: "Show this page's path", icon: PanelTop, keywords: "breadcrumb path parent navigation" },
   { type: "columns", title: "Columns", description: "Place text side by side", icon: Columns2, keywords: "columns layout grid side" },
+  { type: "qrcode", title: "QR code", description: "Generate a QR code from text or a URL", icon: QrCode, keywords: "qr code url scan barcode" },
+  { type: "barcode", title: "Barcode", description: "Generate a CODE128 or retail barcode", icon: ScanBarcode, keywords: "barcode code128 ean upc scan" },
+  { type: "form", title: "Form", description: "Collect responses with a simple form", icon: ClipboardList, keywords: "form survey input response collect" },
 ]
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
@@ -102,6 +108,9 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   pageLink: "Page link",
   breadcrumb: "Breadcrumb",
   columns: "Columns",
+  qrcode: "QR code",
+  barcode: "Barcode",
+  form: "Form",
 }
 
 export function filterCommands(query: string) {

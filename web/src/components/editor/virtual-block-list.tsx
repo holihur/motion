@@ -49,6 +49,12 @@ function estimatedHeight(block: Block): number {
       return 42
     case "columns":
       return 280
+    case "qrcode":
+      return 380
+    case "barcode":
+      return 220
+    case "form":
+      return 320
     case "divider":
       return 32
     case "callout":

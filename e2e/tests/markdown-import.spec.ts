@@ -48,11 +48,9 @@ test("imports Markdown files and parses pasted Markdown into blocks", async ({ p
 
   await page.getByRole("button", { name: "Add a block" }).click()
   await expect(page.locator("[data-block-input]").last()).toBeFocused()
-  await page.locator("[data-lexical-input]").last().evaluate((element, text) => {
-    const data = new DataTransfer()
-    data.setData("text/plain", text)
-    element.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }))
-  }, "## Pasted heading\n\n- Pasted item")
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+  await page.evaluate((text) => navigator.clipboard.writeText(text), "## Pasted heading\n\n- Pasted item")
+  await page.keyboard.press("Control+V")
 
   await expect(page.getByText("Pasted heading", { exact: true })).toBeVisible()
   await expect(page.getByText("Pasted item", { exact: true })).toBeVisible()

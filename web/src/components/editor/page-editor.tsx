@@ -715,6 +715,20 @@ export function PageEditor() {
     return () => { alive = false }
   }, [page?.workspaceId])
 
+  function insertMarkdown(text: string, filename = "") {
+    if (readOnly || !page) return
+    const imported = parseMarkdownToBlocks(text)
+    if (imported.length === 0) {
+      toast.error(tr("No blocks found in this file"))
+      return
+    }
+    setBlocks((previous) => previous.length === 1 && previous[0].text === "" ? imported : [...previous, ...imported])
+    scheduleSave()
+    toast.success(filename
+      ? tr("Imported {n} block(s) from {name}", { n: imported.length, name: filename })
+      : tr("Pasted {n} block(s)", { n: imported.length }))
+  }
+
   useEffect(() => {
     function onMarkdownPaste(event: ClipboardEvent) {
       if (readOnly || !page) return
@@ -722,13 +736,9 @@ export function PageEditor() {
       if (!target?.closest("[data-lexical-input]")) return
       const text = event.clipboardData?.getData("text/plain") ?? ""
       if (!text || !hasMarkdownSyntax(text)) return
-      const imported = parseMarkdownToBlocks(text)
-      if (imported.length === 0) return
       event.preventDefault()
       event.stopPropagation()
-      setBlocks((previous) => previous.length === 1 && previous[0].text === "" ? imported : [...previous, ...imported])
-      scheduleSave()
-      toast.success(tr("Pasted {n} block(s)", { n: imported.length }))
+      insertMarkdown(text)
     }
     document.addEventListener("paste", onMarkdownPaste, true)
     return () => document.removeEventListener("paste", onMarkdownPaste, true)
@@ -741,17 +751,19 @@ export function PageEditor() {
       if (readOnly || !page) return
       const detail = (event as CustomEvent<{ pageId?: string; text?: string; filename?: string }>).detail
       if (!detail?.text || (detail.pageId && detail.pageId !== pageId)) return
-      const imported = parseMarkdownToBlocks(detail.text)
-      if (imported.length === 0) {
-        toast.error(tr("No blocks found in this file"))
-        return
-      }
-      setBlocks((previous) => previous.length === 1 && previous[0].text === "" ? imported : [...previous, ...imported])
-      scheduleSave()
-      toast.success(tr("Imported {n} block(s) from {name}", { n: imported.length, name: detail.filename || tr("file") }))
+      insertMarkdown(detail.text, detail.filename || tr("file"))
+    }
+    function onPasteMarkdown(event: Event) {
+      const detail = (event as CustomEvent<{ pageId?: string; text?: string }>).detail
+      if (!detail?.text || (detail.pageId && detail.pageId !== pageId)) return
+      insertMarkdown(detail.text)
     }
     window.addEventListener("motion:import-markdown", onImport)
-    return () => window.removeEventListener("motion:import-markdown", onImport)
+    window.addEventListener("motion:paste-markdown", onPasteMarkdown)
+    return () => {
+      window.removeEventListener("motion:import-markdown", onImport)
+      window.removeEventListener("motion:paste-markdown", onPasteMarkdown)
+    }
     // scheduleSave intentionally uses the current page closure.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly, page?.id])

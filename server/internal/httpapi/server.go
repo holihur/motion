@@ -28,6 +28,7 @@ import (
 	"github.com/motion/server/internal/site"
 	"github.com/motion/server/internal/store"
 	"github.com/motion/server/internal/update"
+	"github.com/motion/server/internal/webhooks"
 )
 
 type Server struct {
@@ -49,6 +50,7 @@ type Server struct {
 	lastUpdate   update.Check
 	lastUpdateAt time.Time
 	restart      func()
+	webhooks     *webhooks.Service
 }
 
 func New(cfg config.Config, st *store.Store, tokens *auth.Manager) *Server {
@@ -57,6 +59,7 @@ func New(cfg config.Config, st *store.Store, tokens *auth.Manager) *Server {
 	srv := &Server{
 		cfg: cfg, store: st, tokens: tokens, hub: hub,
 		mcp: mcpserver.New(st, hub), webFS: webFS, webName: webName,
+		webhooks: webhooks.New(st, cfg.EncryptionKey),
 	}
 	settings, err := site.Load(context.Background(), st.Settings, cfg, cfg.EncryptionKey)
 	if err != nil {
@@ -206,6 +209,8 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("workspace:write")).Post("/workspaces", s.createWorkspace)
 			r.With(s.requireScope("workspace:write")).Patch("/workspaces/{workspaceID}", s.updateWorkspace)
 			r.With(s.requireScope("workspace:write")).Delete("/workspaces/{workspaceID}", s.deleteWorkspace)
+			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/agent-config", s.getWorkspaceAgentConfig)
+			r.With(s.requireScope("workspace:write")).Put("/workspaces/{workspaceID}/agent-config", s.saveWorkspaceAgentConfig)
 			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/members", s.listMembers)
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/members", s.inviteMember)
 			r.With(s.requireScope("workspace:write")).Patch("/workspaces/{workspaceID}/members/{userID}", s.updateMember)
@@ -213,6 +218,11 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/pages", s.listPages)
 			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/trash", s.listTrash)
 			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/search", s.search)
+			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/integrations", s.listIntegrations)
+			r.With(s.requireScope("workspace:write")).Put("/workspaces/{workspaceID}/integrations/{provider}", s.saveIntegration)
+			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/integrations/ssh/publish", s.publishSSH)
+			r.With(s.requireScope("workspace:write")).Delete("/workspaces/{workspaceID}/integrations/{provider}", s.deleteIntegration)
+			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/webhook-deliveries", s.listDeliveries)
 			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/agents", s.listAgents)
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/agents", s.createAgent)
 			r.With(s.requireScope("workspace:write")).Patch("/agents/{agentID}", s.updateAgent)

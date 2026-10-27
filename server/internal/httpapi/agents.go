@@ -390,6 +390,10 @@ func (s *Server) approveProposal(w http.ResponseWriter, r *http.Request) {
 	s.hub.BroadcastWorkspace(proposal.WorkspaceID.Hex(), map[string]any{
 		"type": "proposals", "workspaceId": proposal.WorkspaceID.Hex(), "action": "approved",
 	}, "")
+	s.webhooks.Emit(r.Context(), proposal.WorkspaceID, "proposal.approved", map[string]any{
+		"proposalId": proposal.ID.Hex(), "pageId": proposal.PageID.Hex(),
+		"pageTitle": proposal.PageTitle, "agent": proposal.AgentName,
+	})
 	writeJSON(w, http.StatusOK, proposal)
 }
 
@@ -536,6 +540,10 @@ func (s *Server) finalizeApproval(ctx context.Context, agent model.Agent, runner
 		}
 		s.writeAudit(ctx, proposal.WorkspaceID, actor.ID, actor.Name, agent.ID, agent.Name,
 			"proposal.created", "proposal", proposal.ID.Hex(), "Prepared changes to “"+proposal.PageTitle+"”")
+		s.webhooks.Emit(ctx, proposal.WorkspaceID, "proposal.created", map[string]any{
+			"proposalId": proposal.ID.Hex(), "pageId": proposal.PageID.Hex(),
+			"pageTitle": proposal.PageTitle, "agent": proposal.AgentName,
+		})
 	}
 	if len(created) > 0 {
 		s.hub.BroadcastWorkspace(agent.WorkspaceID.Hex(), map[string]any{

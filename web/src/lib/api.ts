@@ -15,6 +15,9 @@ import type {
   Member,
   Page,
   Backlink,
+  Integration,
+  WebhookDelivery,
+  PublishResult,
   PageRevision,
   PageSummary,
   User,
@@ -225,6 +228,12 @@ export const api = {
       request<Workspace>(`/workspaces/${id}`, { method: "PATCH", body: body(patch) }),
     remove: (id: string) => request<void>(`/workspaces/${id}`, { method: "DELETE" }),
     members: (id: string) => request<Member[]>(`/workspaces/${id}/members`),
+    agentConfig: (id: string) => request<{ skills: import("./types").WorkspaceSkill[]; mcpServers: import("./types").WorkspaceMCP[] }>(`/workspaces/${id}/agent-config`),
+    saveAgentConfig: (id: string, input: { skills: import("./types").WorkspaceSkill[]; mcpServers: import("./types").WorkspaceMCP[] }) =>
+      request<{ skills: import("./types").WorkspaceSkill[]; mcpServers: import("./types").WorkspaceMCP[] }>(`/workspaces/${id}/agent-config`, {
+        method: "PUT",
+        body: body(input),
+      }),
     invite: (id: string, email: string, role: "editor" | "viewer") =>
       request<Member>(`/workspaces/${id}/members`, {
         method: "POST",
@@ -338,6 +347,22 @@ export const api = {
       },
       onToken: (text: string) => void,
     ) => streamChat(input, onToken),
+  },
+  integrations: {
+    list: (workspaceId: string) => request<Integration[]>(`/workspaces/${workspaceId}/integrations`),
+    save: (workspaceId: string, provider: string, input: { config: Record<string, string>; events?: string[]; secret?: string }) =>
+      request<Integration>(`/workspaces/${workspaceId}/integrations/${provider}`, {
+        method: "PUT",
+        body: body(input),
+      }),
+    remove: (workspaceId: string, provider: string) =>
+      request<void>(`/workspaces/${workspaceId}/integrations/${provider}`, { method: "DELETE" }),
+    deliveries: (workspaceId: string) => request<WebhookDelivery[]>(`/workspaces/${workspaceId}/webhook-deliveries`),
+    publishSSH: (workspaceId: string, pageId: string, includeChildren = true) =>
+      request<PublishResult>(`/workspaces/${workspaceId}/integrations/ssh/publish`, {
+        method: "POST",
+        body: body({ pageId, includeChildren }),
+      }),
   },
   files: {
     upload: async (file: File, workspaceId: string) => {

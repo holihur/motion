@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import {
+  CloudUpload,
   Copy,
   Download,
   FilePlus2,
@@ -55,6 +56,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const archivePage = useWorkspaceStore((state) => state.archivePage)
   const restorePage = useWorkspaceStore((state) => state.restorePage)
   const duplicatePage = useWorkspaceStore((state) => state.duplicatePage)
+  const activeId = useWorkspaceStore((state) => state.activeId)
   const [renameOpen, setRenameOpen] = useState(false)
   const locked = Boolean(page.locked)
 
@@ -121,6 +123,18 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     }
   }
 
+  async function onPublishSSH() {
+    if (!activeId) return
+    try {
+      const result = await api.integrations.publishSSH(activeId, page.id, true)
+      toast.success(tr("Published {n} page(s) via SSH", { n: result.fileCount }), {
+        action: result.url ? { label: tr("Open"), onClick: () => window.open(result.url, "_blank", "noopener") } : undefined,
+      })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not publish page"))
+    }
+  }
+
   async function onExport() {
     try {
       const full = await api.pages.get(page.id)
@@ -182,6 +196,9 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           <DropdownMenuItem onSelect={() => void onExport()}>
             <Download /> {tr("Export as Markdown")}
           </DropdownMenuItem>
+          {!readOnly && <DropdownMenuItem onSelect={() => void onPublishSSH()}>
+            <CloudUpload /> {tr("Publish via SSH")}
+          </DropdownMenuItem>}
           {!readOnly && !locked && <DropdownMenuSeparator />}
           {!readOnly && !locked && <DropdownMenuItem variant="destructive" onSelect={() => void onArchive()}>
             <Trash2 /> {tr("Move to Trash")}

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
 import { Check, Copy, KeyRound, LogOut, Sparkles, TerminalSquare, Trash2 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
+import { WorkspaceAgentSettings } from "@/components/app/workspace-agent-settings"
+import { IntegrationsSettings } from "@/components/app/integrations-settings"
 import { toast } from "sonner"
 import { api, type AccessToken } from "@/lib/api"
 import { getLanguage, setLanguage, tr, type Language } from "@/lib/i18n"
@@ -41,6 +43,8 @@ export function SettingsDialog() {
             <TabsList className="w-full justify-start bg-transparent p-0">
               <TabsTrigger value="profile" className="data-[state=active]:bg-muted">{tr("Profile")}</TabsTrigger>
               <TabsTrigger value="workspace" className="data-[state=active]:bg-muted">{tr("Workspace")}</TabsTrigger>
+              <TabsTrigger value="agent" className="data-[state=active]:bg-muted">{tr("Agent")}</TabsTrigger>
+              <TabsTrigger value="integrations" className="data-[state=active]:bg-muted">{tr("Integrations")}</TabsTrigger>
               <TabsTrigger value="ai" className="data-[state=active]:bg-muted">{tr("AI")}</TabsTrigger>
             <TabsTrigger value="developer" className="data-[state=active]:bg-muted">{tr("Developer")}</TabsTrigger>
             <TabsTrigger value="appearance" className="data-[state=active]:bg-muted">{tr("Appearance")}</TabsTrigger>
@@ -52,6 +56,12 @@ export function SettingsDialog() {
             </TabsContent>
             <TabsContent value="workspace">
               <WorkspaceSettings />
+            </TabsContent>
+            <TabsContent value="agent">
+              <WorkspaceAgentSettings />
+            </TabsContent>
+            <TabsContent value="integrations">
+              <IntegrationsSettings />
             </TabsContent>
             <TabsContent value="ai">
               <AISettings />

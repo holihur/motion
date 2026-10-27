@@ -2,11 +2,12 @@ package httpapi
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
 	"github.com/go-chi/chi/v5"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -31,6 +32,9 @@ func (s *Server) listWorkspaces(w http.ResponseWriter, r *http.Request) {
 	if err := cur.All(r.Context(), &workspaces); err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not load workspaces")
 		return
+	}
+	for i := range workspaces {
+		redactWorkspaceMCP(&workspaces[i], currentUserID(r))
 	}
 	writeJSON(w, http.StatusOK, workspaces)
 }
@@ -122,6 +126,15 @@ func (s *Server) updateWorkspace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, ws)
+}
+
+func redactWorkspaceMCP(ws *model.Workspace, userID primitive.ObjectID) {
+	if ws.OwnerID == userID {
+		return
+	}
+	for i := range ws.MCPServers {
+		ws.MCPServers[i].Headers = nil
+	}
 }
 
 func (s *Server) deleteWorkspace(w http.ResponseWriter, r *http.Request) {
@@ -217,4 +230,118 @@ func (s *Server) listTrash(w http.ResponseWriter, r *http.Request) {
 // chiURLParam is a tiny wrapper so handlers read cleanly without importing chi everywhere.
 func chiURLParam(r *http.Request, key string) string {
 	return chi.URLParam(r, key)
+}
+
+type workspaceAgentConfigRequest struct {
+	Skills     []model.WorkspaceSkill `json:"skills"`
+	MCPServers []model.WorkspaceMCP   `json:"mcpServers"`
+}
+
+func (s *Server) getWorkspaceAgentConfig(w http.ResponseWriter, r *http.Request) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	ws, _, err := s.accessibleWorkspace(r, wsID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "workspace not found")
+		return
+	}
+	redactWorkspaceMCP(&ws, currentUserID(r))
+	writeJSON(w, http.StatusOK, map[string]any{
+		"skills": ws.Skills, "mcpServers": ws.MCPServers,
+	})
+}
+
+func (s *Server) saveWorkspaceAgentConfig(w http.ResponseWriter, r *http.Request) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	ws, role, err := s.accessibleWorkspace(r, wsID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "workspace not found")
+		return
+	}
+	if role != roleOwner {
+		writeErr(w, http.StatusForbidden, "only the workspace owner can configure agent skills and MCP")
+		return
+	}
+	var req workspaceAgentConfigRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(req.Skills) > 20 || len(req.MCPServers) > 10 {
+		writeErr(w, http.StatusBadRequest, "too many skills or MCP servers")
+		return
+	}
+	seenSkills := map[string]bool{}
+	for i := range req.Skills {
+		item := &req.Skills[i]
+		item.Name = strings.TrimSpace(item.Name)
+		item.Description = strings.TrimSpace(item.Description)
+		item.Instructions = strings.TrimSpace(item.Instructions)
+		if item.Name == "" || item.Instructions == "" {
+			writeErr(w, http.StatusBadRequest, "every skill needs a name and instructions")
+			return
+		}
+		if seenSkills[item.Name] {
+			writeErr(w, http.StatusBadRequest, "skill names must be unique")
+			return
+		}
+		seenSkills[item.Name] = true
+		if item.ID == "" {
+			item.ID = primitive.NewObjectID().Hex()
+		}
+		if len(item.Name) > 80 || len(item.Description) > 300 || len(item.Instructions) > 20000 {
+			writeErr(w, http.StatusBadRequest, "a skill is too large")
+			return
+		}
+	}
+	seenMCP := map[string]bool{}
+	for i := range req.MCPServers {
+		item := &req.MCPServers[i]
+		item.Name = strings.TrimSpace(item.Name)
+		item.URL = strings.TrimSpace(item.URL)
+		if item.Name == "" || item.URL == "" {
+			writeErr(w, http.StatusBadRequest, "every MCP server needs a name and URL")
+			return
+		}
+		if seenMCP[item.Name] {
+			writeErr(w, http.StatusBadRequest, "MCP server names must be unique")
+			return
+		}
+		seenMCP[item.Name] = true
+		if item.ID == "" {
+			item.ID = primitive.NewObjectID().Hex()
+		}
+		parsed, err := url.Parse(item.URL)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+			writeErr(w, http.StatusBadRequest, "MCP URL must be an http(s) URL")
+			return
+		}
+		if item.Headers == nil {
+			item.Headers = map[string]string{}
+		}
+		if len(item.Headers) > 20 {
+			writeErr(w, http.StatusBadRequest, "too many MCP headers")
+			return
+		}
+		for key, value := range item.Headers {
+			if len(key) > 100 || len(value) > 2000 {
+				writeErr(w, http.StatusBadRequest, "an MCP header is too large")
+				return
+			}
+		}
+	}
+	if _, err := s.store.Workspaces.UpdateByID(r.Context(), ws.ID, bson.M{"$set": bson.M{
+		"skills": req.Skills, "mcpServers": req.MCPServers, "updatedAt": time.Now().UTC(),
+	}}); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not save agent configuration")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"skills": req.Skills, "mcpServers": req.MCPServers})
 }

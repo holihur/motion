@@ -137,6 +137,10 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		"type": "comments", "pageId": pageID.Hex(), "action": "created",
 		"clientId": clientID(r),
 	}, clientID(r))
+	s.webhooks.Emit(r.Context(), page.WorkspaceID, "comment.created", map[string]any{
+		"pageId": pageID.Hex(), "pageTitle": page.Title, "commentId": comment.ID.Hex(),
+		"author": name, "body": comment.Body, "quote": comment.Quote,
+	})
 	writeJSON(w, http.StatusCreated, comment)
 }
 

@@ -1054,12 +1054,23 @@ func (r *Runner) run(
 		}
 	}
 	temperature := float32(0.3)
+	var toolsets []tool.Toolset
+	if !focusWorkspace.IsZero() {
+		var workspace model.Workspace
+		if err := r.Store.Workspaces.FindOne(ctx, bson.M{"_id": focusWorkspace}).Decode(&workspace); err == nil {
+			toolsets, err = workspaceToolsets(ctx, workspace)
+			if err != nil {
+				return "", r.Actions, err
+			}
+		}
+	}
 	docAgent, err := llmagent.New(llmagent.Config{
 		Name:                  "motion_document_agent",
 		Description:           "Reads and edits Motion pages on the user's behalf.",
 		Model:                 llm,
 		Instruction:           instruction,
 		Tools:                 tools,
+		Toolsets:              toolsets,
 		GenerateContentConfig: &genai.GenerateContentConfig{Temperature: &temperature},
 	})
 	if err != nil {

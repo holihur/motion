@@ -76,12 +76,29 @@ export interface Member {
   isOwner?: boolean
 }
 
+export interface WorkspaceSkill {
+  id: string
+  name: string
+  description: string
+  instructions: string
+}
+
+export interface WorkspaceMCP {
+  id: string
+  name: string
+  url: string
+  headers?: Record<string, string>
+  enabled: boolean
+}
+
 export interface Workspace {
   id: string
   name: string
   icon: string
   ownerId: string
   members?: Member[]
+  skills?: WorkspaceSkill[]
+  mcpServers?: WorkspaceMCP[]
   createdAt: string
   updatedAt: string
 }
@@ -109,6 +126,34 @@ export interface Page extends PageSummary {
   createdBy: string
   createdAt: string
   archivedAt?: string
+}
+
+export interface Integration {
+  provider: string
+  config: Record<string, string>
+  events?: string[]
+  secretHint?: string
+  hasSecret: boolean
+  updatedAt: string
+}
+
+export interface WebhookDelivery {
+  id: string
+  event: string
+  url: string
+  status: string
+  attempts: number
+  responseCode?: number
+  error?: string
+  createdAt: string
+  deliveredAt?: string
+}
+
+export interface PublishResult {
+  provider: string
+  pageId: string
+  url: string
+  fileCount: number
 }
 
 export interface Backlink {

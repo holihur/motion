@@ -43,6 +43,15 @@ OpenAI 兼容适配器会自动请求 `{baseUrl}/chat/completions`，并把 ADK 
 
 助手会先搜索/读取真实页面，再执行修改，避免编造页面 ID。
 
+## Workspace Skills 与 MCP
+
+工作区所有者可以在 **Settings → Agent** 配置：
+
+- **Skills**：可复用的名称、描述和指令，Agent 通过 ADK Skill Toolset 按需加载。
+- **MCP servers**：远程 Streamable HTTP MCP Server，以及可选的请求头。Agent 会把它们作为外部工具使用。
+
+配置保存在工作区级别，工作区内所有 AI Agent 共享。
+
 ## AGENTS.md 工作区指令
 
 在工作区中创建一个标题为 `AGENTS.md` 的页面（不区分大小写）。AI 面板会显示 **Create / Open** 快捷入口。每次对话时，服务端会把该页面的 Markdown 内容作为项目级指令加入 Agent 的 System Instruction。

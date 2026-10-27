@@ -26,14 +26,31 @@ type Member struct {
 	JoinedAt time.Time          `bson:"joinedAt" json:"joinedAt"`
 }
 
+type WorkspaceSkill struct {
+	ID           string `bson:"id" json:"id"`
+	Name         string `bson:"name" json:"name"`
+	Description  string `bson:"description" json:"description"`
+	Instructions string `bson:"instructions" json:"instructions"`
+}
+
+type WorkspaceMCP struct {
+	ID      string            `bson:"id" json:"id"`
+	Name    string            `bson:"name" json:"name"`
+	URL     string            `bson:"url" json:"url"`
+	Headers map[string]string `bson:"headers,omitempty" json:"headers,omitempty"`
+	Enabled bool              `bson:"enabled" json:"enabled"`
+}
+
 type Workspace struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Name      string             `bson:"name" json:"name"`
-	Icon      string             `bson:"icon" json:"icon"`
-	OwnerID   primitive.ObjectID `bson:"ownerId" json:"ownerId"`
-	Members   []Member           `bson:"members,omitempty" json:"members,omitempty"`
-	CreatedAt time.Time          `bson:"createdAt" json:"createdAt"`
-	UpdatedAt time.Time          `bson:"updatedAt" json:"updatedAt"`
+	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Name       string             `bson:"name" json:"name"`
+	Icon       string             `bson:"icon" json:"icon"`
+	OwnerID    primitive.ObjectID `bson:"ownerId" json:"ownerId"`
+	Members    []Member           `bson:"members,omitempty" json:"members,omitempty"`
+	Skills     []WorkspaceSkill   `bson:"skills,omitempty" json:"skills,omitempty"`
+	MCPServers []WorkspaceMCP     `bson:"mcpServers,omitempty" json:"mcpServers,omitempty"`
+	CreatedAt  time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt  time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
 // Block is a single unit of page content. Content is stored as plain text;
@@ -154,6 +171,33 @@ type AISetting struct {
 	KeyHint   string             `bson:"keyHint" json:"keyHint"`
 	UpdatedAt time.Time          `bson:"updatedAt" json:"updatedAt"`
 	CreatedAt time.Time          `bson:"createdAt" json:"createdAt"`
+}
+
+type Integration struct {
+	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	WorkspaceID  primitive.ObjectID `bson:"workspaceId" json:"workspaceId"`
+	Provider     string             `bson:"provider" json:"provider"`
+	Config       map[string]string  `bson:"config" json:"config"`
+	Events       []string           `bson:"events,omitempty" json:"events,omitempty"`
+	SecretCipher string             `bson:"secretCipher,omitempty" json:"-"`
+	SecretHint   string             `bson:"secretHint,omitempty" json:"secretHint,omitempty"`
+	CreatedBy    primitive.ObjectID `bson:"createdBy" json:"createdBy"`
+	CreatedAt    time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt    time.Time          `bson:"updatedAt" json:"updatedAt"`
+}
+
+type WebhookDelivery struct {
+	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	WorkspaceID   primitive.ObjectID `bson:"workspaceId" json:"workspaceId"`
+	IntegrationID primitive.ObjectID `bson:"integrationId" json:"integrationId"`
+	Event         string             `bson:"event" json:"event"`
+	URL           string             `bson:"url" json:"url"`
+	Status        string             `bson:"status" json:"status"`
+	Attempts      int                `bson:"attempts" json:"attempts"`
+	ResponseCode  int                `bson:"responseCode,omitempty" json:"responseCode,omitempty"`
+	Error         string             `bson:"error,omitempty" json:"error,omitempty"`
+	CreatedAt     time.Time          `bson:"createdAt" json:"createdAt"`
+	DeliveredAt   *time.Time         `bson:"deliveredAt,omitempty" json:"deliveredAt,omitempty"`
 }
 
 type Agent struct {

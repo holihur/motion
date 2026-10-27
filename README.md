@@ -20,6 +20,9 @@
 - **文档历史**：自动快照 + 手动保存版本，可预览和恢复，恢复本身也可撤销。
 - **BYOK AI 文档助手**：支持 DeepSeek、OpenAI、OpenRouter、Groq、Ollama、Gemini 以及任意 OpenAI 兼容服务。默认 DeepSeek。支持 SSE 流式输出、停止生成、重新生成，并在每次运行前自动保存版本，一键撤销 AI 修改。
 - **Google ADK**：AI 助手基于 `google.golang.org/adk`，通过工具读取、搜索、创建和编辑文档。
+- **Workspace Skills & MCP**：工作区所有者可以配置可复用 Skills 和远程 Streamable HTTP MCP Server，工作区内所有 AI Agent 自动获得这些能力。
+- **Webhook 集成**：工作区可配置带 HMAC 签名的 outgoing webhook，支持评论、AI 审批、发布事件与投递日志。
+- **SSH 静态发布**：页面可渲染为静态 HTML，通过 SFTP 发布到远程服务器目录，私钥加密存储。
 - **MCP 服务器**：`/mcp` 暴露搜索、读写页面、追加块、更新块、批量删除页面、评论等工具，使用带 Scope 的 PAT 授权。
 - **OIDC 单点登录**：Google、Keycloak、Auth0、Authentik 等任何 OIDC Provider。
 - **Ops 管理页**：使用独立于用户账号的 `OPS_TOKEN` 保护；注册开关、管理员、OIDC、AI 默认模型、MCP、更新策略、实例统计都在网页里配置，无需改命令行。

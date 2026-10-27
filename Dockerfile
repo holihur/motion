@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1
-FROM node:22-alpine AS frontend
-RUN corepack enable
+FROM node:26-alpine AS frontend
+RUN npm install -g pnpm@12.15.0
 WORKDIR /app/web
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY web/ ./
 RUN pnpm build
 
-FROM golang:1.26-alpine AS backend
+FROM golang:1.27-alpine AS backend
 WORKDIR /src/server
 COPY server/go.mod server/go.sum ./
 RUN go mod download

@@ -13,5 +13,5 @@
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@playwright/test": "1.64.1"
   },
-  "packageManager": "pnpm@12.4.1"
+  "packageManager": "pnpm@12.15.0"
 }

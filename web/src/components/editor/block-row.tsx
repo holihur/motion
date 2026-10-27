@@ -36,6 +36,7 @@ import type { RealtimePresence } from "@/lib/realtime"
 import { MermaidDiagram } from "@/components/editor/mermaid-diagram"
 import { LexicalBlock } from "@/components/editor/lexical-block"
 import { PasswordBlock } from "@/components/editor/password-block"
+import { ChartBlock, GanttBlock } from "@/components/editor/data-blocks"
 import {
   BookmarkBlock,
   EmbedBlock,
@@ -502,6 +503,10 @@ export function BlockRow(props: BlockRowProps) {
         return <EquationBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "toc":
         return <TocBlock block={block} headings={headings} readOnly={readOnly} />
+      case "gantt":
+        return <GanttBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+      case "chart":
+        return <ChartBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "image":
         return block.url ? (
           <figure

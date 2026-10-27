@@ -276,6 +276,18 @@ func markdownFor(page model.Page) string {
 			builder.WriteString("$$\n" + block.Text + "\n$$\n\n")
 		case "toc":
 			builder.WriteString("**Table of contents**\n\n")
+		case "gantt", "chart":
+			if block.Text != "" {
+				builder.WriteString("**" + block.Text + "**\n\n")
+			}
+			if block.Table != nil {
+				builder.WriteString("| " + strings.Join(block.Table.Columns, " | ") + " |\n")
+				builder.WriteString("| " + strings.Repeat("--- | ", len(block.Table.Columns)) + "\n")
+				for _, row := range block.Table.Rows {
+					builder.WriteString("| " + strings.Join(row, " | ") + " |\n")
+				}
+				builder.WriteString("\n")
+			}
 		case "password":
 			builder.WriteString("🔒 " + block.Text + "\n\n")
 		default:

@@ -20,6 +20,8 @@ export type BlockType =
   | "file"
   | "equation"
   | "toc"
+  | "gantt"
+  | "chart"
 
 export interface TableData {
   columns: string[]

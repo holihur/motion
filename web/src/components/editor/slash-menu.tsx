@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { Search } from "lucide-react"
 import type { SlashCommand } from "@/components/editor/commands"
 import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
@@ -19,15 +20,22 @@ export function SlashMenu({
   onSelect,
   onHover,
   onClose,
+  onQueryChange,
 }: {
   state: SlashState
   commands: SlashCommand[]
   onSelect: (command: SlashCommand) => void
   onHover: (index: number) => void
   onClose: () => void
+  onQueryChange: (value: string) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (state.mode === "insert") searchRef.current?.focus()
+  }, [state.mode])
 
   useEffect(() => {
     const node = listRef.current?.querySelector<HTMLElement>(`[data-index="${state.selected}"]`)
@@ -44,7 +52,7 @@ export function SlashMenu({
 
   const compact = window.innerWidth < 640
   const width = compact ? window.innerWidth - 24 : 304
-  const estimatedHeight = Math.min(compact ? window.innerHeight * 0.6 : 340, Math.max(80, commands.length * 52 + 16))
+  const estimatedHeight = Math.min(compact ? window.innerHeight * 0.66 : 380, Math.max(112, commands.length * 52 + 60))
   const left = compact ? 12 : Math.min(Math.max(8, state.x), window.innerWidth - width - 12)
   const openUp = !compact && state.y + estimatedHeight + 12 > window.innerHeight && state.y > estimatedHeight + 24
   const top = compact
@@ -66,6 +74,35 @@ export function SlashMenu({
             {state.mode === "insert" ? tr("Insert block") : tr("Turn into")}
           </span>
           <span className="text-[10px] text-muted-foreground/60">↵ {tr("to choose")}</span>
+        </div>
+        <div className="px-2 pb-1.5">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              ref={searchRef}
+              value={state.query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown") {
+                  event.preventDefault()
+                  if (commands.length > 0) onHover((state.selected + 1) % commands.length)
+                } else if (event.key === "ArrowUp") {
+                  event.preventDefault()
+                  if (commands.length > 0) onHover((state.selected - 1 + commands.length) % commands.length)
+                } else if (event.key === "Enter") {
+                  event.preventDefault()
+                  const command = commands[state.selected]
+                  if (command) onSelect(command)
+                } else if (event.key === "Escape") {
+                  event.preventDefault()
+                  onClose()
+                }
+              }}
+              placeholder={tr("Search blocks…")}
+              aria-label={tr("Search blocks")}
+              className="h-8 w-full rounded-md border bg-background/80 pl-8 pr-2 text-xs outline-none placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring/25"
+            />
+          </div>
         </div>
         <div ref={listRef} className="max-h-[min(300px,50svh)] overflow-y-auto p-1.5 thin-scrollbar">
           {commands.length === 0 ? (

@@ -357,7 +357,7 @@ func (s *Server) createPage(ctx context.Context, _ *mcp.CallToolRequest, args Cr
 }
 
 type BlockArg struct {
-	Type     string           `json:"type" jsonschema:"paragraph, heading1, heading2, heading3, bulleted, numbered, todo, quote, callout, code, divider, image, table, diagram, bookmark, video, embed, file, equation or toc"`
+	Type     string           `json:"type" jsonschema:"paragraph, heading1, heading2, heading3, bulleted, numbered, todo, quote, callout, code, divider, image, table, diagram, bookmark, video, embed, file, equation, toc, gantt or chart"`
 	Text     string           `json:"text,omitempty"`
 	Checked  bool             `json:"checked,omitempty"`
 	Language string           `json:"language,omitempty"`
@@ -392,6 +392,7 @@ func (s *Server) appendBlocks(ctx context.Context, _ *mcp.CallToolRequest, args 
 		"callout": true, "code": true, "divider": true, "image": true,
 		"table": true, "diagram": true, "bookmark": true, "video": true,
 		"embed": true, "file": true, "equation": true, "toc": true,
+		"gantt": true, "chart": true,
 	}
 	now := time.Now().UTC()
 	for _, input := range args.Blocks {

@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react"
 import {
   Bookmark,
+  ChartColumn,
+  ChartGantt,
   CheckSquare,
   Code2,
   FileText,
@@ -54,6 +56,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { type: "file", title: "File", description: "Link to a downloadable file", icon: FileText, keywords: "file attachment download pdf" },
   { type: "equation", title: "Equation", description: "Write math with LaTeX", icon: Sigma, keywords: "math latex formula equation katex" },
   { type: "toc", title: "Table of contents", description: "Link to every heading on the page", icon: ListTree, keywords: "toc contents outline headings index" },
+  { type: "gantt", title: "Gantt", description: "Plan tasks on a timeline", icon: ChartGantt, keywords: "gantt timeline project schedule tasks plan" },
+  { type: "chart", title: "Chart", description: "Visualize data as bar, line or pie", icon: ChartColumn, keywords: "chart graph bar line pie data visualize" },
 ]
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
@@ -78,6 +82,8 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   file: "File",
   equation: "Equation",
   toc: "Table of contents",
+  gantt: "Gantt",
+  chart: "Chart",
 }
 
 export function filterCommands(query: string) {

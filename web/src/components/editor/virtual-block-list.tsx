@@ -31,6 +31,10 @@ function estimatedHeight(block: Block): number {
       return 150
     case "toc":
       return 180
+    case "gantt":
+      return 360
+    case "chart":
+      return 380
     case "divider":
       return 32
     case "callout":

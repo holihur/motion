@@ -61,6 +61,8 @@ export function PageTree({
   const roots = useMemo(() => buildTree(visiblePages), [visiblePages])
   const [expanded, setExpanded] = useState<Set<string>>(() => readExpanded() ?? new Set())
   const initialized = useRef(false)
+  const lastActiveRef = useRef<string | null>(null)
+  const preSearchExpandedRef = useRef<Set<string> | null>(null)
   const navigate = useNavigate()
   const createPage = useWorkspaceStore((state) => state.createPage)
 
@@ -82,9 +84,19 @@ export function PageTree({
   }, [expanded])
 
   useEffect(() => {
-    if (!query.trim()) return
-    setExpanded(new Set(visiblePages.filter((page) => page.parentId).map((page) => page.parentId as string)))
-  }, [query, visiblePages])
+    if (query.trim()) {
+      if (!preSearchExpandedRef.current) preSearchExpandedRef.current = new Set(expanded)
+      setExpanded(new Set(visiblePages.filter((page) => page.parentId).map((page) => page.parentId as string)))
+      return
+    }
+    if (preSearchExpandedRef.current) {
+      setExpanded(preSearchExpandedRef.current)
+      preSearchExpandedRef.current = null
+    }
+    // Only react to a new search term. Re-running this on every page refresh
+    // would undo manual collapses while the user is editing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query])
 
   useEffect(() => {
     function collapseAll() {
@@ -95,9 +107,10 @@ export function PageTree({
   }, [])
 
   useEffect(() => {
-    if (!activeId) return
+    if (!activeId || lastActiveRef.current === activeId) return
     const chain = allAncestorIds(pages, activeId)
     if (chain.length === 0) return
+    lastActiveRef.current = activeId
     setExpanded((previous) => {
       const next = new Set(previous)
       chain.forEach((id) => next.add(id))

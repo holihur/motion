@@ -9,6 +9,7 @@ import { BlockRow } from "@/components/editor/block-row"
 import { SlashMenu, type SlashState } from "@/components/editor/slash-menu"
 import { VirtualBlockList } from "@/components/editor/virtual-block-list"
 import type { HeadingItem } from "@/components/editor/rich-blocks"
+import { defaultChartTable, defaultGanttTable } from "@/components/editor/data-blocks"
 import type { RealtimePresence } from "@/lib/realtime"
 import { filterCommands, type SlashCommand } from "@/components/editor/commands"
 
@@ -45,6 +46,8 @@ function createBlock(type: BlockType = "paragraph"): Block {
           },
         }
       : {}),
+    ...(type === "gantt" ? { table: defaultGanttTable() } : {}),
+    ...(type === "chart" ? { table: defaultChartTable(), language: "bar" } : {}),
   }
 }
 
@@ -214,6 +217,15 @@ export function BlockEditor({
               rows: [["", "", ""], ["", "", ""]],
               header: true,
             },
+          }
+        : {}),
+      ...(type === "gantt"
+        ? { table: block.type === "gantt" && block.table ? block.table : defaultGanttTable() }
+        : {}),
+      ...(type === "chart"
+        ? {
+            table: block.type === "chart" && block.table ? block.table : defaultChartTable(),
+            language: "bar",
           }
         : {}),
     })
@@ -653,6 +665,7 @@ export function BlockEditor({
           commands={commands}
           onSelect={applyCommand}
           onHover={(selected) => setSlash((current) => (current ? { ...current, selected } : current))}
+          onQueryChange={(query) => setSlash((current) => (current ? { ...current, query, selected: 0 } : current))}
           onClose={closeSlash}
         />
       )}

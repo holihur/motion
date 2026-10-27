@@ -40,6 +40,8 @@ var blockTypes = map[string]bool{
 	"file":      true,
 	"equation":  true,
 	"toc":       true,
+	"gantt":     true,
+	"chart":     true,
 }
 
 type createPageRequest struct {
@@ -449,7 +451,7 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		if len(b.Language) > 40 {
 			b.Language = b.Language[:40]
 		}
-		if b.Type == "table" {
+		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" {
 			b.Table = sanitizeTable(b.Table)
 		}
 		if b.Type == "password" {
@@ -552,7 +554,7 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 		if len(b.Language) > 40 {
 			b.Language = b.Language[:40]
 		}
-		if b.Type == "table" {
+		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" {
 			b.Table = sanitizeTable(b.Table)
 		}
 		if b.Type == "password" {

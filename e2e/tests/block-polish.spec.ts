@@ -41,6 +41,7 @@ test("block colors, alignment, insert, duplicate and move are persisted", async 
   await page.getByRole("menuitem", { name: "Duplicate" }).click()
   await expect(rows).toHaveCount(4)
   await expect(rows.nth(1)).toContainText("One")
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible({ timeout: 10_000 })
 
   await rows.first().hover()
   await rows.first().getByLabel("Block options").first().click()

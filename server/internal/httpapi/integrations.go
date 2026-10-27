@@ -480,6 +480,8 @@ func (s *Server) publishPages(w http.ResponseWriter, r *http.Request, wsID primi
 	}
 	pages := []model.Page{page}
 	if !includeChildren {
+		page = s.applyLayout(r.Context(), page)
+		pages[0] = page
 		return pages, page, true
 	}
 	cur, err := s.store.Pages.Find(r.Context(), bson.M{"workspaceId": wsID, "archived": false})
@@ -513,6 +515,9 @@ func (s *Server) publishPages(w http.ResponseWriter, r *http.Request, wsID primi
 		}
 	}
 	walk(page)
+	for index := range pages {
+		pages[index] = s.applyLayout(r.Context(), pages[index])
+	}
 	return pages, page, true
 }
 

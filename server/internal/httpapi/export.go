@@ -23,6 +23,7 @@ func (s *Server) exportPage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "page not found")
 		return
 	}
+	page = s.applyLayout(r.Context(), page)
 	format := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("format")))
 	name := staticpublish.Slug(page.Title, page.ID)
 	var data []byte

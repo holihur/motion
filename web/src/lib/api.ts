@@ -350,7 +350,7 @@ export const api = {
   },
   integrations: {
     list: (workspaceId: string) => request<Integration[]>(`/workspaces/${workspaceId}/integrations`),
-    save: (workspaceId: string, provider: string, input: { config: Record<string, string>; events?: string[]; secret?: string }) =>
+    save: (workspaceId: string, provider: string, input: { config: Record<string, string>; events?: string[]; secret?: string; enabled?: boolean }) =>
       request<Integration>(`/workspaces/${workspaceId}/integrations/${provider}`, {
         method: "PUT",
         body: body(input),
@@ -383,6 +383,8 @@ export const api = {
         method: "POST",
         body: body({ pageId, includeChildren }),
       }),
+    test: (workspaceId: string, provider: string) =>
+      request<{ ok: boolean; message: string; latencyMs: number }>(`/workspaces/${workspaceId}/integrations/${provider}/test`, { method: "POST" }),
   },
   files: {
     upload: async (file: File, workspaceId: string) => {

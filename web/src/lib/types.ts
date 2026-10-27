@@ -134,6 +134,7 @@ export interface Integration {
   events?: string[]
   secretHint?: string
   hasSecret: boolean
+  enabled: boolean
   updatedAt: string
 }
 

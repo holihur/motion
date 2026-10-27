@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import {
   CloudUpload,
@@ -8,6 +8,7 @@ import {
   Bug,
   BookOpen,
   FilePlus2,
+  FileUp,
   Link2,
   LockKeyhole,
   LockOpen,
@@ -61,6 +62,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const duplicatePage = useWorkspaceStore((state) => state.duplicatePage)
   const activeId = useWorkspaceStore((state) => state.activeId)
   const [renameOpen, setRenameOpen] = useState(false)
+  const importRef = useRef<HTMLInputElement>(null)
   const locked = Boolean(page.locked)
 
   const isCurrent = location.pathname === `/page/${page.id}`
@@ -123,6 +125,15 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
       toast.success(updated.locked ? tr("Page locked") : tr("Page unlocked"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not change page lock"))
+    }
+  }
+
+  async function onImportFile(file: File) {
+    try {
+      const text = await file.text()
+      window.dispatchEvent(new CustomEvent("motion:import-markdown", { detail: { pageId: page.id, text, filename: file.name } }))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not read file"))
     }
   }
 
@@ -228,6 +239,9 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
             <FilePlus2 /> {tr("Add sub-page")}
           </DropdownMenuItem>}
           {!readOnly && !locked && <DropdownMenuSeparator />}
+          {!readOnly && !locked && <DropdownMenuItem onSelect={() => importRef.current?.click()}>
+            <FileUp /> {tr("Import Markdown")}
+          </DropdownMenuItem>}
           {!readOnly && !locked && <DropdownMenuItem onSelect={() => void onDuplicate()}>
             <Copy /> {tr("Duplicate")}
           </DropdownMenuItem>}
@@ -259,6 +273,17 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <input
+        ref={importRef}
+        type="file"
+        accept=".md,.markdown,.txt,text/markdown,text/plain"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) void onImportFile(file)
+          event.target.value = ""
+        }}
+      />
       <RenamePageDialog
         page={page}
         open={renameOpen}

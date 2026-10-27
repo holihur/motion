@@ -11,6 +11,7 @@ import { VirtualBlockList } from "@/components/editor/virtual-block-list"
 import type { HeadingItem } from "@/components/editor/rich-blocks"
 import { defaultChartTable, defaultGanttTable } from "@/components/editor/data-blocks"
 import { defaultColumnsTable } from "@/components/editor/link-blocks"
+import { hasMarkdownSyntax, parseMarkdownToBlocks } from "@/lib/markdown-import"
 import type { RealtimePresence } from "@/lib/realtime"
 import { filterCommands, type SlashCommand } from "@/components/editor/commands"
 
@@ -540,6 +541,17 @@ export function BlockEditor({
     const el = document.getElementById(`block-input-${block.id}`) as HTMLElement | null
     const offset = el ? caretOffset(el) : block.text.length
     const text = raw.replace(/\r/g, "")
+    if (hasMarkdownSyntax(text)) {
+      const imported = parseMarkdownToBlocks(text)
+      if (imported.length === 0) return
+      const currentEmpty = block.type === "paragraph" && block.text === ""
+      const next = currentEmpty
+        ? [...blocksRef.current.slice(0, index), ...imported, ...blocksRef.current.slice(index + 1)]
+        : [...blocksRef.current.slice(0, index + 1), ...imported, ...blocksRef.current.slice(index + 1)]
+      commit(next)
+      focusNew(imported[imported.length - 1].id, "end")
+      return
+    }
     const lines = text.split("\n")
     if (lines.length === 1) {
       const nextText = block.text.slice(0, offset) + text + block.text.slice(offset)

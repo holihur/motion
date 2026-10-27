@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"mime"
 	"net/http"
 	"net/url"
@@ -30,13 +31,15 @@ type integrationView struct {
 	Events     []string          `json:"events,omitempty"`
 	SecretHint string            `json:"secretHint,omitempty"`
 	HasSecret  bool              `json:"hasSecret"`
+	Enabled    bool              `json:"enabled"`
 	UpdatedAt  time.Time         `json:"updatedAt"`
 }
 
 type saveIntegrationRequest struct {
-	Config map[string]string `json:"config"`
-	Events []string          `json:"events"`
-	Secret string            `json:"secret"`
+	Config  map[string]string `json:"config"`
+	Events  []string          `json:"events"`
+	Secret  string            `json:"secret"`
+	Enabled *bool             `json:"enabled,omitempty"`
 }
 
 func integrationViewOf(item model.Integration) integrationView {
@@ -51,7 +54,7 @@ func integrationViewOf(item model.Integration) integrationView {
 	}
 	return integrationView{
 		Provider: item.Provider, Config: config, Events: item.Events,
-		SecretHint: item.SecretHint, HasSecret: item.SecretCipher != "", UpdatedAt: item.UpdatedAt,
+		SecretHint: item.SecretHint, HasSecret: item.SecretCipher != "", Enabled: !item.Disabled, UpdatedAt: item.UpdatedAt,
 	}
 }
 
@@ -93,7 +96,7 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	provider := strings.ToLower(strings.TrimSpace(chiURLParam(r, "provider")))
-	if provider != "webhook" && provider != "ssh" && provider != "git" && provider != "jira" && provider != "confluence" && provider != "s3" {
+	if provider != "webhook" && provider != "ssh" && provider != "git" && provider != "jira" && provider != "confluence" && provider != "s3" && provider != "aliyun_oss" && provider != "qiniu" {
 		writeErr(w, http.StatusBadRequest, "unsupported integration provider")
 		return
 	}
@@ -127,6 +130,20 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if provider == "confluence" {
 		for _, key := range []string{"siteUrl", "email", "spaceId"} {
+			if strings.TrimSpace(req.Config[key]) == "" {
+				writeErr(w, http.StatusBadRequest, key+" is required")
+				return
+			}
+		}
+	} else if provider == "aliyun_oss" {
+		for _, key := range []string{"endpoint", "bucket"} {
+			if strings.TrimSpace(req.Config[key]) == "" {
+				writeErr(w, http.StatusBadRequest, key+" is required")
+				return
+			}
+		}
+	} else if provider == "qiniu" {
+		for _, key := range []string{"bucket", "publicBaseUrl"} {
 			if strings.TrimSpace(req.Config[key]) == "" {
 				writeErr(w, http.StatusBadRequest, key+" is required")
 				return
@@ -176,9 +193,13 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().UTC()
 	var existing model.Integration
 	err = s.store.Integrations.FindOne(r.Context(), bson.M{"workspaceId": wsID, "provider": provider}).Decode(&existing)
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
+	}
 	set := bson.M{
 		"workspaceId": wsID, "provider": provider, "config": req.Config,
-		"events": req.Events, "updatedAt": now,
+		"events": req.Events, "disabled": !enabled, "updatedAt": now,
 	}
 	if strings.TrimSpace(req.Secret) != "" {
 		encrypted, err := secret.Encrypt(s.cfg.EncryptionKey, req.Secret)
@@ -196,7 +217,7 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		set["secretHint"] = hint
 	}
 	if err == mongo.ErrNoDocuments {
-		if (provider == "ssh" || provider == "git" || provider == "jira" || provider == "confluence" || provider == "s3") && strings.TrimSpace(req.Secret) == "" {
+		if (provider == "ssh" || provider == "git" || provider == "jira" || provider == "confluence" || provider == "s3" || provider == "aliyun_oss" || provider == "qiniu") && strings.TrimSpace(req.Secret) == "" {
 			writeErr(w, http.StatusBadRequest, "a private key or access token is required")
 			return
 		}
@@ -297,6 +318,10 @@ func (s *Server) publishSSH(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "configure SSH publishing in Settings → Integrations first")
 		return
 	}
+	if integration.Disabled {
+		writeErr(w, http.StatusBadRequest, "SSH publishing is disabled")
+		return
+	}
 	key, err := secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "the SSH private key could not be decrypted; save it again")
@@ -392,6 +417,10 @@ func (s *Server) publishGit(w http.ResponseWriter, r *http.Request) {
 	var integration model.Integration
 	if err := s.store.Integrations.FindOne(r.Context(), bson.M{"workspaceId": wsID, "provider": "git"}).Decode(&integration); err != nil {
 		writeErr(w, http.StatusBadRequest, "configure Git publishing in Settings → Integrations first")
+		return
+	}
+	if integration.Disabled {
+		writeErr(w, http.StatusBadRequest, "Git publishing is disabled")
 		return
 	}
 	token, err := secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
@@ -513,6 +542,10 @@ func (s *Server) publishAtlassian(w http.ResponseWriter, r *http.Request, provid
 		writeErr(w, http.StatusBadRequest, "configure "+provider+" in Settings → Integrations first")
 		return
 	}
+	if integration.Disabled {
+		writeErr(w, http.StatusBadRequest, provider+" publishing is disabled")
+		return
+	}
 	token, err := secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "the Atlassian token could not be decrypted; save it again")
@@ -566,44 +599,28 @@ func (s *Server) publishS3(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var integration model.Integration
-	if err := s.store.Integrations.FindOne(r.Context(), bson.M{"workspaceId": wsID, "provider": "s3"}).Decode(&integration); err != nil {
-		writeErr(w, http.StatusBadRequest, "configure object storage in Settings → Integrations first")
-		return
-	}
-	secretValue, err := secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
+	storage, provider, publicBase, err := s.storageFor(r.Context(), wsID)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "storage credentials could not be decrypted; save them again")
 		return
 	}
-	parts := strings.SplitN(secretValue, "\n", 2)
-	if len(parts) != 2 {
-		writeErr(w, http.StatusBadRequest, "storage credentials are incomplete")
+	if storage == nil {
+		writeErr(w, http.StatusBadRequest, "configure object storage in Settings → Integrations first")
 		return
 	}
-	store, err := objectstore.NewS3(r.Context(), objectstore.S3Config{
-		Endpoint: integration.Config["endpoint"], AccessKey: parts[0], SecretKey: parts[1],
-		Bucket: integration.Config["bucket"], Region: integration.Config["region"],
-		Prefix: integration.Config["prefix"], PublicBase: integration.Config["publicBaseUrl"],
-		UseSSL: integration.Config["useSSL"] != "false",
-	})
-	if err != nil {
-		writeErr(w, http.StatusBadGateway, "could not connect to object storage: "+err.Error())
-		return
-	}
-	files, err := staticpublish.Render(page.ID, pages, integration.Config["publicBaseUrl"])
+
+	files, err := staticpublish.Render(page.ID, pages, publicBase)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not render page")
 		return
 	}
 	count := 0
-	publicBase := strings.TrimRight(integration.Config["publicBaseUrl"], "/")
 	for name, content := range files {
 		contentType := mime.TypeByExtension(path.Ext(name))
 		if contentType == "" {
 			contentType = "text/html; charset=utf-8"
 		}
-		if _, err := store.Put(r.Context(), name, content, contentType); err != nil {
+		if _, err := storage.Put(r.Context(), name, content, contentType); err != nil {
 			writeErr(w, http.StatusBadGateway, "object storage publish failed: "+err.Error())
 			return
 		}
@@ -614,7 +631,143 @@ func (s *Server) publishS3(w http.ResponseWriter, r *http.Request) {
 		url = ""
 	}
 	s.webhooks.Emit(r.Context(), wsID, "page.published", map[string]any{
-		"pageId": page.ID.Hex(), "pageTitle": page.Title, "provider": "s3", "url": url, "fileCount": count,
+		"pageId": page.ID.Hex(), "pageTitle": page.Title, "provider": provider, "url": url, "fileCount": count,
 	})
-	writeJSON(w, http.StatusOK, map[string]any{"provider": "s3", "pageId": page.ID.Hex(), "url": url, "fileCount": count})
+	writeJSON(w, http.StatusOK, map[string]any{"provider": provider, "pageId": page.ID.Hex(), "url": url, "fileCount": count})
+}
+
+func (s *Server) testIntegration(w http.ResponseWriter, r *http.Request) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	if _, ok := s.requireEditor(w, r, wsID); !ok {
+		return
+	}
+	provider := strings.ToLower(strings.TrimSpace(chiURLParam(r, "provider")))
+	var integration model.Integration
+	if err := s.store.Integrations.FindOne(r.Context(), bson.M{"workspaceId": wsID, "provider": provider}).Decode(&integration); err != nil {
+		writeErr(w, http.StatusBadRequest, "save this integration before testing it")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+	start := time.Now()
+	switch provider {
+	case "webhook":
+		err = s.webhooks.Test(ctx, integration)
+	case "ssh":
+		var key string
+		key, err = secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
+		if err == nil {
+			err = sshpub.Test(ctx, sshpub.Config{
+				Host: integration.Config["host"], Port: integration.Config["port"],
+				Username: integration.Config["username"], PrivateKey: key,
+				RemotePath: integration.Config["remotePath"], HostFingerprint: integration.Config["hostFingerprint"],
+			})
+		}
+	case "git":
+		var token string
+		token, err = secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
+		if err == nil {
+			err = gitpublish.Test(ctx, gitpublish.Config{
+				Kind: integration.Config["kind"], BaseURL: integration.Config["baseUrl"],
+				Owner: integration.Config["owner"], Repo: integration.Config["repo"],
+				Branch: integration.Config["branch"], Path: integration.Config["path"], Token: token,
+			})
+		}
+	case "jira", "confluence":
+		var token string
+		token, err = secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
+		if err == nil {
+			client := atlassian.New(atlassian.Config{
+				SiteURL: integration.Config["siteUrl"], Email: integration.Config["email"], Token: token,
+				ProjectKey: integration.Config["projectKey"], IssueType: integration.Config["issueType"],
+				SpaceID: integration.Config["spaceId"], PageID: integration.Config["pageId"],
+			})
+			err = client.Test(ctx, provider)
+		}
+	case "s3", "aliyun_oss", "qiniu":
+		var value string
+		value, err = secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
+		if err == nil {
+			parts := strings.SplitN(value, "\n", 2)
+			if len(parts) != 2 {
+				err = errors.New("storage credentials are incomplete")
+			} else if provider == "aliyun_oss" {
+				err = objectstore.TestAliyunOSS(ctx, objectstore.AliyunOSSConfig{
+					Endpoint: integration.Config["endpoint"], Bucket: integration.Config["bucket"],
+					AccessKey: parts[0], SecretKey: parts[1], Prefix: integration.Config["prefix"],
+					PublicBase: integration.Config["publicBaseUrl"],
+				})
+			} else if provider == "qiniu" {
+				err = objectstore.TestQiniu(ctx, objectstore.QiniuConfig{
+					Bucket: integration.Config["bucket"], AccessKey: parts[0], SecretKey: parts[1],
+					Prefix: integration.Config["prefix"], PublicBase: integration.Config["publicBaseUrl"],
+					UseHTTPS: integration.Config["useHTTPS"] != "false",
+				})
+			} else {
+				err = objectstore.Test(ctx, objectstore.S3Config{
+					Endpoint: integration.Config["endpoint"], AccessKey: parts[0], SecretKey: parts[1],
+					Bucket: integration.Config["bucket"], Region: integration.Config["region"],
+					Prefix: integration.Config["prefix"], PublicBase: integration.Config["publicBaseUrl"],
+					UseSSL: integration.Config["useSSL"] != "false",
+				})
+			}
+		}
+	default:
+		writeErr(w, http.StatusBadRequest, "unsupported integration provider")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "message": "Connection works", "latencyMs": time.Since(start).Milliseconds()})
+}
+
+// storageFor returns the first enabled object storage backend for a workspace.
+func (s *Server) storageFor(ctx context.Context, workspaceID primitive.ObjectID) (objectstore.Putter, string, string, error) {
+	for _, provider := range []string{"aliyun_oss", "qiniu", "s3"} {
+		var integration model.Integration
+		if err := s.store.Integrations.FindOne(ctx, bson.M{
+			"workspaceId": workspaceID, "provider": provider, "disabled": bson.M{"$ne": true},
+		}).Decode(&integration); err != nil {
+			continue
+		}
+		value, err := secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
+		if err != nil {
+			return nil, "", "", err
+		}
+		parts := strings.SplitN(value, "\n", 2)
+		if len(parts) != 2 {
+			return nil, "", "", errors.New("storage credentials are incomplete")
+		}
+		publicBase := strings.TrimRight(integration.Config["publicBaseUrl"], "/")
+		switch provider {
+		case "aliyun_oss":
+			store, err := objectstore.NewAliyunOSS(objectstore.AliyunOSSConfig{
+				Endpoint: integration.Config["endpoint"], Bucket: integration.Config["bucket"],
+				AccessKey: parts[0], SecretKey: parts[1], Prefix: integration.Config["prefix"], PublicBase: publicBase,
+			})
+			return store, provider, publicBase, err
+		case "qiniu":
+			store, err := objectstore.NewQiniu(objectstore.QiniuConfig{
+				Bucket: integration.Config["bucket"], AccessKey: parts[0], SecretKey: parts[1],
+				Prefix: integration.Config["prefix"], PublicBase: publicBase,
+				UseHTTPS: integration.Config["useHTTPS"] != "false",
+			})
+			return store, provider, publicBase, err
+		default:
+			store, err := objectstore.NewS3(ctx, objectstore.S3Config{
+				Endpoint: integration.Config["endpoint"], AccessKey: parts[0], SecretKey: parts[1],
+				Bucket: integration.Config["bucket"], Region: integration.Config["region"],
+				Prefix: integration.Config["prefix"], PublicBase: publicBase,
+				UseSSL: integration.Config["useSSL"] != "false",
+			})
+			return store, provider, publicBase, err
+		}
+	}
+	return nil, "", "", nil
 }

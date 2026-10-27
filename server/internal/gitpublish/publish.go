@@ -185,3 +185,19 @@ func Publish(ctx context.Context, cfg Config, files map[string][]byte) (int, err
 	client.EnablePages(ctx)
 	return count, nil
 }
+
+// Test verifies that the token can read the configured repository.
+func Test(ctx context.Context, cfg Config) error {
+	client := New(cfg)
+	var endpoint string
+	switch strings.ToLower(cfg.Kind) {
+	case "gitlab":
+		endpoint = client.apiPath("/projects/" + url.PathEscape(cfg.Owner+"/"+cfg.Repo))
+	case "gitea":
+		endpoint = client.apiPath("/repos/" + url.PathEscape(cfg.Owner) + "/" + url.PathEscape(cfg.Repo))
+	default:
+		endpoint = client.apiPath("/repos/" + cfg.Owner + "/" + cfg.Repo)
+	}
+	_, _, err := client.request(ctx, http.MethodGet, endpoint, nil)
+	return err
+}

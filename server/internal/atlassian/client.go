@@ -129,3 +129,13 @@ func (c *Client) PublishConfluencePage(ctx context.Context, title string, docume
 	}
 	return page.ID, c.cfg.SiteURL + "/wiki/pages/" + page.ID, nil
 }
+
+// Test verifies Jira/Confluence credentials and the configured project/space.
+func (c *Client) Test(ctx context.Context, provider string) error {
+	if provider == "confluence" {
+		_, _, err := c.request(ctx, http.MethodGet, c.cfg.SiteURL+"/wiki/api/v2/spaces/"+c.cfg.SpaceID, nil)
+		return err
+	}
+	_, _, err := c.request(ctx, http.MethodGet, c.cfg.SiteURL+"/rest/api/3/myself", nil)
+	return err
+}

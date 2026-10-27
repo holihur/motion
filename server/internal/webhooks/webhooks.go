@@ -47,7 +47,7 @@ type envelope struct {
 func (s *Service) Emit(ctx context.Context, workspaceID primitive.ObjectID, event string, data map[string]any) {
 	var integration model.Integration
 	if err := s.store.Integrations.FindOne(ctx, bson.M{
-		"workspaceId": workspaceID, "provider": "webhook",
+		"workspaceId": workspaceID, "provider": "webhook", "disabled": bson.M{"$ne": true},
 	}).Decode(&integration); err != nil {
 		return
 	}
@@ -138,4 +138,33 @@ func (s *Service) deliver(delivery model.WebhookDelivery, integration model.Inte
 	_, _ = s.store.Deliveries.UpdateByID(ctx, delivery.ID, bson.M{"$set": bson.M{
 		"status": "failed", "attempts": 3, "responseCode": code, "error": lastErr,
 	}})
+}
+
+// Test sends a signed webhook.test event and reports the HTTP status.
+func (s *Service) Test(ctx context.Context, integration model.Integration) error {
+	payload, _ := json.Marshal(envelope{Event: "webhook.test", CreatedAt: time.Now().UTC(), Data: map[string]any{"message": "Motion webhook test"}})
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, integration.Config["url"], bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("User-Agent", "Motion-Webhook/1.0")
+	request.Header.Set("X-Motion-Event", "webhook.test")
+	if integration.SecretCipher != "" {
+		if key, err := secret.Decrypt(s.key, integration.SecretCipher); err == nil {
+			mac := hmac.New(sha256.New, []byte(key))
+			_, _ = mac.Write(payload)
+			request.Header.Set("X-Motion-Signature", "sha256="+hex.EncodeToString(mac.Sum(nil)))
+		}
+	}
+	response, err := s.client.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 256))
+		return fmt.Errorf("webhook returned HTTP %d: %s", response.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
 }

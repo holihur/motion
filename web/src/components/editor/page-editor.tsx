@@ -32,6 +32,7 @@ import { RealtimeClient, type RealtimePresence } from "@/lib/realtime"
 import { coverStyle } from "@/lib/covers"
 import { buildTree, ancestorChain, pageTitle } from "@/lib/tree"
 import { Backlinks } from "@/components/editor/backlinks"
+import { hasMarkdownSyntax, parseMarkdownToBlocks } from "@/lib/markdown-import"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { SidebarToggle } from "@/components/app/sidebar-toggle"
 import { PageActionsMenu } from "@/components/app/page-actions"
@@ -713,6 +714,47 @@ export function PageEditor() {
       .catch(() => { if (alive) setMembers([]) })
     return () => { alive = false }
   }, [page?.workspaceId])
+
+  useEffect(() => {
+    function onMarkdownPaste(event: ClipboardEvent) {
+      if (readOnly || !page) return
+      const target = event.target as HTMLElement | null
+      if (!target?.closest("[data-lexical-input]")) return
+      const text = event.clipboardData?.getData("text/plain") ?? ""
+      if (!text || !hasMarkdownSyntax(text)) return
+      const imported = parseMarkdownToBlocks(text)
+      if (imported.length === 0) return
+      event.preventDefault()
+      event.stopPropagation()
+      setBlocks((previous) => previous.length === 1 && previous[0].text === "" ? imported : [...previous, ...imported])
+      scheduleSave()
+      toast.success(tr("Pasted {n} block(s)", { n: imported.length }))
+    }
+    document.addEventListener("paste", onMarkdownPaste, true)
+    return () => document.removeEventListener("paste", onMarkdownPaste, true)
+    // scheduleSave intentionally uses the current page closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, page?.id])
+
+  useEffect(() => {
+    function onImport(event: Event) {
+      if (readOnly || !page) return
+      const detail = (event as CustomEvent<{ pageId?: string; text?: string; filename?: string }>).detail
+      if (!detail?.text || (detail.pageId && detail.pageId !== pageId)) return
+      const imported = parseMarkdownToBlocks(detail.text)
+      if (imported.length === 0) {
+        toast.error(tr("No blocks found in this file"))
+        return
+      }
+      setBlocks((previous) => previous.length === 1 && previous[0].text === "" ? imported : [...previous, ...imported])
+      scheduleSave()
+      toast.success(tr("Imported {n} block(s) from {name}", { n: imported.length, name: detail.filename || tr("file") }))
+    }
+    window.addEventListener("motion:import-markdown", onImport)
+    return () => window.removeEventListener("motion:import-markdown", onImport)
+    // scheduleSave intentionally uses the current page closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, page?.id])
 
   useEffect(() => {
     function onPageLock(event: Event) {

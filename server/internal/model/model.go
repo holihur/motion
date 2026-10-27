@@ -179,6 +179,7 @@ type Integration struct {
 	Provider     string             `bson:"provider" json:"provider"`
 	Config       map[string]string  `bson:"config" json:"config"`
 	Events       []string           `bson:"events,omitempty" json:"events,omitempty"`
+	Disabled     bool               `bson:"disabled,omitempty" json:"-"`
 	SecretCipher string             `bson:"secretCipher,omitempty" json:"-"`
 	SecretHint   string             `bson:"secretHint,omitempty" json:"secretHint,omitempty"`
 	CreatedBy    primitive.ObjectID `bson:"createdBy" json:"createdBy"`

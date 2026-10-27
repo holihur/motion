@@ -73,3 +73,9 @@ func (s *S3) Put(ctx context.Context, name string, data []byte, contentType stri
 	}
 	return scheme + "://" + strings.TrimRight(strings.TrimPrefix(strings.TrimPrefix(s.cfg.Endpoint, "https://"), "http://"), "/") + "/" + s.cfg.Bucket + "/" + key, nil
 }
+
+// Test verifies credentials and bucket access.
+func Test(ctx context.Context, cfg S3Config) error {
+	_, err := NewS3(ctx, cfg)
+	return err
+}

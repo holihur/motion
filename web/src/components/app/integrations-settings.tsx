@@ -24,6 +24,8 @@ export function IntegrationsSettings() {
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState("")
+  const [testing, setTesting] = useState(false)
+  const [enabled, setEnabled] = useState<Record<string, boolean>>({})
 
   const webhook = integrations.find((item) => item.provider === "webhook")
   const ssh = integrations.find((item) => item.provider === "ssh")
@@ -31,6 +33,8 @@ export function IntegrationsSettings() {
   const jira = integrations.find((item) => item.provider === "jira")
   const confluence = integrations.find((item) => item.provider === "confluence")
   const s3 = integrations.find((item) => item.provider === "s3")
+  const aliyun = integrations.find((item) => item.provider === "aliyun_oss")
+  const qiniu = integrations.find((item) => item.provider === "qiniu")
   const [webhookURL, setWebhookURL] = useState("")
   const [webhookSecret, setWebhookSecret] = useState("")
   const [webhookEvents, setWebhookEvents] = useState<string[]>(["*"])
@@ -70,6 +74,18 @@ export function IntegrationsSettings() {
   const [s3SSL, setS3SSL] = useState(true)
   const [s3Access, setS3Access] = useState("")
   const [s3Secret, setS3Secret] = useState("")
+  const [aliEndpoint, setAliEndpoint] = useState("")
+  const [aliBucket, setAliBucket] = useState("")
+  const [aliPrefix, setAliPrefix] = useState("")
+  const [aliPublic, setAliPublic] = useState("")
+  const [aliAccess, setAliAccess] = useState("")
+  const [aliSecret, setAliSecret] = useState("")
+  const [qiniuBucket, setQiniuBucket] = useState("")
+  const [qiniuPrefix, setQiniuPrefix] = useState("")
+  const [qiniuPublic, setQiniuPublic] = useState("")
+  const [qiniuHTTPS, setQiniuHTTPS] = useState(true)
+  const [qiniuAccess, setQiniuAccess] = useState("")
+  const [qiniuSecret, setQiniuSecret] = useState("")
 
   async function load() {
     if (!workspace) return
@@ -80,6 +96,7 @@ export function IntegrationsSettings() {
         api.integrations.deliveries(workspace.id).catch(() => []),
       ])
       setIntegrations(items ?? [])
+      setEnabled(Object.fromEntries((items ?? []).map((item) => [item.provider, item.enabled])))
       setDeliveries(log ?? [])
       const wh = items.find((item) => item.provider === "webhook")
       const sh = items.find((item) => item.provider === "ssh")
@@ -109,6 +126,16 @@ export function IntegrationsSettings() {
         setConfSpace(cf.config.spaceId ?? ""); setConfPage(cf.config.pageId ?? "")
         setConfParent(cf.config.parentId ?? "")
       }
+      const al = items.find((item) => item.provider === "aliyun_oss")
+      if (al) {
+        setAliEndpoint(al.config.endpoint ?? ""); setAliBucket(al.config.bucket ?? "")
+        setAliPrefix(al.config.prefix ?? ""); setAliPublic(al.config.publicBaseUrl ?? "")
+      }
+      const qn = items.find((item) => item.provider === "qiniu")
+      if (qn) {
+        setQiniuBucket(qn.config.bucket ?? ""); setQiniuPrefix(qn.config.prefix ?? "")
+        setQiniuPublic(qn.config.publicBaseUrl ?? ""); setQiniuHTTPS(qn.config.useHTTPS !== "false")
+      }
       const st = items.find((item) => item.provider === "s3")
       if (st) {
         setS3Endpoint(st.config.endpoint ?? ""); setS3Bucket(st.config.bucket ?? "")
@@ -133,12 +160,12 @@ export function IntegrationsSettings() {
   if (!workspace) return <p className="pt-4 text-sm text-muted-foreground">{tr("No workspace selected.")}</p>
   if (loading) return <div className="h-32 animate-pulse rounded-lg bg-muted/60" />
 
-  async function save(provider: "webhook" | "ssh" | "git" | "jira" | "confluence" | "s3", config: Record<string, string>, secret: string, events?: string[]) {
+  async function save(provider: "webhook" | "ssh" | "git" | "jira" | "confluence" | "s3" | "aliyun_oss" | "qiniu", config: Record<string, string>, secret: string, events?: string[]) {
     if (saving) return
     setSaving(provider)
     try {
-      await api.integrations.save(workspace!.id, provider, { config, secret, events })
-      toast.success(provider === "webhook" ? tr("Webhook saved") : provider === "git" ? tr("Git publishing saved") : provider === "jira" ? tr("Jira publishing saved") : provider === "confluence" ? tr("Confluence publishing saved") : provider === "s3" ? tr("S3 storage saved") : tr("SSH publishing saved"))
+      await api.integrations.save(workspace!.id, provider, { config, secret, events, enabled: enabled[provider] ?? true })
+      toast.success(provider === "webhook" ? tr("Webhook saved") : provider === "git" ? tr("Git publishing saved") : provider === "jira" ? tr("Jira publishing saved") : provider === "confluence" ? tr("Confluence publishing saved") : provider === "s3" ? tr("S3 storage saved") : provider === "aliyun_oss" ? tr("Aliyun OSS saved") : provider === "qiniu" ? tr("Qiniu saved") : tr("SSH publishing saved"))
       setWebhookSecret("")
       setPrivateKey("")
       await load()
@@ -159,15 +186,43 @@ export function IntegrationsSettings() {
     }
   }
 
+  async function testAll() {
+    if (testing || integrations.length === 0) return
+    setTesting(true)
+    const results: string[] = []
+    for (const item of integrations) {
+      try {
+        const result = await api.integrations.test(workspace!.id, item.provider)
+        results.push(`${item.provider}: OK (${result.latencyMs}ms)`)
+      } catch (error) {
+        results.push(`${item.provider}: ${error instanceof Error ? error.message : "failed"}`)
+      }
+    }
+    setTesting(false)
+    const failed = results.filter((line) => !line.includes(": OK"))
+    if (failed.length > 0) toast.error(failed.join(" · "))
+    else toast.success(tr("All integrations connected"))
+  }
+
+  function EnableToggle({ provider }: { provider: string }) {
+    return (
+      <label className="ml-auto flex items-center gap-1.5 text-[10px] font-normal text-muted-foreground">
+        <input type="checkbox" checked={enabled[provider] ?? true} disabled={!owner} onChange={(event) => setEnabled((current) => ({ ...current, [provider]: event.target.checked }))} />
+        {tr("Enabled")}
+      </label>
+    )
+  }
+
   return (
     <div className="space-y-6 pt-2">
       <div className="rounded-xl border border-brand/20 bg-brand-soft/25 p-3.5">
         <div className="flex items-center gap-2 text-sm font-medium"><CloudUpload className="size-4 text-brand" /> {tr("Workspace integrations")}</div>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">{tr("Publish pages and send workspace events to other tools. Secrets are encrypted on the server.")}</p>
+        <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void testAll()} disabled={testing || integrations.length === 0}>{testing ? tr("Testing…") : tr("Test all integrations")}</Button>
       </div>
 
       <section className="space-y-3 rounded-xl border p-4">
-        <div className="flex items-center gap-2 text-sm font-medium"><Webhook className="size-4 text-brand" /> {tr("Outgoing webhook")} {webhook && <CheckCircle2 className="size-3.5 text-emerald-500" />}</div>
+        <div className="flex items-center gap-2 text-sm font-medium"><Webhook className="size-4 text-brand" /> {tr("Outgoing webhook")} {webhook && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="webhook" /></div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5"><Label>{tr("Endpoint URL")}</Label><Input value={webhookURL} disabled={!owner} onChange={(event) => setWebhookURL(event.target.value)} placeholder="https://hooks.example.com/motion" /></div>
           <div className="space-y-1.5"><Label>{tr("Signing secret")}</Label><Input type="password" value={webhookSecret} disabled={!owner} onChange={(event) => setWebhookSecret(event.target.value)} placeholder={webhook?.hasSecret ? tr("Saved — leave blank to keep") : tr("Optional signing secret")} /></div>
@@ -201,7 +256,7 @@ export function IntegrationsSettings() {
       <Separator />
 
       <section className="space-y-3 rounded-xl border p-4">
-        <div className="flex items-center gap-2 text-sm font-medium"><CloudUpload className="size-4 text-brand" /> {tr("Git Pages publishing")} {git && <CheckCircle2 className="size-3.5 text-emerald-500" />}</div>
+        <div className="flex items-center gap-2 text-sm font-medium"><CloudUpload className="size-4 text-brand" /> {tr("Git Pages publishing")} {git && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="git" /></div>
         <p className="text-xs text-muted-foreground">{tr("Render pages as static HTML and commit them to GitHub, GitLab or Gitea. The access token is encrypted at rest.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5"><Label>{tr("Provider")}</Label><select value={gitKind} disabled={!owner} onChange={(event) => setGitKind(event.target.value)} className="h-9 w-full rounded-md border bg-background px-2 text-sm"><option value="github">GitHub</option><option value="gitlab">GitLab</option><option value="gitea">Gitea</option></select></div>
@@ -222,7 +277,7 @@ export function IntegrationsSettings() {
       <Separator />
 
       <section className="space-y-3 rounded-xl border p-4">
-        <div className="flex items-center gap-2 text-sm font-medium"><Bug className="size-4 text-brand" /> {tr("Jira publishing")} {jira && <CheckCircle2 className="size-3.5 text-emerald-500" />}</div>
+        <div className="flex items-center gap-2 text-sm font-medium"><Bug className="size-4 text-brand" /> {tr("Jira publishing")} {jira && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="jira" /></div>
         <p className="text-xs text-muted-foreground">{tr("Convert the page to Atlassian Document Format and create or update a Jira issue.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5"><Label>{tr("Site URL")}</Label><Input value={jiraSite} disabled={!owner} onChange={(event) => setJiraSite(event.target.value)} placeholder="https://acme.atlassian.net" /></div>
@@ -241,7 +296,7 @@ export function IntegrationsSettings() {
       <Separator />
 
       <section className="space-y-3 rounded-xl border p-4">
-        <div className="flex items-center gap-2 text-sm font-medium"><BookOpen className="size-4 text-brand" /> {tr("Confluence publishing")} {confluence && <CheckCircle2 className="size-3.5 text-emerald-500" />}</div>
+        <div className="flex items-center gap-2 text-sm font-medium"><BookOpen className="size-4 text-brand" /> {tr("Confluence publishing")} {confluence && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="confluence" /></div>
         <p className="text-xs text-muted-foreground">{tr("Convert the page to ADF and create or update a Confluence Cloud page.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5"><Label>{tr("Site URL")}</Label><Input value={confSite} disabled={!owner} onChange={(event) => setConfSite(event.target.value)} placeholder="https://acme.atlassian.net" /></div>
@@ -260,7 +315,47 @@ export function IntegrationsSettings() {
       <Separator />
 
       <section className="space-y-3 rounded-xl border p-4">
-        <div className="flex items-center gap-2 text-sm font-medium"><Database className="size-4 text-brand" /> {tr("S3-compatible storage")} {s3 && <CheckCircle2 className="size-3.5 text-emerald-500" />}</div>
+        <div className="flex items-center gap-2 text-sm font-medium"><Database className="size-4 text-brand" /> {tr("Aliyun OSS")} {aliyun && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="aliyun_oss" /></div>
+        <p className="text-xs text-muted-foreground">{tr("Store uploads and published pages in Alibaba Cloud OSS. Use an OSS endpoint and bucket.")}</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5"><Label>{tr("Endpoint")}</Label><Input value={aliEndpoint} disabled={!owner} onChange={(event) => setAliEndpoint(event.target.value)} placeholder="https://oss-cn-hangzhou.aliyuncs.com" /></div>
+          <div className="space-y-1.5"><Label>{tr("Bucket")}</Label><Input value={aliBucket} disabled={!owner} onChange={(event) => setAliBucket(event.target.value)} placeholder="motion-assets" /></div>
+          <div className="space-y-1.5"><Label>{tr("Prefix")}</Label><Input value={aliPrefix} disabled={!owner} onChange={(event) => setAliPrefix(event.target.value)} placeholder="workspace/" /></div>
+          <div className="space-y-1.5"><Label>{tr("Public base URL")}</Label><Input value={aliPublic} disabled={!owner} onChange={(event) => setAliPublic(event.target.value)} placeholder="https://cdn.example.com" /></div>
+          <div className="space-y-1.5"><Label>{tr("AccessKey ID")}</Label><Input value={aliAccess} disabled={!owner} onChange={(event) => setAliAccess(event.target.value)} placeholder="LTAI…" /></div>
+          <div className="space-y-1.5"><Label>{tr("AccessKey Secret")}</Label><Input type="password" value={aliSecret} disabled={!owner} onChange={(event) => setAliSecret(event.target.value)} placeholder={aliyun?.hasSecret ? tr("Saved — leave blank to keep") : tr("AccessKey Secret")} /></div>
+        </div>
+        <div className="flex justify-end gap-2">
+          {aliyun && <Button type="button" variant="ghost" size="sm" onClick={() => void remove("aliyun_oss")} disabled={!owner} className="gap-1 text-destructive"><Trash2 className="size-3.5" /> {tr("Remove")}</Button>}
+          <Button type="button" size="sm" disabled={!owner || saving === "aliyun_oss"} onClick={() => void save("aliyun_oss", { endpoint: aliEndpoint.trim(), bucket: aliBucket.trim(), prefix: aliPrefix.trim(), publicBaseUrl: aliPublic.trim() }, `${aliAccess}
+${aliSecret}`)}>{saving === "aliyun_oss" ? tr("Saving…") : tr("Save Aliyun OSS")}</Button>
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="space-y-3 rounded-xl border p-4">
+        <div className="flex items-center gap-2 text-sm font-medium"><Database className="size-4 text-brand" /> {tr("Qiniu Kodo")} {qiniu && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="qiniu" /></div>
+        <p className="text-xs text-muted-foreground">{tr("Store uploads and published pages in Qiniu Kodo. Configure the bucket and its public CDN domain.")}</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5"><Label>{tr("Bucket")}</Label><Input value={qiniuBucket} disabled={!owner} onChange={(event) => setQiniuBucket(event.target.value)} placeholder="motion-assets" /></div>
+          <div className="space-y-1.5"><Label>{tr("Public base URL")}</Label><Input value={qiniuPublic} disabled={!owner} onChange={(event) => setQiniuPublic(event.target.value)} placeholder="https://cdn.example.com" /></div>
+          <div className="space-y-1.5"><Label>{tr("Prefix")}</Label><Input value={qiniuPrefix} disabled={!owner} onChange={(event) => setQiniuPrefix(event.target.value)} placeholder="workspace/" /></div>
+          <label className="flex items-center gap-2 pt-6 text-xs text-muted-foreground"><input type="checkbox" checked={qiniuHTTPS} disabled={!owner} onChange={(event) => setQiniuHTTPS(event.target.checked)} /> {tr("Use HTTPS")}</label>
+          <div className="space-y-1.5"><Label>{tr("AccessKey")}</Label><Input value={qiniuAccess} disabled={!owner} onChange={(event) => setQiniuAccess(event.target.value)} placeholder="Qiniu AccessKey" /></div>
+          <div className="space-y-1.5"><Label>{tr("SecretKey")}</Label><Input type="password" value={qiniuSecret} disabled={!owner} onChange={(event) => setQiniuSecret(event.target.value)} placeholder={qiniu?.hasSecret ? tr("Saved — leave blank to keep") : tr("Qiniu SecretKey")} /></div>
+        </div>
+        <div className="flex justify-end gap-2">
+          {qiniu && <Button type="button" variant="ghost" size="sm" onClick={() => void remove("qiniu")} disabled={!owner} className="gap-1 text-destructive"><Trash2 className="size-3.5" /> {tr("Remove")}</Button>}
+          <Button type="button" size="sm" disabled={!owner || saving === "qiniu"} onClick={() => void save("qiniu", { bucket: qiniuBucket.trim(), prefix: qiniuPrefix.trim(), publicBaseUrl: qiniuPublic.trim(), useHTTPS: qiniuHTTPS ? "true" : "false" }, `${qiniuAccess}
+${qiniuSecret}`)}>{saving === "qiniu" ? tr("Saving…") : tr("Save Qiniu")}</Button>
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="space-y-3 rounded-xl border p-4">
+        <div className="flex items-center gap-2 text-sm font-medium"><Database className="size-4 text-brand" /> {tr("S3-compatible storage")} {s3 && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="s3" /></div>
         <p className="text-xs text-muted-foreground">{tr("Store uploads in S3, MinIO or Cloudflare R2 instead of GridFS. The bucket should be publicly readable for inline images.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5"><Label>{tr("Provider preset")}</Label><select value={s3Provider} disabled={!owner} onChange={(event) => {
@@ -289,7 +384,7 @@ ${s3Secret}`)}>{saving === "s3" ? tr("Saving…") : tr("Save S3")}</Button>
       <Separator />
 
       <section className="space-y-3 rounded-xl border p-4">
-        <div className="flex items-center gap-2 text-sm font-medium"><CloudUpload className="size-4 text-brand" /> {tr("SSH static publishing")} {ssh && <CheckCircle2 className="size-3.5 text-emerald-500" />}</div>
+        <div className="flex items-center gap-2 text-sm font-medium"><CloudUpload className="size-4 text-brand" /> {tr("SSH static publishing")} {ssh && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="ssh" /></div>
         <p className="text-xs text-muted-foreground">{tr("Render pages as static HTML and write them to a remote directory over SFTP. The private key is encrypted at rest.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5"><Label>{tr("Host")}</Label><Input value={host} disabled={!owner} onChange={(event) => setHost(event.target.value)} placeholder="example.com" /></div>

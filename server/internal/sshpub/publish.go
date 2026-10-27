@@ -92,3 +92,23 @@ func Publish(ctx context.Context, cfg Config, files map[string][]byte) error {
 	_ = ctx
 	return nil
 }
+
+// Test verifies the SSH host, key and authentication without writing files.
+func Test(ctx context.Context, cfg Config) error {
+	port := strings.TrimSpace(cfg.Port)
+	if port == "" {
+		port = "22"
+	}
+	signer, err := ssh.ParsePrivateKey([]byte(cfg.PrivateKey))
+	if err != nil {
+		return fmt.Errorf("invalid SSH private key: %w", err)
+	}
+	client, err := ssh.Dial("tcp", net.JoinHostPort(cfg.Host, port), &ssh.ClientConfig{
+		User: cfg.Username, Auth: []ssh.AuthMethod{ssh.PublicKeys(signer)},
+		HostKeyCallback: hostKeyCallback(cfg.HostFingerprint), Timeout: 15 * time.Second,
+	})
+	if err != nil {
+		return err
+	}
+	return client.Close()
+}

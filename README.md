@@ -22,7 +22,8 @@
 - **Google ADK**：AI 助手基于 `google.golang.org/adk`，通过工具读取、搜索、创建和编辑文档。
 - **Workspace Skills & MCP**：工作区所有者可以配置可复用 Skills 和远程 Streamable HTTP MCP Server，工作区内所有 AI Agent 自动获得这些能力。
 - **Webhook 集成**：工作区可配置带 HMAC 签名的 outgoing webhook，支持评论、AI 审批、发布事件与投递日志。
-- **SSH 静态发布**：页面可渲染为静态 HTML，通过 SFTP 发布到远程服务器目录，私钥加密存储。
+- **静态发布**：页面可渲染为静态 HTML，通过 SSH/SFTP、GitHub/GitLab/Gitea Pages 或 Jira/Confluence ADF 发布。
+- **存储后端**：工作区可选择 GridFS 或 S3/MinIO/R2 保存上传文件。
 - **MCP 服务器**：`/mcp` 暴露搜索、读写页面、追加块、更新块、批量删除页面、评论等工具，使用带 Scope 的 PAT 授权。
 - **OIDC 单点登录**：Google、Keycloak、Auth0、Authentik 等任何 OIDC Provider。
 - **Ops 管理页**：使用独立于用户账号的 `OPS_TOKEN` 保护；注册开关、管理员、OIDC、AI 默认模型、MCP、更新策略、实例统计都在网页里配置，无需改命令行。

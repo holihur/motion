@@ -31,9 +31,30 @@
 - 工作区内所有 AI Agent 自动获得这些工具
 - 仅工作区所有者可编辑；非所有者读取时 MCP 请求头会被隐藏
 
-## 当前未实现
+## Git Pages 发布
 
-- GitHub / GitLab / Gitea Pages 发布
-- Jira / Confluence ADF 发布
-- S3 / MinIO / R2 对象存储
+支持 GitHub、GitLab、Gitea：
+
+- 静态 HTML 提交到指定 branch / 子目录
+- GitHub 会尝试自动开启 Pages
+- 支持自定义 API base URL 和公开访问地址
+- Access token 加密保存
+
+## Jira / Confluence
+
+- 页面转换为 **ADF**
+- Jira：创建新 issue，或填写 `Existing issue key` 更新已有 issue
+- Confluence：创建页面，或填写 `Page ID` 更新已有页面
+- 使用 Atlassian 邮箱 + API Token
+- 页面菜单可直接发布到 Jira / Confluence
+
+## S3 / MinIO / R2 存储
+
+- 工作区可选择 S3 兼容存储替代 GridFS
+- 支持 endpoint、bucket、region、prefix、public base URL
+- Access key / secret key 加密保存
+- Bucket 需允许公开读取，页面内图片才能直接加载
+
+## 暂不支持
+
 - SMTP 邮件

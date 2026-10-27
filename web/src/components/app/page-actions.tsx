@@ -4,6 +4,9 @@ import {
   CloudUpload,
   Copy,
   Download,
+  GitBranch,
+  Bug,
+  BookOpen,
   FilePlus2,
   Link2,
   LockKeyhole,
@@ -123,11 +126,37 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     }
   }
 
+  async function onPublishAtlassian(provider: "jira" | "confluence") {
+    if (!activeId) return
+    try {
+      const result = provider === "jira"
+        ? await api.integrations.publishJira(activeId, page.id)
+        : await api.integrations.publishConfluence(activeId, page.id)
+      toast.success(provider === "jira" ? tr("Published to Jira") : tr("Published to Confluence"), {
+        action: result.url ? { label: tr("Open"), onClick: () => window.open(result.url, "_blank", "noopener") } : undefined,
+      })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not publish page"))
+    }
+  }
+
+  async function onPublishGit() {
+    if (!activeId) return
+    try {
+      const result = await api.integrations.publishGit(activeId, page.id, true)
+      toast.success(tr("Published {n} page(s) to Git", { n: result.fileCount ?? 0 }), {
+        action: result.url ? { label: tr("Open"), onClick: () => window.open(result.url, "_blank", "noopener") } : undefined,
+      })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not publish page"))
+    }
+  }
+
   async function onPublishSSH() {
     if (!activeId) return
     try {
       const result = await api.integrations.publishSSH(activeId, page.id, true)
-      toast.success(tr("Published {n} page(s) via SSH", { n: result.fileCount }), {
+      toast.success(tr("Published {n} page(s) via SSH", { n: result.fileCount ?? 0 }), {
         action: result.url ? { label: tr("Open"), onClick: () => window.open(result.url, "_blank", "noopener") } : undefined,
       })
     } catch (error) {
@@ -196,6 +225,15 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           <DropdownMenuItem onSelect={() => void onExport()}>
             <Download /> {tr("Export as Markdown")}
           </DropdownMenuItem>
+          {!readOnly && <DropdownMenuItem onSelect={() => void onPublishGit()}>
+            <GitBranch /> {tr("Publish to Git")}
+          </DropdownMenuItem>}
+          {!readOnly && <DropdownMenuItem onSelect={() => void onPublishAtlassian("jira")}>
+            <Bug /> {tr("Publish to Jira")}
+          </DropdownMenuItem>}
+          {!readOnly && <DropdownMenuItem onSelect={() => void onPublishAtlassian("confluence")}>
+            <BookOpen /> {tr("Publish to Confluence")}
+          </DropdownMenuItem>}
           {!readOnly && <DropdownMenuItem onSelect={() => void onPublishSSH()}>
             <CloudUpload /> {tr("Publish via SSH")}
           </DropdownMenuItem>}

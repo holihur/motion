@@ -12,6 +12,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/gridfs"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/motion/server/internal/model"
+	"github.com/motion/server/internal/objectstore"
+	"github.com/motion/server/internal/secret"
 )
 
 const maxUploadBytes = 25 << 20
@@ -61,6 +65,44 @@ func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
+	var s3Integration model.Integration
+	s3Err := s.store.Integrations.FindOne(r.Context(), bson.M{"workspaceId": workspaceID, "provider": "s3"}).Decode(&s3Integration)
+	if s3Err == nil {
+		secretValue, err := secret.Decrypt(s.cfg.EncryptionKey, s3Integration.SecretCipher)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, "the S3 secret could not be decrypted; save it again")
+			return
+		}
+		parts := strings.SplitN(secretValue, "\n", 2)
+		if len(parts) != 2 {
+			writeErr(w, http.StatusBadRequest, "S3 credentials are incomplete")
+			return
+		}
+		cfg := objectstore.S3Config{
+			Endpoint: s3Integration.Config["endpoint"], AccessKey: parts[0], SecretKey: parts[1],
+			Bucket: s3Integration.Config["bucket"], Region: s3Integration.Config["region"],
+			Prefix: s3Integration.Config["prefix"], PublicBase: s3Integration.Config["publicBaseUrl"],
+			UseSSL: s3Integration.Config["useSSL"] != "false",
+		}
+		content, err := io.ReadAll(io.LimitReader(file, maxUploadBytes+1))
+		if err != nil || len(content) > maxUploadBytes {
+			writeErr(w, http.StatusBadRequest, "file is too large (maximum 25 MB)")
+			return
+		}
+		store, err := objectstore.NewS3(r.Context(), cfg)
+		if err != nil {
+			writeErr(w, http.StatusBadGateway, "could not connect to S3: "+err.Error())
+			return
+		}
+		publicURL, err := store.Put(r.Context(), primitive.NewObjectID().Hex()+"-"+name, content, contentType)
+		if err != nil {
+			writeErr(w, http.StatusBadGateway, "could not upload to S3: "+err.Error())
+			return
+		}
+		writeJSON(w, http.StatusCreated, uploadResponse{ID: primitive.NewObjectID().Hex(), URL: publicURL, Name: name, Size: int64(len(content)), ContentType: contentType})
+		return
+	}
+
 	bucket, err := gridfs.NewBucket(s.store.DB, options.GridFSBucket().SetName("uploads"))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not open file storage")

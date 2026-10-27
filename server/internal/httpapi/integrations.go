@@ -12,6 +12,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/motion/server/internal/adf"
+	"github.com/motion/server/internal/atlassian"
+	"github.com/motion/server/internal/gitpublish"
 	"github.com/motion/server/internal/model"
 	"github.com/motion/server/internal/secret"
 	"github.com/motion/server/internal/sshpub"
@@ -87,7 +90,7 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	provider := strings.ToLower(strings.TrimSpace(chiURLParam(r, "provider")))
-	if provider != "webhook" && provider != "ssh" {
+	if provider != "webhook" && provider != "ssh" && provider != "git" && provider != "jira" && provider != "confluence" && provider != "s3" {
 		writeErr(w, http.StatusBadRequest, "unsupported integration provider")
 		return
 	}
@@ -108,6 +111,49 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(req.Events) == 0 {
 			req.Events = []string{"*"}
+		}
+	} else if provider == "jira" {
+		for _, key := range []string{"siteUrl", "email", "projectKey"} {
+			if strings.TrimSpace(req.Config[key]) == "" {
+				writeErr(w, http.StatusBadRequest, key+" is required")
+				return
+			}
+		}
+		if strings.TrimSpace(req.Config["issueType"]) == "" {
+			req.Config["issueType"] = "Task"
+		}
+	} else if provider == "confluence" {
+		for _, key := range []string{"siteUrl", "email", "spaceId"} {
+			if strings.TrimSpace(req.Config[key]) == "" {
+				writeErr(w, http.StatusBadRequest, key+" is required")
+				return
+			}
+		}
+	} else if provider == "s3" {
+		for _, key := range []string{"endpoint", "bucket"} {
+			if strings.TrimSpace(req.Config[key]) == "" {
+				writeErr(w, http.StatusBadRequest, key+" is required")
+				return
+			}
+		}
+	} else if provider == "git" {
+		kind := strings.ToLower(strings.TrimSpace(req.Config["kind"]))
+		if kind != "github" && kind != "gitlab" && kind != "gitea" {
+			writeErr(w, http.StatusBadRequest, "git kind must be github, gitlab or gitea")
+			return
+		}
+		req.Config["kind"] = kind
+		for _, key := range []string{"owner", "repo"} {
+			if strings.TrimSpace(req.Config[key]) == "" {
+				writeErr(w, http.StatusBadRequest, key+" is required")
+				return
+			}
+		}
+		if strings.TrimSpace(req.Config["branch"]) == "" {
+			req.Config["branch"] = "main"
+		}
+		if strings.TrimSpace(req.Config["path"]) == "" {
+			req.Config["path"] = "docs"
 		}
 	} else {
 		for _, key := range []string{"host", "username", "remotePath"} {
@@ -147,8 +193,8 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		set["secretHint"] = hint
 	}
 	if err == mongo.ErrNoDocuments {
-		if provider == "ssh" && strings.TrimSpace(req.Secret) == "" {
-			writeErr(w, http.StatusBadRequest, "an SSH private key is required")
+		if (provider == "ssh" || provider == "git" || provider == "jira" || provider == "confluence" || provider == "s3") && strings.TrimSpace(req.Secret) == "" {
+			writeErr(w, http.StatusBadRequest, "a private key or access token is required")
 			return
 		}
 		set["createdBy"] = currentUserID(r)
@@ -314,5 +360,184 @@ func (s *Server) publishSSH(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"provider": "ssh", "pageId": page.ID.Hex(), "url": publicURL,
 		"fileCount": len(files), "files": len(files),
+	})
+}
+
+type gitPublishRequest struct {
+	PageID          string `json:"pageId"`
+	IncludeChildren bool   `json:"includeChildren"`
+}
+
+func (s *Server) publishGit(w http.ResponseWriter, r *http.Request) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	if _, ok := s.requireEditor(w, r, wsID); !ok {
+		return
+	}
+	var req gitPublishRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	pages, page, ok := s.publishPages(w, r, wsID, req.PageID, req.IncludeChildren)
+	if !ok {
+		return
+	}
+	var integration model.Integration
+	if err := s.store.Integrations.FindOne(r.Context(), bson.M{"workspaceId": wsID, "provider": "git"}).Decode(&integration); err != nil {
+		writeErr(w, http.StatusBadRequest, "configure Git publishing in Settings → Integrations first")
+		return
+	}
+	token, err := secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "the Git token could not be decrypted; save it again")
+		return
+	}
+	files, err := staticpublish.Render(page.ID, pages, integration.Config["publicBaseUrl"])
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not render page")
+		return
+	}
+	cfg := gitpublish.Config{
+		Kind: integration.Config["kind"], BaseURL: integration.Config["baseUrl"],
+		Owner: integration.Config["owner"], Repo: integration.Config["repo"],
+		Branch: integration.Config["branch"], Path: integration.Config["path"],
+		Token: token, PublicBase: integration.Config["publicBaseUrl"],
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	count, err := gitpublish.Publish(ctx, cfg, files)
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, "Git publish failed: "+err.Error())
+		return
+	}
+	publicURL := gitpublish.New(cfg).PublicURL()
+	s.webhooks.Emit(r.Context(), wsID, "page.published", map[string]any{
+		"pageId": page.ID.Hex(), "pageTitle": page.Title, "provider": cfg.Kind,
+		"url": publicURL, "fileCount": count,
+	})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"provider": cfg.Kind, "pageId": page.ID.Hex(), "url": publicURL, "fileCount": count,
+	})
+}
+
+func (s *Server) publishPages(w http.ResponseWriter, r *http.Request, wsID primitive.ObjectID, pageIDHex string, includeChildren bool) ([]model.Page, model.Page, bool) {
+	pageID, err := primitive.ObjectIDFromHex(strings.TrimSpace(pageIDHex))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid page id")
+		return nil, model.Page{}, false
+	}
+	page, role, err := s.accessiblePage(r, pageID)
+	if err != nil || page.WorkspaceID != wsID {
+		writeErr(w, http.StatusNotFound, "page not found")
+		return nil, model.Page{}, false
+	}
+	if !canEdit(role) {
+		writeErr(w, http.StatusForbidden, "you do not have permission to publish this page")
+		return nil, model.Page{}, false
+	}
+	pages := []model.Page{page}
+	if !includeChildren {
+		return pages, page, true
+	}
+	cur, err := s.store.Pages.Find(r.Context(), bson.M{"workspaceId": wsID, "archived": false})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load child pages")
+		return nil, model.Page{}, false
+	}
+	defer cur.Close(r.Context())
+	var all []model.Page
+	if err := cur.All(r.Context(), &all); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load child pages")
+		return nil, model.Page{}, false
+	}
+	children := map[primitive.ObjectID][]model.Page{}
+	for _, item := range all {
+		if item.ParentID != nil {
+			children[*item.ParentID] = append(children[*item.ParentID], item)
+		}
+	}
+	pages = pages[:0]
+	seen := map[primitive.ObjectID]bool{}
+	var walk func(model.Page)
+	walk = func(item model.Page) {
+		if seen[item.ID] {
+			return
+		}
+		seen[item.ID] = true
+		pages = append(pages, item)
+		for _, child := range children[item.ID] {
+			walk(child)
+		}
+	}
+	walk(page)
+	return pages, page, true
+}
+
+func (s *Server) publishJira(w http.ResponseWriter, r *http.Request) {
+	s.publishAtlassian(w, r, "jira")
+}
+
+func (s *Server) publishConfluence(w http.ResponseWriter, r *http.Request) {
+	s.publishAtlassian(w, r, "confluence")
+}
+
+func (s *Server) publishAtlassian(w http.ResponseWriter, r *http.Request, provider string) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	if _, ok := s.requireEditor(w, r, wsID); !ok {
+		return
+	}
+	var req struct {
+		PageID string `json:"pageId"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	pages, page, ok := s.publishPages(w, r, wsID, req.PageID, false)
+	if !ok || len(pages) == 0 {
+		return
+	}
+	var integration model.Integration
+	if err := s.store.Integrations.FindOne(r.Context(), bson.M{"workspaceId": wsID, "provider": provider}).Decode(&integration); err != nil {
+		writeErr(w, http.StatusBadRequest, "configure "+provider+" in Settings → Integrations first")
+		return
+	}
+	token, err := secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "the Atlassian token could not be decrypted; save it again")
+		return
+	}
+	client := atlassian.New(atlassian.Config{
+		SiteURL: integration.Config["siteUrl"], Email: integration.Config["email"], Token: token,
+		ProjectKey: integration.Config["projectKey"], IssueType: integration.Config["issueType"],
+		IssueKey: integration.Config["issueKey"], SpaceID: integration.Config["spaceId"],
+		PageID: integration.Config["pageId"], ParentID: integration.Config["parentId"],
+	})
+	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+	defer cancel()
+	var externalID, publicURL string
+	if provider == "jira" {
+		externalID, publicURL, err = client.PublishIssue(ctx, page.Title, adf.Document(page))
+	} else {
+		externalID, publicURL, err = client.PublishConfluencePage(ctx, page.Title, adf.Document(page))
+	}
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, "Atlassian publish failed: "+err.Error())
+		return
+	}
+	s.webhooks.Emit(r.Context(), wsID, "page.published", map[string]any{
+		"pageId": page.ID.Hex(), "pageTitle": page.Title, "provider": provider,
+		"url": publicURL, "externalId": externalID,
+	})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"provider": provider, "pageId": page.ID.Hex(), "url": publicURL, "externalId": externalID,
 	})
 }

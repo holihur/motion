@@ -363,6 +363,21 @@ export const api = {
         method: "POST",
         body: body({ pageId, includeChildren }),
       }),
+    publishGit: (workspaceId: string, pageId: string, includeChildren = true) =>
+      request<PublishResult>(`/workspaces/${workspaceId}/integrations/git/publish`, {
+        method: "POST",
+        body: body({ pageId, includeChildren }),
+      }),
+    publishJira: (workspaceId: string, pageId: string) =>
+      request<PublishResult>(`/workspaces/${workspaceId}/integrations/jira/publish`, {
+        method: "POST",
+        body: body({ pageId }),
+      }),
+    publishConfluence: (workspaceId: string, pageId: string) =>
+      request<PublishResult>(`/workspaces/${workspaceId}/integrations/confluence/publish`, {
+        method: "POST",
+        body: body({ pageId }),
+      }),
   },
   files: {
     upload: async (file: File, workspaceId: string) => {

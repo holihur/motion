@@ -153,7 +153,8 @@ export interface PublishResult {
   provider: string
   pageId: string
   url: string
-  fileCount: number
+  fileCount?: number
+  externalId?: string
 }
 
 export interface Backlink {

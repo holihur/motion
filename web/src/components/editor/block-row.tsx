@@ -86,6 +86,7 @@ export interface BlockRowProps {
   dropPosition: "before" | "after" | null
   readOnly?: boolean
   isLayout?: boolean
+  hasContentPlaceholder?: boolean
   selected?: boolean
   onSelectionStart?: (event: React.MouseEvent<HTMLElement>, index: number) => void
   onSelectBlock?: () => void
@@ -140,6 +141,7 @@ export function BlockRow(props: BlockRowProps) {
     dropPosition,
     readOnly: pageReadOnly = false,
     isLayout = false,
+    hasContentPlaceholder = false,
     selected = false,
     onSelectionStart,
     onSelectBlock,
@@ -842,6 +844,7 @@ export function BlockRow(props: BlockRowProps) {
           locked={locked}
           selected={selected}
           isLayout={isLayout}
+          hasContentPlaceholder={hasContentPlaceholder}
           onToggleLock={onToggleLock}
           onConvert={onConvert}
           onUpdate={onUpdate}
@@ -949,6 +952,7 @@ export function BlockRow(props: BlockRowProps) {
           locked={locked}
           selected={selected}
           isLayout={isLayout}
+          hasContentPlaceholder={hasContentPlaceholder}
           onToggleLock={onToggleLock}
           onConvert={onConvert}
           onUpdate={onUpdate}
@@ -983,6 +987,7 @@ function BlockMenu({
   locked = false,
   selected = false,
   isLayout = false,
+  hasContentPlaceholder = false,
   onToggleLock,
   trigger,
   onConvert,
@@ -1003,6 +1008,7 @@ function BlockMenu({
   locked?: boolean
   selected?: boolean
   isLayout?: boolean
+  hasContentPlaceholder?: boolean
   onToggleLock?: () => void
   trigger: React.ReactNode
   onConvert: (type: BlockType) => void
@@ -1042,7 +1048,9 @@ function BlockMenu({
             <RefreshCw /> Turn into
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="max-h-[280px] w-48 overflow-y-auto thin-scrollbar">
-            {SLASH_COMMANDS.filter((command) => isLayout || command.type !== "content").map((command) => (
+            {SLASH_COMMANDS.filter((command) =>
+              command.type !== "content" || (isLayout && (!hasContentPlaceholder || block.type === "content")),
+            ).map((command) => (
               <DropdownMenuItem key={command.type} onSelect={() => onConvert(command.type)}>
                 <command.icon />
                 {BLOCK_LABELS[command.type]}

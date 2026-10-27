@@ -102,6 +102,7 @@ export function BlockEditor({
   scrollParentRef,
   readOnly = false,
   isLayout = false,
+  hasContentPlaceholder = false,
   breadcrumb = [],
   workspaceId = "",
   pageId = "",
@@ -119,6 +120,7 @@ export function BlockEditor({
   scrollParentRef?: React.RefObject<HTMLDivElement | null>
   readOnly?: boolean
   isLayout?: boolean
+  hasContentPlaceholder?: boolean
   breadcrumb?: { id: string; title: string; icon: string }[]
   workspaceId?: string
   pageId?: string
@@ -162,8 +164,10 @@ export function BlockEditor({
   }, [blocks, selectedIds])
 
   const commands = useMemo(
-    () => filterCommands(slash?.query ?? "").filter((command) => isLayout || command.type !== "content"),
-    [slash?.query, isLayout],
+    () => filterCommands(slash?.query ?? "").filter((command) =>
+      command.type !== "content" || (isLayout && !hasContentPlaceholder),
+    ),
+    [slash?.query, isLayout, hasContentPlaceholder],
   )
 
   useEffect(() => {
@@ -965,6 +969,7 @@ export function BlockEditor({
         }}
         readOnly={readOnly}
         isLayout={isLayout}
+        hasContentPlaceholder={hasContentPlaceholder}
         selected={selectedIds.has(block.id)}
         onSelectionStart={(event) => beginSelection(event, index)}
         onSelectBlock={() => toggleSelection(index)}

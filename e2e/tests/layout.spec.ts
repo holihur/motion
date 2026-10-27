@@ -9,7 +9,6 @@ test("a layout page shares its header and footer with another page", async ({ pa
     title: "Shared Layout",
     blocks: [
       { id: crypto.randomUUID(), type: "paragraph", text: "ACME header" },
-      { id: crypto.randomUUID(), type: "content", text: "" },
       { id: crypto.randomUUID(), type: "paragraph", text: "ACME footer" },
     ],
   })
@@ -18,6 +17,17 @@ test("a layout page shares its header and footer with another page", async ({ pa
     data: { isLayout: true },
   })
   expect(marked.ok()).toBeTruthy()
+  const layoutBlocks = await request.put(`/api/pages/${layout.id}/blocks`, {
+    headers: authHeaders(account.token),
+    data: {
+      blocks: [
+        { id: crypto.randomUUID(), type: "paragraph", text: "ACME header" },
+        { id: crypto.randomUUID(), type: "content", text: "" },
+        { id: crypto.randomUUID(), type: "paragraph", text: "ACME footer" },
+      ],
+    },
+  })
+  expect(layoutBlocks.ok()).toBeTruthy()
   const target = await createPage(request, account.token, workspace.id, {
     title: "Layout consumer",
     blocks: [{ id: crypto.randomUUID(), type: "paragraph", text: "Body copy" }],

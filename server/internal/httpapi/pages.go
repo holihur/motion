@@ -501,7 +501,11 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	seen := make(map[string]bool, len(req.Blocks))
+	contentBlocks := 0
 	for i := range req.Blocks {
+		if req.Blocks[i].Type == "content" {
+			contentBlocks++
+		}
 		b := &req.Blocks[i]
 		if !blockTypes[b.Type] {
 			writeErr(w, http.StatusBadRequest, "unknown block type: "+b.Type)
@@ -555,6 +559,10 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if contentBlocks > 1 || (contentBlocks > 0 && !page.IsLayout) {
+		writeErr(w, http.StatusBadRequest, "content placeholders are only allowed once in a layout page")
+		return
+	}
 	merged := req.Blocks
 	if req.Base != nil {
 		merged = blocks.Merge(*req.Base, page.Blocks, req.Blocks)

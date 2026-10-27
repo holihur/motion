@@ -1358,6 +1358,7 @@ export function PageEditor() {
               blocks={blocks}
               readOnly={readOnly}
               isLayout={Boolean(page.isLayout)}
+              hasContentPlaceholder={blocks.some((block) => block.type === "content")}
               scrollParentRef={scrollRef}
               onChange={(next) => {
                 if (readOnly) return

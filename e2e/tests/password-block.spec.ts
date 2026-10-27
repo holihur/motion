@@ -9,6 +9,7 @@ test("password areas encrypt locally and require the password after reload", asy
   await page.goto(`/page/${created.id}`)
 
   await page.getByRole("button", { name: "Add a block" }).click()
+  await expect(page.locator("[data-block-input]").last()).toBeFocused()
   await page.keyboard.type("/pass")
   await expect(page.getByText("Turn into", { exact: true })).toBeVisible()
   await page.getByRole("button", { name: /Password area/ }).click()

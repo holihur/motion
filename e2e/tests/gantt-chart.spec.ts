@@ -9,8 +9,9 @@ test("inserts and edits Gantt and chart blocks, and the insert menu is searchabl
   await page.goto(`/page/${created.id}`)
 
   await page.getByRole("button", { name: "Add a block" }).click()
+  await expect(page.locator("[data-block-input]").last()).toBeFocused()
   await page.keyboard.type("/")
-  await page.waitForTimeout(150)
+  await expect(page.getByLabel("Search blocks")).toBeVisible()
   await page.getByLabel("Search blocks").fill("gantt")
   await page.getByRole("button", { name: /Gantt/ }).click()
 
@@ -24,8 +25,9 @@ test("inserts and edits Gantt and chart blocks, and the insert menu is searchabl
   await expect(gantt.getByText("New task")).toBeVisible()
 
   await page.getByRole("button", { name: "Add a block" }).click()
+  await expect(page.locator("[data-block-input]").last()).toBeFocused()
   await page.keyboard.type("/")
-  await page.waitForTimeout(150)
+  await expect(page.getByLabel("Search blocks")).toBeVisible()
   await page.getByLabel("Search blocks").fill("chart")
   await page.getByRole("button", { name: /^Chart/ }).click()
 

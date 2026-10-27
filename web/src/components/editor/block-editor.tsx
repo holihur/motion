@@ -282,8 +282,10 @@ export function BlockEditor({
     updateBlock(index, { text, ...(rich !== undefined ? { rich } : {}) })
 
     const isSlashForThisBlock = slash?.blockId === block.id && slash.mode === "convert"
-    if (text === "/" && !isSlashForThisBlock) {
-      openSlash(index, "convert", "", caretRect(el))
+    if (!isSlashForThisBlock && text.startsWith("/") && !text.includes("\n") && text.length <= 26) {
+      // Open on the first slash even when the browser batches "/" and the next
+      // character into one input event (fast typists and automation).
+      openSlash(index, "convert", text.slice(1), caretRect(el))
       return
     }
     if (isSlashForThisBlock) {

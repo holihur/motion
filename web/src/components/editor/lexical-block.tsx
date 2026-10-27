@@ -42,6 +42,7 @@ import { mergeRegister } from "@lexical/utils"
 import { MentionNode, MentionPlugin } from "@/components/editor/mention-node"
 import type { Member } from "@/lib/types"
 import { caretOffset } from "@/lib/caret"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 
@@ -107,6 +108,9 @@ export function LexicalBlock({
   members = [],
 }: LexicalBlockProps) {
   const lastRichRef = useRef(rich ?? "")
+  // Keep the guard through the current task: some browsers fire keydown
+  // immediately after compositionend when Enter confirms a candidate.
+  const composingRef = useRef(false)
   const composerKey = `${id}:${readOnly ? "ro" : "rw"}:${resetKey}`
 
   const initialConfig = {
@@ -137,7 +141,16 @@ export function LexicalBlock({
               spellCheck
               className={cn("block-input lexical-input w-full outline-none", className)}
               onFocus={onFocus}
+              onCompositionStart={() => {
+                composingRef.current = true
+              }}
+              onCompositionEnd={() => {
+                window.setTimeout(() => {
+                  composingRef.current = false
+                }, 0)
+              }}
               onKeyDownCapture={(event) => {
+                if (composingRef.current || isImeKeyEvent(event)) return
                 onKeyDown(event as unknown as React.KeyboardEvent<HTMLElement>)
                 if (event.defaultPrevented) {
                   event.nativeEvent.stopImmediatePropagation()

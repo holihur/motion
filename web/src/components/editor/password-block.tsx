@@ -15,6 +15,7 @@ import { toast } from "sonner"
 import type { Block } from "@/lib/types"
 import { decryptSecret, encryptSecret } from "@/lib/crypto"
 import { tr } from "@/lib/i18n"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { cn } from "@/lib/utils"
 
 const AUTO_LOCK_MS = 10 * 60 * 1000
@@ -245,6 +246,7 @@ export function PasswordBlock({
                 autoComplete="off"
                 onChange={(event) => setPassword(event.target.value)}
                 onKeyDown={(event) => {
+                  if (isImeKeyEvent(event)) return
                   if (event.key === "Enter") {
                     event.preventDefault()
                     void unlock()

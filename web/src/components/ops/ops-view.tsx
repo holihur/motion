@@ -180,6 +180,7 @@ export function OpsView() {
           clientSecret: secret.trim() || undefined,
           clearClientSecret: clearSecret,
         },
+        maps: settings.maps,
         update: settings.update,
       })
       setSettings(saved)
@@ -346,6 +347,28 @@ export function OpsView() {
                   <p className="text-[11px] text-muted-foreground">
                     Comma separated. Your own email must remain in this list to avoid lockout.
                   </p>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border bg-card p-5">
+                <SectionTitle
+                  icon={Globe2}
+                  title="Map providers"
+                  description="Client keys for map blocks. Mapbox is the default; Google, Amap and Baidu fall back to their keyless embeds when a key is empty."
+                />
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <Field label="Mapbox access token" htmlFor="ops-mapbox-token">
+                    <Input id="ops-mapbox-token" value={settings.maps.mapboxToken} onChange={(event) => patch({ maps: { ...settings.maps, mapboxToken: event.target.value } })} placeholder="pk.…" />
+                  </Field>
+                  <Field label="Google Maps API key" htmlFor="ops-google-maps-key">
+                    <Input id="ops-google-maps-key" value={settings.maps.googleMapsKey} onChange={(event) => patch({ maps: { ...settings.maps, googleMapsKey: event.target.value } })} placeholder="Optional" />
+                  </Field>
+                  <Field label="Amap (高德) key" htmlFor="ops-amap-key">
+                    <Input id="ops-amap-key" value={settings.maps.amapKey} onChange={(event) => patch({ maps: { ...settings.maps, amapKey: event.target.value } })} placeholder="Optional" />
+                  </Field>
+                  <Field label="Baidu Map AK" htmlFor="ops-baidu-map-ak">
+                    <Input id="ops-baidu-map-ak" value={settings.maps.baiduMapAK} onChange={(event) => patch({ maps: { ...settings.maps, baiduMapAK: event.target.value } })} placeholder="Optional" />
+                  </Field>
                 </div>
               </section>
 

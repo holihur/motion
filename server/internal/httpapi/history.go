@@ -68,11 +68,19 @@ func (s *Server) listRevisions(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "page not found")
 		return
 	}
-	cur, err := s.store.Revisions.Find(r.Context(), bson.M{"pageId": pageID},
+	pageNo, pageSize := paginationParams(r)
+	filter := bson.M{"pageId": pageID}
+	total, err := s.store.Revisions.CountDocuments(r.Context(), filter)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load history")
+		return
+	}
+	cur, err := s.store.Revisions.Find(r.Context(), filter,
 		options.Find().
 			SetProjection(bson.M{"blocks": 0}).
 			SetSort(bson.D{{Key: "createdAt", Value: -1}}).
-			SetLimit(100))
+			SetSkip((pageNo-1)*pageSize).
+			SetLimit(pageSize))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not load history")
 		return
@@ -83,7 +91,7 @@ func (s *Server) listRevisions(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "could not load history")
 		return
 	}
-	writeJSON(w, http.StatusOK, revisions)
+	writeJSON(w, http.StatusOK, paginate(revisions, pageNo, pageSize, total))
 }
 
 func (s *Server) createSnapshot(w http.ResponseWriter, r *http.Request) {

@@ -38,12 +38,13 @@ func (s *Server) listComments(w http.ResponseWriter, r *http.Request) {
 }
 
 type createCommentRequest struct {
-	BlockID     string  `json:"blockId"`
-	Quote       string  `json:"quote"`
-	StartOffset int     `json:"startOffset"`
-	EndOffset   int     `json:"endOffset"`
-	Body        string  `json:"body"`
-	ParentID    *string `json:"parentId"`
+	BlockID     string                   `json:"blockId"`
+	Quote       string                   `json:"quote"`
+	StartOffset int                      `json:"startOffset"`
+	EndOffset   int                      `json:"endOffset"`
+	Body        string                   `json:"body"`
+	ParentID    *string                  `json:"parentId"`
+	Annotation  *model.CommentAnnotation `json:"annotation"`
 }
 
 func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
@@ -86,6 +87,7 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		Quote:       req.Quote,
 		StartOffset: max(0, req.StartOffset),
 		EndOffset:   max(0, req.EndOffset),
+		Annotation:  req.Annotation,
 		Body:        req.Body,
 		AuthorID:    currentUserID(r),
 		AuthorName:  "",
@@ -115,6 +117,7 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		comment.Quote = parent.Quote
 		comment.StartOffset = parent.StartOffset
 		comment.EndOffset = parent.EndOffset
+		comment.Annotation = parent.Annotation
 	} else {
 		found := false
 		for _, block := range page.Blocks {
@@ -125,6 +128,14 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		}
 		if !found {
 			writeErr(w, http.StatusBadRequest, "block not found")
+			return
+		}
+	}
+
+	if req.Annotation != nil {
+		a := req.Annotation
+		if a.X < 0 || a.Y < 0 || a.X > 100 || a.Y > 100 || a.Width <= 0 || a.Height <= 0 || a.X+a.Width > 100.01 || a.Y+a.Height > 100.01 {
+			writeErr(w, http.StatusBadRequest, "invalid image annotation")
 			return
 		}
 	}

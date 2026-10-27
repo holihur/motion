@@ -34,6 +34,7 @@ type opsSettingsView struct {
 	AIModel     string        `json:"aiModel"`
 	AdminEmails []string      `json:"adminEmails"`
 	OIDC        opsOIDCView   `json:"oidc"`
+	Maps        site.Maps     `json:"maps"`
 	Update      opsUpdateView `json:"update"`
 }
 
@@ -50,6 +51,7 @@ func opsView(settings site.Settings) opsSettingsView {
 			AutoCreate:      settings.OIDC.AutoCreate,
 			HasClientSecret: settings.OIDC.ClientSecret != "",
 		},
+		Maps: settings.Maps,
 		Update: opsUpdateView{
 			Repo: settings.Update.Repo, Mode: settings.Update.Mode, IntervalHours: settings.Update.IntervalHours,
 		},
@@ -86,6 +88,7 @@ type opsSettingsRequest struct {
 	AIModel     *string           `json:"aiModel"`
 	AdminEmails *[]string         `json:"adminEmails"`
 	OIDC        *opsOIDCRequest   `json:"oidc"`
+	Maps        *site.Maps        `json:"maps"`
 	Update      *opsUpdateRequest `json:"update"`
 }
 
@@ -130,6 +133,14 @@ func (s *Server) saveOpsSettings(w http.ResponseWriter, r *http.Request) {
 		settings.AdminEmails = emails
 	}
 
+	if req.Maps != nil {
+		settings.Maps = site.Maps{
+			MapboxToken:   strings.TrimSpace(req.Maps.MapboxToken),
+			GoogleMapsKey: strings.TrimSpace(req.Maps.GoogleMapsKey),
+			AmapKey:       strings.TrimSpace(req.Maps.AmapKey),
+			BaiduMapAK:    strings.TrimSpace(req.Maps.BaiduMapAK),
+		}
+	}
 	if req.OIDC != nil {
 		in := req.OIDC
 		if in.Enabled != nil {

@@ -24,10 +24,12 @@ import {
 import { toast } from "sonner"
 import { ApiError, api, getClientId } from "@/lib/api"
 import { tr } from "@/lib/i18n"
+import { pageThemeStyle } from "@/lib/page-theme"
 import type { Block, Comment, Member, Page } from "@/lib/types"
 import { applyBlockSync, diffBlocks } from "@/lib/blocks"
 import { cn, initials, uid } from "@/lib/utils"
 import { caretOffset, focusBlockById, setCaret } from "@/lib/caret"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { RealtimeClient, type RealtimePresence } from "@/lib/realtime"
 import { coverStyle } from "@/lib/covers"
 import { buildTree, ancestorChain, pageTitle } from "@/lib/tree"
@@ -98,6 +100,7 @@ export function PageEditor() {
   const [page, setPage] = useState<Page | null>(null)
   const [blocks, setBlocks] = useState<Block[]>([emptyBlock()])
   const [members, setMembers] = useState<Member[]>([])
+  const [layoutPage, setLayoutPage] = useState<Page | null>(null)
   const [title, setTitle] = useState("")
   const [icon, setIcon] = useState("")
   const [cover, setCover] = useState("")
@@ -141,6 +144,9 @@ export function PageEditor() {
   const favorite = summary?.favorite ?? page?.favorite ?? false
   const pageLocked = Boolean(page?.locked)
   const readOnly = page?.role === "viewer" || pageLocked
+  const layoutContentIndex = layoutPage?.blocks.findIndex((block) => block.type === "content") ?? -1
+  const layoutHeader = (layoutPage ? (layoutContentIndex >= 0 ? layoutPage.blocks.slice(0, layoutContentIndex) : layoutPage.blocks) : []).filter((block) => block.type !== "content")
+  const layoutFooter = (layoutPage && layoutContentIndex >= 0 ? layoutPage.blocks.slice(layoutContentIndex + 1) : []).filter((block) => block.type !== "content")
 
   useEffect(() => {
     stateRef.current = { pageId: page?.id ?? "", title, icon, cover, blocks }
@@ -294,6 +300,9 @@ export function PageEditor() {
       }
       if (patch.icon !== undefined) setIcon(patch.icon)
       if (patch.cover !== undefined) setCover(patch.cover)
+      if (patch.theme !== undefined) setPage((current) => (current ? { ...current, theme: patch.theme } : current))
+      if (patch.layoutId !== undefined) setPage((current) => (current ? { ...current, layoutId: patch.layoutId } : current))
+      if ((patch as { isLayout?: boolean }).isLayout !== undefined) setPage((current) => (current ? { ...current, isLayout: (patch as { isLayout?: boolean }).isLayout } : current))
     }
     window.addEventListener("motion:page-meta", onMeta)
     return () => window.removeEventListener("motion:page-meta", onMeta)
@@ -509,6 +518,8 @@ export function PageEditor() {
           }
           if (patch.icon !== undefined) setIcon(patch.icon)
           if (patch.cover !== undefined) setCover(patch.cover)
+          if (patch.theme !== undefined) setPage((current) => (current ? { ...current, theme: patch.theme } : current))
+          if ((patch as { layoutId?: string }).layoutId !== undefined) setPage((current) => (current ? { ...current, layoutId: (patch as { layoutId?: string }).layoutId } : current))
           if (patch.favorite !== undefined) {
             setPage((current) => (current ? { ...current, favorite: patch.favorite! } : current))
           }
@@ -516,6 +527,7 @@ export function PageEditor() {
             ...(patch.title !== undefined ? { title: patch.title } : {}),
             ...(patch.icon !== undefined ? { icon: patch.icon } : {}),
             ...(patch.cover !== undefined ? { cover: patch.cover } : {}),
+            ...(patch.theme !== undefined ? { theme: patch.theme } : {}),
             ...(patch.favorite !== undefined ? { favorite: patch.favorite } : {}),
           })
           if (!dirtyRef.current) {
@@ -705,6 +717,38 @@ export function PageEditor() {
     }
     await persist(stateRef.current)
   }
+
+  useEffect(() => {
+    function onFlush(event: Event) {
+      const detail = (event as CustomEvent<{ id?: string; done?: () => void }>).detail
+      if (detail?.id && detail.id !== pageId) return
+      void saveNow().finally(() => detail?.done?.())
+    }
+    function onRefresh(event: Event) {
+      const detail = (event as CustomEvent<{ id?: string }>).detail
+      if (detail?.id && detail.id !== pageId) return
+      if (!dirtyRef.current) void refreshFromServer()
+    }
+    window.addEventListener("motion:flush-page", onFlush)
+    window.addEventListener("motion:refresh-page", onRefresh)
+    return () => {
+      window.removeEventListener("motion:flush-page", onFlush)
+      window.removeEventListener("motion:refresh-page", onRefresh)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageId])
+
+  useEffect(() => {
+    if (!page?.layoutId) {
+      setLayoutPage(null)
+      return
+    }
+    let alive = true
+    api.pages.get(page.layoutId)
+      .then((value) => { if (alive) setLayoutPage(value) })
+      .catch(() => { if (alive) setLayoutPage(null) })
+    return () => { alive = false }
+  }, [page?.layoutId])
 
   useEffect(() => {
     if (!page) return
@@ -1008,7 +1052,7 @@ export function PageEditor() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col" style={pageThemeStyle(page.theme ?? summary?.theme)}>
       <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
         <SidebarToggle />
         <Breadcrumbs page={page} title={title} icon={icon} />
@@ -1236,6 +1280,24 @@ export function PageEditor() {
         )}
 
         <div className={cn("mx-auto w-full max-w-3xl px-5 pb-28 sm:px-10", !cover && "pt-6")}>
+          {layoutHeader.length > 0 && (
+            <div className="mb-5 border-b border-border/60 pb-3">
+              <BlockEditor
+                blocks={layoutHeader}
+                readOnly
+                onChange={() => undefined}
+                workspaceId={page.workspaceId}
+                pageId={layoutPage!.id}
+                members={members}
+              />
+            </div>
+          )}
+          {page.isLayout && (
+            <div className="mb-5 flex items-start gap-3 rounded-xl border border-brand/25 bg-brand-soft/25 px-3.5 py-3 text-xs">
+              <span className="mt-0.5 rounded-full bg-brand px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">{tr("Layout")}</span>
+              <span className="leading-5 text-muted-foreground">{tr("This page is a layout. Blocks before the Content placeholder become the header; blocks after it become the footer.")}</span>
+            </div>
+          )}
           <div className={cn("relative z-10 flex items-center gap-2", cover ? "-mt-9 mb-1" : "mt-1")}>
             {readOnly ? (
               icon ? <span className="rounded-xl px-1 text-[58px] leading-none">{icon}</span> : null
@@ -1279,6 +1341,7 @@ export function PageEditor() {
             spellCheck={false}
             onChange={(event) => onTitleChange(event.target.value)}
             onKeyDown={(event) => {
+              if (isImeKeyEvent(event)) return
               if (event.key === "Enter" && !event.shiftKey && !readOnly) {
                 event.preventDefault()
                 const first = blocks[0]
@@ -1294,6 +1357,7 @@ export function PageEditor() {
             <BlockEditor
               blocks={blocks}
               readOnly={readOnly}
+              isLayout={Boolean(page.isLayout)}
               scrollParentRef={scrollRef}
               onChange={(next) => {
                 if (readOnly) return
@@ -1305,6 +1369,7 @@ export function PageEditor() {
               commentCounts={commentCounts}
               blockComments={blockComments}
               onOpenComments={() => setCommentsOpen(true)}
+              onCommentsChanged={() => setCommentVersion((value) => value + 1)}
               onCommentBlock={openBlockComment}
               breadcrumb={ancestorChain(pages, page.id).map((item) => ({
                 id: item.id,
@@ -1317,6 +1382,18 @@ export function PageEditor() {
             />
           </div>
           <Backlinks pageId={page.id} />
+          {layoutFooter.length > 0 && (
+            <div className="mt-8 border-t border-border/60 pt-3">
+              <BlockEditor
+                blocks={layoutFooter}
+                readOnly
+                onChange={() => undefined}
+                workspaceId={page.workspaceId}
+                pageId={layoutPage!.id}
+                members={members}
+              />
+            </div>
+          )}
         </div>
       </div>
 

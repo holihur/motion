@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react"
-import { Check, Copy, KeyRound, LogOut, Sparkles, TerminalSquare, Trash2 } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Check, Copy, ImagePlus, KeyRound, LogOut, Sparkles, TerminalSquare, Trash2 } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { WorkspaceAgentSettings } from "@/components/app/workspace-agent-settings"
+import { WorkspaceIcon, isImageIcon } from "@/components/app/workspace-icon"
 import { IntegrationsSettings } from "@/components/app/integrations-settings"
 import { toast } from "sonner"
 import { api, type AccessToken } from "@/lib/api"
@@ -142,7 +143,9 @@ function WorkspaceSettings() {
   const [name, setName] = useState(workspace?.name ?? "")
   const [icon, setIcon] = useState(workspace?.icon ?? "🧭")
   const [pending, setPending] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const iconInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setName(workspace?.name ?? "")
@@ -150,6 +153,21 @@ function WorkspaceSettings() {
   }, [workspace?.id, workspace?.name, workspace?.icon])
 
   if (!workspace) return <p className="pt-4 text-sm text-muted-foreground">{tr("No workspace selected.")}</p>
+
+  async function uploadIcon(file: File) {
+    if (!workspace || uploading) return
+    setUploading(true)
+    try {
+      const uploaded = await api.files.upload(file, workspace.id)
+      setIcon(uploaded.url)
+      await updateWorkspace(workspace.id, { name: name.trim() || workspace.name, icon: uploaded.url })
+      toast.success(tr("Workspace icon updated"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not upload workspace icon"))
+    } finally {
+      setUploading(false)
+    }
+  }
 
   async function save(event: React.FormEvent) {
     event.preventDefault()
@@ -170,6 +188,30 @@ function WorkspaceSettings() {
       <form onSubmit={save} className="space-y-4">
         <div className="space-y-2">
           <Label>{tr("Icon")}</Label>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/40 text-2xl">
+              <WorkspaceIcon value={icon} alt={workspace.name} className="size-full" />
+            </span>
+            <input
+              ref={iconInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file) void uploadIcon(file)
+                event.target.value = ""
+              }}
+            />
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" disabled={uploading} onClick={() => iconInputRef.current?.click()}>
+              <ImagePlus className="size-3.5" /> {uploading ? tr("Uploading…") : tr("Upload icon")}
+            </Button>
+            {isImageIcon(icon) && (
+              <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setIcon("🧭")}>
+                {tr("Remove custom icon")}
+              </Button>
+            )}
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {WORKSPACE_ICONS.map((item) => (
               <button

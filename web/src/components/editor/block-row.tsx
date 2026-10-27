@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react"
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  ArrowDown,
+  ArrowUp,
   Check,
+  ClipboardCopy,
   Copy,
   GripVertical,
   LockKeyhole,
@@ -10,20 +16,31 @@ import {
   MoreHorizontal,
   MoreVertical,
   Network,
+  Palette,
   Plus,
   RefreshCw,
   ChevronRight,
   Table2,
   Trash2,
-  Upload,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
-import { api } from "@/lib/api"
 import type { Block, BlockType, Comment, Member } from "@/lib/types"
 import { BLOCK_LABELS, SLASH_COMMANDS } from "@/components/editor/commands"
 import { CALLOUT_COLORS, CALLOUT_EMOJI } from "@/lib/covers"
 import { cn, formatRelative } from "@/lib/utils"
+import { isImeKeyEvent } from "@/lib/keyboard"
+import {
+  ALIGN_STYLE_TYPES,
+  BACKGROUND_COLORS,
+  TEXT_COLORS,
+  TEXT_STYLE_TYPES,
+  alignClass,
+  backgroundColorClass,
+  imageAlignClass,
+  imageWidthClass,
+  textColorClass,
+} from "@/lib/block-style"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +61,8 @@ import { CodeBlock } from "@/components/editor/code-block"
 import { ChartBlock, GanttBlock } from "@/components/editor/data-blocks"
 import { BarcodeBlock, QRCodeBlock } from "@/components/editor/code-image-blocks"
 import { FormBlock } from "@/components/editor/form-block"
+import { ImageBlock } from "@/components/editor/image-block"
+import { MapBlock } from "@/components/editor/map-block"
 import { BreadcrumbBlock, ColumnsBlock, PageLinkBlock } from "@/components/editor/link-blocks"
 import {
   BookmarkBlock,
@@ -55,6 +74,7 @@ import {
   type HeadingItem,
 } from "@/components/editor/rich-blocks"
 import { tr } from "@/lib/i18n"
+import { ColorGrid } from "@/components/ui/color-grid"
 
 export interface BlockRowProps {
   block: Block
@@ -65,6 +85,10 @@ export interface BlockRowProps {
   isDragging: boolean
   dropPosition: "before" | "after" | null
   readOnly?: boolean
+  isLayout?: boolean
+  selected?: boolean
+  onSelectionStart?: (event: React.MouseEvent<HTMLElement>, index: number) => void
+  onSelectBlock?: () => void
   onToggleLock?: () => void
   resetKey?: number
   autoFocus?: boolean
@@ -81,6 +105,7 @@ export interface BlockRowProps {
   commentCount?: number
   comments?: Comment[]
   onOpenComments?: () => void
+  onCommentsChanged?: () => void
   onCommentBlock?: (blockId: string) => void
   onFocusBlock?: (blockId: string) => void
   onInput: (text: string, el: HTMLElement, rich?: string) => void
@@ -91,6 +116,12 @@ export interface BlockRowProps {
   onConvert: (type: BlockType) => void
   onDelete: () => void
   onDuplicate: () => void
+  onInsertAbove?: () => void
+  onInsertBelow?: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
+  canMoveUp?: boolean
+  canMoveDown?: boolean
   onInsertAfter: (rect: DOMRect) => void
   onDragStart: () => void
   onDragEnd: () => void
@@ -108,6 +139,10 @@ export function BlockRow(props: BlockRowProps) {
     isDragging,
     dropPosition,
     readOnly: pageReadOnly = false,
+    isLayout = false,
+    selected = false,
+    onSelectionStart,
+    onSelectBlock,
     onToggleLock,
     resetKey = 0,
     autoFocus = false,
@@ -124,6 +159,7 @@ export function BlockRow(props: BlockRowProps) {
     commentCount = 0,
     comments = [],
     onOpenComments,
+    onCommentsChanged,
     onCommentBlock,
     onFocusBlock,
     onInput,
@@ -134,6 +170,12 @@ export function BlockRow(props: BlockRowProps) {
     onConvert,
     onDelete,
     onDuplicate,
+    onInsertAbove,
+    onInsertBelow,
+    onMoveUp,
+    onMoveDown,
+    canMoveUp = false,
+    canMoveDown = false,
     onInsertAfter,
     onDragStart,
     onDragEnd,
@@ -143,13 +185,18 @@ export function BlockRow(props: BlockRowProps) {
 
   const locked = Boolean(block.locked)
   const readOnly = pageReadOnly || locked
+  const textStyled = TEXT_STYLE_TYPES.has(block.type)
+  const aligned = ALIGN_STYLE_TYPES.has(block.type)
+  const blockBackground = textStyled ? backgroundColorClass(block.bgColor) : ""
+  const contentClassName = cn(
+    "min-w-0 flex-1",
+    textStyled && textColorClass(block.textColor),
+    aligned && alignClass(block.align),
+    blockBackground && cn("-mx-2 rounded-md px-2", blockBackground),
+  )
 
   const editableRef = useRef<HTMLDivElement>(null)
-  const imageRef = useRef<HTMLDivElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
-  const [imageDraft, setImageDraft] = useState("")
-  const [imageError, setImageError] = useState(false)
-  const [uploading, setUploading] = useState(false)
   const [diagramEditing, setDiagramEditing] = useState(!block.text)
 
   useEffect(() => {
@@ -157,10 +204,6 @@ export function BlockRow(props: BlockRowProps) {
     if (!el) return
     if (el.innerText !== block.text) el.innerText = block.text
   }, [block.text, block.type])
-
-  useEffect(() => {
-    setImageError(false)
-  }, [block.url])
 
   function handleOver(event: React.DragEvent) {
     event.preventDefault()
@@ -206,28 +249,6 @@ export function BlockRow(props: BlockRowProps) {
         members={members}
       />
     )
-  }
-
-  async function uploadImage(file: File) {
-    if (!workspaceId || uploading) return
-    setUploading(true)
-    try {
-      const uploaded = await api.files.upload(file, workspaceId)
-      onUpdate({ url: uploaded.url, caption: block.caption || uploaded.name, rich: "" })
-      toast.success(tr("Image uploaded"))
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not upload image"))
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  function imageDrop(event: React.DragEvent) {
-    const file = Array.from(event.dataTransfer.files).find((item) => item.type.startsWith("image/"))
-    if (!file) return
-    event.preventDefault()
-    event.stopPropagation()
-    void uploadImage(file)
   }
 
   function renderContent() {
@@ -367,6 +388,7 @@ export function BlockRow(props: BlockRowProps) {
           updateTable({ ...table, rows: [...table.rows, table.columns.map(() => "")] })
         }
         const removeRow = (index: number) => {
+          if (table.rows.length <= 1) return
           updateTable({ ...table, rows: table.rows.filter((_, rowIndex) => rowIndex !== index) })
         }
         const addColumn = () => {
@@ -392,25 +414,121 @@ export function BlockRow(props: BlockRowProps) {
             columns: table.columns.map((column, columnIndex) => (columnIndex === index ? value : column)),
           })
         }
+        const focusCell = (rowIndex: number, columnIndex: number) => {
+          window.setTimeout(() => {
+            document.getElementById(`table-cell-${block.id}-${rowIndex}-${columnIndex}`)?.focus()
+          }, 20)
+        }
+        const handleCellKeyDown = (
+          event: React.KeyboardEvent<HTMLInputElement>,
+          rowIndex: number,
+          columnIndex: number,
+        ) => {
+          if (readOnly || isImeKeyEvent(event)) return
+          if (event.key !== "Tab" && event.key !== "Enter") return
+          event.preventDefault()
+          const direction = event.key === "Tab" && event.shiftKey ? -1 : 1
+          if (event.key === "Tab") {
+            const nextColumn = columnIndex + direction
+            if (nextColumn >= 0 && nextColumn < table.columns.length) {
+              focusCell(rowIndex, nextColumn)
+              return
+            }
+            if (rowIndex === -1) {
+              focusCell(direction > 0 ? 0 : table.rows.length - 1, direction > 0 ? 0 : table.columns.length - 1)
+              return
+            }
+            const nextRow = rowIndex + direction
+            if (nextRow >= 0 && nextRow < table.rows.length) {
+              focusCell(nextRow, direction > 0 ? 0 : table.columns.length - 1)
+              return
+            }
+            if (direction > 0) {
+              addRow()
+              focusCell(table.rows.length, 0)
+            } else {
+              focusCell(-1, table.columns.length - 1)
+            }
+            return
+          }
+          if (rowIndex === -1) {
+            focusCell(0, columnIndex)
+            return
+          }
+          if (rowIndex + 1 < table.rows.length) {
+            focusCell(rowIndex + 1, columnIndex)
+          } else {
+            addRow()
+            focusCell(table.rows.length, columnIndex)
+          }
+        }
+        const pasteCells = (event: React.ClipboardEvent<HTMLInputElement>, rowIndex: number, columnIndex: number) => {
+          if (rowIndex < 0) return
+          const raw = event.clipboardData.getData("text/plain")
+          if (!raw.includes("\t") && !raw.includes("\n")) return
+          event.preventDefault()
+          const matrix = raw.replace(/\r/g, "").split("\n").filter((line, index, lines) => line.length > 0 || index < lines.length - 1).map((line) => line.split("\t"))
+          if (matrix.length === 0) return
+          const width = Math.max(table.columns.length, columnIndex + Math.max(...matrix.map((row) => row.length)))
+          const columns = Array.from({ length: width }, (_, index) => table.columns[index] ?? `Column ${index + 1}`)
+          const rows = table.rows.map((row) => Array.from({ length: width }, (_, index) => row[index] ?? ""))
+          while (rows.length < rowIndex + matrix.length) rows.push(Array.from({ length: width }, () => ""))
+          matrix.forEach((cells, rowOffset) => {
+            cells.forEach((value, columnOffset) => {
+              rows[rowIndex + rowOffset][columnIndex + columnOffset] = value
+            })
+          })
+          updateTable({ ...table, columns, rows })
+          const lastRow = rowIndex + matrix.length - 1
+          const lastColumn = columnIndex + Math.max(...matrix.map((row) => row.length)) - 1
+          focusCell(lastRow, lastColumn)
+        }
+        const copyTable = () => {
+          const tsv = [table.columns, ...table.rows].map((row) => table.columns.map((_, index) => row[index] ?? "").join("\t")).join("\n")
+          void navigator.clipboard.writeText(tsv).then(
+            () => toast.success(tr("Table copied")),
+            () => toast.error(tr("Could not copy table")),
+          )
+        }
         return (
           <div className="my-2 overflow-hidden rounded-lg border border-border/80 bg-card" onFocus={() => onFocusBlock?.(block.id)}>
             <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               <Table2 className="size-3" /> Table
-              <span className="ml-auto normal-case tracking-normal text-muted-foreground/60">
-                {table.columns.length} × {table.rows.length + 1}
+              <span className="normal-case tracking-normal text-muted-foreground/60">
+                {table.columns.length} × {table.rows.length + (table.header === false ? 0 : 1)}
               </span>
+              <div className="ml-auto flex items-center gap-0.5 normal-case tracking-normal">
+                {!readOnly && <button
+                  type="button"
+                  onClick={() => updateTable({ ...table, header: table.header === false })}
+                  aria-pressed={table.header !== false}
+                  className="rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"
+                >
+                  {tr("Header row")}
+                </button>}
+                <button
+                  type="button"
+                  onClick={copyTable}
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"
+                >
+                  <Copy className="size-3" /> {tr("Copy")}
+                </button>
+              </div>
             </div>
-            <div className="overflow-x-auto">
+            <div className="max-h-[65vh] overflow-auto">
               <table className="w-full border-collapse text-sm">
-                <thead>
+                {table.header !== false && <thead className="sticky top-0 z-10">
                   <tr>
                     {table.columns.map((column, columnIndex) => (
                       <th key={columnIndex} className="group/head min-w-[110px] border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0">
                         <div className="flex items-center gap-0.5 px-1">
                           <input
+                            id={`table-cell-${block.id}-${-1}-${columnIndex}`}
+                            data-table-cell
                             value={column}
                             readOnly={readOnly}
                             onChange={(event) => setColumn(columnIndex, event.target.value)}
+                            onKeyDown={(event) => handleCellKeyDown(event, -1, columnIndex)}
                             onFocus={() => onFocusBlock?.(block.id)}
                             className="h-8 min-w-0 flex-1 bg-transparent px-1.5 text-xs font-semibold outline-none"
                             placeholder={`Column ${columnIndex + 1}`}
@@ -430,16 +548,20 @@ export function BlockRow(props: BlockRowProps) {
                     ))}
                     <th className="w-6 border-b border-border/60 bg-muted/35" />
                   </tr>
-                </thead>
+                </thead>}
                 <tbody>
                   {table.rows.map((row, rowIndex) => (
-                    <tr key={rowIndex} className="group/row">
+                    <tr key={rowIndex} className="group/row transition-colors hover:bg-brand-soft/15">
                       {table.columns.map((_, columnIndex) => (
                         <td key={columnIndex} className="border-b border-r border-border/60 p-0 last:border-r-0">
                           <input
+                            id={`table-cell-${block.id}-${rowIndex}-${columnIndex}`}
+                            data-table-cell
                             value={row[columnIndex] ?? ""}
                             readOnly={readOnly}
                             onChange={(event) => setCell(rowIndex, columnIndex, event.target.value)}
+                            onKeyDown={(event) => handleCellKeyDown(event, rowIndex, columnIndex)}
+                            onPaste={(event) => pasteCells(event, rowIndex, columnIndex)}
                             onFocus={() => onFocusBlock?.(block.id)}
                             className="h-9 w-full bg-transparent px-2 text-[13px] outline-none transition focus:bg-brand-soft/20"
                             placeholder=" "
@@ -447,7 +569,7 @@ export function BlockRow(props: BlockRowProps) {
                         </td>
                       ))}
                       <td className="border-b border-border/60 p-0 text-center">
-                        {!readOnly && <button
+                        {!readOnly && table.rows.length > 1 && <button
                           type="button"
                           onClick={() => removeRow(rowIndex)}
                           className="flex size-6 items-center justify-center rounded text-muted-foreground/0 transition group-hover/row:text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
@@ -567,100 +689,32 @@ export function BlockRow(props: BlockRowProps) {
         return <BarcodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "form":
         return <FormBlock block={block} pageId={pageId} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
-      case "image":
-        return block.url ? (
-          <figure
-            ref={imageRef}
-            id={`block-input-${block.id}`}
-            data-block-input
-            tabIndex={0}
-            onKeyDown={(event) => onKeyDown(event, index)}
-            onFocus={() => onFocusBlock?.(block.id)}
-            onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) event.preventDefault() }}
-            onDrop={imageDrop}
-            className="my-2 overflow-hidden rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
-          >
-            {imageError ? (
-              <div className="flex flex-col items-center gap-2 border border-dashed bg-muted/30 px-4 py-10 text-center text-xs text-muted-foreground">
-                <ImageIcon className="size-5" />
-                {tr("This image could not be loaded.")}
-                {!readOnly && <button
-                  type="button"
-                  onClick={() => onUpdate({ url: "" })}
-                  className="rounded border px-2 py-1 text-[11px] hover:bg-accent"
-                >
-                  Replace URL
-                </button>}
-              </div>
-            ) : (
-              <img
-                src={block.url}
-                alt={block.caption || "Image"}
-                loading="lazy"
-                decoding="async"
-                onError={() => setImageError(true)}
-                className="max-h-[440px] w-full bg-muted/30 object-contain"
-              />
-            )}
-            {block.caption && (
-              <figcaption className="mt-2 text-center text-xs text-muted-foreground">
-                {block.caption}
-              </figcaption>
-            )}
-            {!readOnly && (
-              <div className="flex justify-end border-t border-border/40 p-1.5">
-                <label className="flex cursor-pointer items-center gap-1 rounded px-2 py-1 text-[10px] text-muted-foreground transition hover:bg-accent hover:text-foreground">
-                  <Upload className="size-3" /> {uploading ? tr("Uploading…") : tr("Replace image")}
-                  <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.target.value = "" }} />
-                </label>
-              </div>
-            )}
-          </figure>
-        ) : (
-          <div
-            id={`block-input-${block.id}`}
-            ref={imageRef}
-            data-block-input
-            tabIndex={0}
-            onKeyDown={(event) => onKeyDown(event, index)}
-            onFocus={() => onFocusBlock?.(block.id)}
-            onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) event.preventDefault() }}
-            onDrop={imageDrop}
-            className="my-2 flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
-          >
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <ImageIcon className="size-4" /> {tr("Embed an image")}
+      case "content":
+        return (
+          <div className="my-3 rounded-xl border-2 border-dashed border-brand/35 bg-brand-soft/20 px-4 py-8 text-center">
+            <div className="text-xs font-medium text-brand">{tr("Page content appears here")}</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              {tr("Everything before this block is the shared header; everything after it is the footer.")}
             </div>
-            {!readOnly && <div className="flex w-full max-w-md gap-1.5">
-              <input
-                value={imageDraft}
-                onChange={(event) => setImageDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault()
-                    const url = imageDraft.trim()
-                    if (url) onUpdate({ url })
-                  }
-                }}
-                placeholder={tr("Paste an image URL…")}
-                className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const url = imageDraft.trim()
-                  if (url) onUpdate({ url })
-                }}
-                className="h-8 shrink-0 rounded-md bg-primary px-3 text-[11px] font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                Embed
-              </button>
-              <label className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md border px-2 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground">
-                <Upload className="size-3" /> {uploading ? tr("Uploading…") : tr("Upload")}
-                <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.target.value = "" }} />
-              </label>
-            </div>}
           </div>
+        )
+      case "map":
+        return <MapBlock block={block} readOnly={readOnly} onUpdate={onUpdate} onKeyDown={(event) => onKeyDown(event, index)} onFocus={() => onFocusBlock?.(block.id)} />
+      case "image":
+        return (
+          <ImageBlock
+            block={block}
+            pageId={pageId}
+            readOnly={readOnly}
+            workspaceId={workspaceId}
+            autoFocus={autoFocus}
+            comments={comments}
+            onUpdate={onUpdate}
+            onKeyDown={(event) => onKeyDown(event, index)}
+            onFocus={() => onFocusBlock?.(block.id)}
+            onOpenComments={onOpenComments}
+            onCommentsChanged={onCommentsChanged}
+          />
         )
       case "paragraph":
       default:
@@ -673,8 +727,11 @@ export function BlockRow(props: BlockRowProps) {
       ref={rowRef}
       data-block-row
       data-block-id={block.id}
+      data-block-index={index}
+      data-selected={selected || undefined}
       className={cn(
-        "group/block relative flex items-start gap-0.5",
+        "group/block relative flex items-start gap-0.5 rounded-md transition-colors",
+        selected && "bg-brand-soft/25 ring-1 ring-inset ring-brand/20",
         isDragging && "block-dragging",
         dropPosition === "before" && "block-drop-before",
         dropPosition === "after" && "block-drop-after",
@@ -684,7 +741,26 @@ export function BlockRow(props: BlockRowProps) {
       onDragOver={handleOver}
       onDrop={handleDrop}
     >
-      {!readOnly && <div className="absolute -left-[66px] top-0 hidden h-7 items-center gap-0.5 opacity-0 transition-opacity group-hover/block:opacity-100 has-[[data-state=open]]:opacity-100 md:flex">
+      {!readOnly && <div className="absolute -left-[90px] top-0 hidden h-7 items-center gap-0.5 opacity-0 transition-opacity group-hover/block:opacity-100 has-[[data-state=open]]:opacity-100 md:flex">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={tr("Select block")}
+              aria-pressed={selected}
+              onMouseDown={(event) => onSelectionStart?.(event, index)}
+              className="flex size-5 cursor-cell items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground"
+            >
+              <span className={cn(
+                "flex size-3.5 items-center justify-center rounded-[3px] border transition-colors",
+                selected ? "border-brand bg-brand text-white" : "border-muted-foreground/45 bg-background",
+              )}>
+                {selected && <Check className="size-2.5" strokeWidth={3.4} />}
+              </span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{tr("Drag to select blocks")}</TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -720,10 +796,20 @@ export function BlockRow(props: BlockRowProps) {
         <BlockMenu
           block={block}
           locked={locked}
+          selected={selected}
+          isLayout={isLayout}
           onToggleLock={onToggleLock}
           onConvert={onConvert}
+          onUpdate={onUpdate}
+          onSelectBlock={onSelectBlock}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
+          onInsertAbove={onInsertAbove}
+          onInsertBelow={onInsertBelow}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+          canMoveUp={canMoveUp}
+          canMoveDown={canMoveDown}
           onComment={onCommentBlock ? () => onCommentBlock(block.id) : undefined}
           trigger={
             <button
@@ -745,7 +831,7 @@ export function BlockRow(props: BlockRowProps) {
         />
       )}
 
-      <div key={block.type} className="min-w-0 flex-1">
+      <div key={block.type} className={contentClassName}>
         {renderContent()}
       </div>
 
@@ -817,10 +903,20 @@ export function BlockRow(props: BlockRowProps) {
         <BlockMenu
           block={block}
           locked={locked}
+          selected={selected}
+          isLayout={isLayout}
           onToggleLock={onToggleLock}
           onConvert={onConvert}
+          onUpdate={onUpdate}
+          onSelectBlock={onSelectBlock}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
+          onInsertAbove={onInsertAbove}
+          onInsertBelow={onInsertBelow}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+          canMoveUp={canMoveUp}
+          canMoveDown={canMoveDown}
           onComment={onCommentBlock ? () => onCommentBlock(block.id) : undefined}
           align="end"
           trigger={
@@ -841,34 +937,68 @@ export function BlockRow(props: BlockRowProps) {
 function BlockMenu({
   block,
   locked = false,
+  selected = false,
+  isLayout = false,
   onToggleLock,
   trigger,
   onConvert,
+  onUpdate,
+  onSelectBlock,
   onDuplicate,
   onDelete,
+  onInsertAbove,
+  onInsertBelow,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp = false,
+  canMoveDown = false,
   onComment,
   align = "start",
 }: {
   block: Block
   locked?: boolean
+  selected?: boolean
+  isLayout?: boolean
   onToggleLock?: () => void
   trigger: React.ReactNode
   onConvert: (type: BlockType) => void
+  onUpdate: (patch: Partial<Block>) => void
+  onSelectBlock?: () => void
   onDuplicate: () => void
   onDelete: () => void
+  onInsertAbove?: () => void
+  onInsertBelow?: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
+  canMoveUp?: boolean
+  canMoveDown?: boolean
   onComment?: () => void
   align?: "start" | "end"
 }) {
+  const canColor = TEXT_STYLE_TYPES.has(block.type)
+  const canAlign = ALIGN_STYLE_TYPES.has(block.type) || block.type === "image"
+  const alignValue = block.align || (block.type === "image" ? "center" : "left")
+  const copyText = () => {
+    void navigator.clipboard.writeText(block.text).then(
+      () => toast.success(tr("Copied to clipboard")),
+      () => toast.error(tr("Could not copy text")),
+    )
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuContent align={align} sideOffset={6} className="w-48">
+      <DropdownMenuContent
+        align={align}
+        sideOffset={6}
+        className="max-h-[70vh] w-52 overflow-y-auto thin-scrollbar"
+        onCloseAutoFocus={(event) => event.preventDefault()}
+      >
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <RefreshCw /> Turn into
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="max-h-[280px] w-48 overflow-y-auto thin-scrollbar">
-            {SLASH_COMMANDS.map((command) => (
+            {SLASH_COMMANDS.filter((command) => isLayout || command.type !== "content").map((command) => (
               <DropdownMenuItem key={command.type} onSelect={() => onConvert(command.type)}>
                 <command.icon />
                 {BLOCK_LABELS[command.type]}
@@ -879,23 +1009,125 @@ function BlockMenu({
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        {onSelectBlock && (
+          <DropdownMenuItem onSelect={onSelectBlock}>
+            <span className={cn(
+              "flex size-3.5 items-center justify-center rounded-[3px] border",
+              selected ? "border-brand bg-brand text-white" : "border-muted-foreground/45",
+            )}>
+              {selected && <Check className="size-2.5" strokeWidth={3.4} />}
+            </span>
+            {tr("Select block")}
+          </DropdownMenuItem>
+        )}
+        {canColor && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Palette /> {tr("Color")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-[min(92vw,22rem)] p-2.5">
+              <ColorGrid
+                label={tr("Text color")}
+                options={TEXT_COLORS}
+                value={block.textColor}
+                onChange={(value) => onUpdate({ textColor: value === "default" ? "" : value })}
+              />
+              {block.type !== "callout" && (
+                <div className="mt-3 border-t pt-2.5">
+                  <ColorGrid
+                    label={tr("Background")}
+                    options={BACKGROUND_COLORS}
+                    value={block.bgColor}
+                    onChange={(value) => onUpdate({ bgColor: value === "default" ? "" : value })}
+                  />
+                </div>
+              )}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        {canAlign && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              {alignValue === "center" ? <AlignCenter /> : alignValue === "right" ? <AlignRight /> : <AlignLeft />}
+              {tr("Align")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-40">
+              <DropdownMenuItem onSelect={() => onUpdate({ align: "left" })}>
+                <AlignLeft /> {tr("Left")}
+                {alignValue === "left" && <Check className="ml-auto size-3.5" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onUpdate({ align: "center" })}>
+                <AlignCenter /> {tr("Center")}
+                {alignValue === "center" && <Check className="ml-auto size-3.5" />}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onUpdate({ align: "right" })}>
+                <AlignRight /> {tr("Right")}
+                {alignValue === "right" && <Check className="ml-auto size-3.5" />}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        {block.type === "image" && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <ImageIcon /> {tr("Image size")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-40">
+              {[
+                ["small", "Small"],
+                ["medium", "Medium"],
+                ["full", "Full width"],
+              ].map(([value, label]) => (
+                <DropdownMenuItem key={value} onSelect={() => onUpdate({ width: value })}>
+                  {tr(label)}
+                  {(block.width || "full") === value && <Check className="ml-auto size-3.5" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        {(onInsertAbove || onInsertBelow) && <DropdownMenuSeparator />}
+        {onInsertAbove && (
+          <DropdownMenuItem onSelect={onInsertAbove}>
+            <Plus /> {tr("Insert above")}
+          </DropdownMenuItem>
+        )}
+        {onInsertBelow && (
+          <DropdownMenuItem onSelect={onInsertBelow}>
+            <Plus /> {tr("Insert below")}
+          </DropdownMenuItem>
+        )}
+        {(onMoveUp || onMoveDown) && <DropdownMenuSeparator />}
+        {onMoveUp && (
+          <DropdownMenuItem disabled={!canMoveUp} onSelect={onMoveUp}>
+            <ArrowUp /> {tr("Move up")}
+          </DropdownMenuItem>
+        )}
+        {onMoveDown && (
+          <DropdownMenuItem disabled={!canMoveDown} onSelect={onMoveDown}>
+            <ArrowDown /> {tr("Move down")}
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onSelect={onDuplicate}>
+          <Copy /> {tr("Duplicate")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={copyText}>
+          <ClipboardCopy /> {tr("Copy text")}
+        </DropdownMenuItem>
         {onToggleLock && (
           <DropdownMenuItem onSelect={onToggleLock}>
             {locked ? <LockOpen /> : <LockKeyhole />}
             {locked ? tr("Unlock block") : tr("Lock block")}
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onSelect={onDuplicate}>
-          <Copy /> Duplicate
-        </DropdownMenuItem>
         {onComment && (
           <DropdownMenuItem onSelect={onComment}>
-            <MessageSquare /> Comment
+            <MessageSquare /> {tr("Comment")}
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={onDelete}>
-          <Trash2 /> Delete
+          <Trash2 /> {tr("Delete")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

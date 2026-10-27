@@ -3,6 +3,7 @@ import { Search } from "lucide-react"
 import type { SlashCommand } from "@/components/editor/commands"
 import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
+import { isImeKeyEvent } from "@/lib/keyboard"
 
 export interface SlashState {
   blockId: string
@@ -83,6 +84,7 @@ export function SlashMenu({
               value={state.query}
               onChange={(event) => onQueryChange(event.target.value)}
               onKeyDown={(event) => {
+                if (isImeKeyEvent(event)) return
                 if (event.key === "ArrowDown") {
                   event.preventDefault()
                   if (commands.length > 0) onHover((state.selected + 1) % commands.length)

@@ -28,6 +28,10 @@ export function HistoryDialog({
 }) {
   const [revisions, setRevisions] = useState<PageRevision[]>([])
   const [selected, setSelected] = useState<PageRevision | null>(null)
+  const [revisionPage, setRevisionPage] = useState(1)
+  const [revisionHasMore, setRevisionHasMore] = useState(false)
+  const [revisionTotal, setRevisionTotal] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(false)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [restoring, setRestoring] = useState(false)
@@ -38,10 +42,13 @@ export function HistoryDialog({
     setLoading(true)
     setSelected(null)
     api.pages
-      .revisions(page.id)
-      .then((items) => {
-        setRevisions(items)
-        if (items[0]) void selectRevision(items[0])
+      .revisions(page.id, 1, 50)
+      .then((result) => {
+        setRevisions(result.items)
+        setRevisionPage(result.page)
+        setRevisionHasMore(result.hasMore)
+        setRevisionTotal(result.total)
+        if (result.items[0]) void selectRevision(result.items[0])
       })
       .catch((error) => toast.error(error instanceof Error ? error.message : "Could not load history"))
       .finally(() => setLoading(false))
@@ -59,10 +66,27 @@ export function HistoryDialog({
     }
   }
 
+  async function loadMoreVersions() {
+    if (loadingMore || !revisionHasMore) return
+    setLoadingMore(true)
+    try {
+      const result = await api.pages.revisions(page.id, revisionPage + 1, 50)
+      setRevisions((items) => [...items, ...result.items])
+      setRevisionPage(result.page)
+      setRevisionHasMore(result.hasMore)
+      setRevisionTotal(result.total)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not load history")
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
   async function saveVersion() {
     try {
       const revision = await api.pages.createRevision(page.id)
       setRevisions((items) => [revision, ...items])
+      setRevisionTotal((value) => value + 1)
       setSelected(revision)
       toast.success(tr("Current version saved"))
     } catch (error) {
@@ -143,6 +167,16 @@ export function HistoryDialog({
                       </span>
                     </button>
                   ))}
+                  {revisionHasMore && (
+                    <button
+                      type="button"
+                      onClick={() => void loadMoreVersions()}
+                      disabled={loadingMore}
+                      className="mt-1 w-full rounded-md border border-border/70 px-2 py-1.5 text-[10px] font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
+                    >
+                      {loadingMore ? tr("Loading…") : tr("Load more ({n} of {total})", { n: revisions.length, total: revisionTotal })}
+                    </button>
+                  )}
                 </div>
               )}
             </div>

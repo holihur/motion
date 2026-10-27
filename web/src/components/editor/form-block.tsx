@@ -38,6 +38,10 @@ export function FormBlock({
   const [submitted, setSubmitted] = useState(false)
   const [pending, setPending] = useState(false)
   const [responses, setResponses] = useState<{ id: string; values: Record<string, string>; submittedAt: string }[]>([])
+  const [responsesPage, setResponsesPage] = useState(1)
+  const [responsesHasMore, setResponsesHasMore] = useState(false)
+  const [responsesTotal, setResponsesTotal] = useState(0)
+  const [responsesLoadingMore, setResponsesLoadingMore] = useState(false)
   const [responsesOpen, setResponsesOpen] = useState(false)
   const titleRef = useRef<HTMLInputElement>(null)
 
@@ -78,10 +82,29 @@ export function FormBlock({
   }
   async function openResponses() {
     try {
-      setResponses(await api.pages.formSubmissions(pageId, block.id))
+      const next = await api.pages.formSubmissions(pageId, block.id, 1, 20)
+      setResponses(next.items)
+      setResponsesPage(next.page)
+      setResponsesHasMore(next.hasMore)
+      setResponsesTotal(next.total)
       setResponsesOpen(true)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not load responses"))
+    }
+  }
+  async function loadMoreResponses() {
+    if (responsesLoadingMore || !responsesHasMore) return
+    setResponsesLoadingMore(true)
+    try {
+      const next = await api.pages.formSubmissions(pageId, block.id, responsesPage + 1, 20)
+      setResponses((current) => [...current, ...next.items])
+      setResponsesPage(next.page)
+      setResponsesHasMore(next.hasMore)
+      setResponsesTotal(next.total)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not load responses"))
+    } finally {
+      setResponsesLoadingMore(false)
     }
   }
 
@@ -179,6 +202,16 @@ export function FormBlock({
                   {fields.map((field) => <div key={field.id} className="flex gap-2 py-0.5"><span className="w-32 shrink-0 text-muted-foreground">{field.label}</span><span className="whitespace-pre-wrap">{response.values[field.id] ?? "—"}</span></div>)}
                 </div>
               ))}
+              {responsesHasMore && (
+                <button
+                  type="button"
+                  onClick={() => void loadMoreResponses()}
+                  disabled={responsesLoadingMore}
+                  className="w-full rounded-md border border-border/70 px-2 py-1.5 text-[11px] font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
+                >
+                  {responsesLoadingMore ? tr("Loading…") : tr("Load more ({n} of {total})", { n: responses.length, total: responsesTotal })}
+                </button>
+              )}
             </div>
           )}
         </DialogContent>

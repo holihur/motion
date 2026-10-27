@@ -12,11 +12,14 @@ import {
   FileText,
   FileType2,
   FileUp,
+  GitMerge,
   Link2,
   LockKeyhole,
   LockOpen,
   MoreHorizontal,
+  Palette,
   PencilLine,
+  Scissors,
   Star,
   StarOff,
   Trash2,
@@ -46,6 +49,9 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { MergePagesDialog, SplitPageDialog } from "@/components/app/page-structure-dialogs"
+import { PageThemeDialog } from "@/components/app/page-theme-dialog"
+import { PageLayoutDialog } from "@/components/app/page-layout-dialog"
 
 interface PageActionsProps {
   page: PageSummary
@@ -69,6 +75,9 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const duplicatePage = useWorkspaceStore((state) => state.duplicatePage)
   const activeId = useWorkspaceStore((state) => state.activeId)
   const [renameOpen, setRenameOpen] = useState(false)
+  const [structure, setStructure] = useState<"split" | "merge" | null>(null)
+  const [themeOpen, setThemeOpen] = useState(false)
+  const [layoutOpen, setLayoutOpen] = useState(false)
   const [enabledProviders, setEnabledProviders] = useState<Set<string>>(new Set())
   const [groups, setGroups] = useState<PublishGroup[]>([])
   const importRef = useRef<HTMLInputElement>(null)
@@ -270,6 +279,10 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     onRenameRequest?.()
   }
 
+  function refreshStructure() {
+    window.dispatchEvent(new CustomEvent("motion:refresh-page", { detail: { id: page.id } }))
+  }
+
   return (
     <>
       <DropdownMenu onOpenChange={(open) => { if (open) void refreshEnabledIntegrations() }}>
@@ -305,6 +318,18 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           </DropdownMenuItem>}
           {!readOnly && !locked && <DropdownMenuItem onSelect={() => void onAddSubpage()}>
             <FilePlus2 /> {tr("Add sub-page")}
+          </DropdownMenuItem>}
+          {!readOnly && !locked && <DropdownMenuItem onSelect={() => setStructure("split")}>
+            <Scissors /> {tr("Split into sub-pages")}
+          </DropdownMenuItem>}
+          {!readOnly && !locked && <DropdownMenuItem onSelect={() => setStructure("merge")}>
+            <GitMerge /> {tr("Merge sub-pages")}
+          </DropdownMenuItem>}
+          {!readOnly && !locked && <DropdownMenuItem onSelect={() => setThemeOpen(true)}>
+            <Palette /> {tr("Page color")}
+          </DropdownMenuItem>}
+          {!readOnly && !locked && <DropdownMenuItem onSelect={() => setLayoutOpen(true)}>
+            <FileText /> {tr("Page layout")}
           </DropdownMenuItem>}
           {!readOnly && !locked && <DropdownMenuSeparator />}
           {!readOnly && !locked && <DropdownMenuItem onSelect={() => importRef.current?.click()}>
@@ -371,6 +396,20 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
         page={page}
         open={renameOpen}
         onOpenChange={setRenameOpen}
+      />
+      <PageThemeDialog page={page} open={themeOpen} onOpenChange={setThemeOpen} />
+      <PageLayoutDialog page={page} open={layoutOpen} onOpenChange={setLayoutOpen} />
+      <SplitPageDialog
+        page={page}
+        open={structure === "split"}
+        onOpenChange={(open) => setStructure(open ? "split" : null)}
+        onDone={refreshStructure}
+      />
+      <MergePagesDialog
+        page={page}
+        open={structure === "merge"}
+        onOpenChange={(open) => setStructure(open ? "merge" : null)}
+        onDone={refreshStructure}
       />
     </>
   )

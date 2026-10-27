@@ -3,6 +3,7 @@ import { Loader2, MessageSquarePlus } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { tr } from "@/lib/i18n"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { markOnboardingStep } from "@/lib/onboarding"
 import { Button } from "@/components/ui/button"
 import {
@@ -87,6 +88,7 @@ export function CommentComposer({
             rows={4}
             className="w-full resize-none rounded-lg border bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
             onKeyDown={(event) => {
+              if (isImeKeyEvent(event)) return
               if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
                 event.preventDefault()
                 void submit(event)

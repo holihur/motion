@@ -438,8 +438,17 @@ func (s *Server) listAudit(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "workspace not found")
 		return
 	}
-	cur, err := s.store.Audit.Find(r.Context(), bson.M{"workspaceId": wsID}, options.Find().
-		SetSort(bson.D{{Key: "createdAt", Value: -1}}).SetLimit(100))
+	page, pageSize := paginationParams(r)
+	filter := bson.M{"workspaceId": wsID}
+	total, err := s.store.Audit.CountDocuments(r.Context(), filter)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load activity")
+		return
+	}
+	cur, err := s.store.Audit.Find(r.Context(), filter, options.Find().
+		SetSort(bson.D{{Key: "createdAt", Value: -1}}).
+		SetSkip((page-1)*pageSize).
+		SetLimit(pageSize))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not load activity")
 		return
@@ -450,7 +459,7 @@ func (s *Server) listAudit(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "could not load activity")
 		return
 	}
-	writeJSON(w, http.StatusOK, logs)
+	writeJSON(w, http.StatusOK, paginate(logs, page, pageSize, total))
 }
 
 func pagesEqual(a *model.Page, b model.Page) bool {
@@ -472,9 +481,17 @@ func blocksEqual(a, b model.Block) bool {
 	// Compare the persisted content, not only the id.
 	return a.ID == b.ID && a.Type == b.Type && a.Text == b.Text && a.Rich == b.Rich &&
 		a.Checked == b.Checked && a.Language == b.Language && a.Color == b.Color &&
+		a.TextColor == b.TextColor && a.BGColor == b.BGColor && a.Align == b.Align && a.Width == b.Width &&
 		a.URL == b.URL && a.Caption == b.Caption && a.Ciphertext == b.Ciphertext &&
-		a.Salt == b.Salt && a.IV == b.IV && tableEqual(a.Table, b.Table) && formEqual(a.Form, b.Form) &&
+		a.Salt == b.Salt && a.IV == b.IV && tableEqual(a.Table, b.Table) && formEqual(a.Form, b.Form) && mapEqual(a.Map, b.Map) &&
 		a.Indent == b.Indent && a.Collapsed == b.Collapsed && a.Locked == b.Locked
+}
+
+func mapEqual(a, b *model.MapData) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Lat == b.Lat && a.Lng == b.Lng && a.Zoom == b.Zoom && a.Label == b.Label && a.Provider == b.Provider
 }
 
 func tableEqual(a, b *model.TableData) bool {

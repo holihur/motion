@@ -26,6 +26,7 @@ import { pageTitle, roleInWorkspace } from "@/lib/tree"
 import type { PageSummary } from "@/lib/types"
 import { cn, initials } from "@/lib/utils"
 import { LogoMark } from "@/components/logo"
+import { WorkspaceIcon } from "@/components/app/workspace-icon"
 import { PageTree } from "@/components/app/page-tree"
 import { tr } from "@/lib/i18n"
 import { PageActionsMenu } from "@/components/app/page-actions"
@@ -538,7 +539,7 @@ function WorkspaceSwitcher() {
               }}
               className="gap-2"
             >
-              <span className="text-base leading-none">{workspace.icon}</span>
+              <WorkspaceIcon value={workspace.icon} alt={workspace.name} className="text-base" />
               <span className="flex-1 truncate">{workspace.name}</span>
               {workspace.id === activeId && <Check className="size-3.5 text-brand" />}
             </DropdownMenuItem>

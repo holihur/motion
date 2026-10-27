@@ -18,6 +18,7 @@ import type { AIChatMessage, Agent, AIProposal } from "@/lib/types"
 import { cn, initials } from "@/lib/utils"
 import { useAuthStore } from "@/stores/auth"
 import { tr } from "@/lib/i18n"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { markOnboardingStep } from "@/lib/onboarding"
 import { useUIStore } from "@/stores/ui"
 import { Button } from "@/components/ui/button"
@@ -524,6 +525,7 @@ export function AIPanel({
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
+              if (isImeKeyEvent(event)) return
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault()
                 void send()

@@ -33,7 +33,7 @@ test("collects form responses and renders QR codes and barcodes", async ({ page,
     headers: { Authorization: `Bearer ${account.token}` },
   })
   expect(submissions.ok()).toBeTruthy()
-  const submission = (await submissions.json())[0]
+  const submission = (await submissions.json()).items[0]
   expect(Object.values(submission.values)).toContain("Ada")
   expect(Object.values(submission.values)).toContain("ada@example.com")
 

@@ -357,15 +357,20 @@ func (s *Server) createPage(ctx context.Context, _ *mcp.CallToolRequest, args Cr
 }
 
 type BlockArg struct {
-	Type      string           `json:"type" jsonschema:"paragraph, heading1, heading2, heading3, bulleted, numbered, todo, quote, callout, code, divider, image, table, diagram, bookmark, video, embed, file, equation, toc, gantt, chart, qrcode, barcode, toggle, toggleHeading1, toggleHeading2, toggleHeading3, pageLink, breadcrumb, columns or form"`
+	Type      string           `json:"type" jsonschema:"paragraph, heading1, heading2, heading3, bulleted, numbered, todo, quote, callout, code, divider, image, table, diagram, bookmark, video, embed, file, equation, toc, gantt, chart, qrcode, barcode, toggle, toggleHeading1, toggleHeading2, toggleHeading3, pageLink, breadcrumb, columns, form or map"`
 	Text      string           `json:"text,omitempty"`
 	Checked   bool             `json:"checked,omitempty"`
 	Language  string           `json:"language,omitempty"`
 	Color     string           `json:"color,omitempty"`
+	TextColor string           `json:"textColor,omitempty"`
+	BGColor   string           `json:"bgColor,omitempty"`
+	Align     string           `json:"align,omitempty"`
+	Width     string           `json:"width,omitempty"`
 	URL       string           `json:"url,omitempty"`
 	Caption   string           `json:"caption,omitempty"`
 	Table     *model.TableData `json:"table,omitempty"`
 	Form      *model.FormData  `json:"form,omitempty"`
+	Map       *model.MapData   `json:"map,omitempty"`
 	Indent    int              `json:"indent,omitempty"`
 	Collapsed bool             `json:"collapsed,omitempty"`
 }
@@ -411,7 +416,8 @@ func (s *Server) appendBlocks(ctx context.Context, _ *mcp.CallToolRequest, args 
 		block := model.Block{
 			ID: primitive.NewObjectID().Hex(), Type: input.Type, Text: input.Text,
 			Checked: input.Checked, Language: input.Language, Color: input.Color,
-			URL: input.URL, Caption: input.Caption, Table: input.Table, Form: input.Form,
+			TextColor: input.TextColor, BGColor: input.BGColor, Align: input.Align, Width: input.Width,
+			URL: input.URL, Caption: input.Caption, Table: input.Table, Form: input.Form, Map: input.Map,
 			Indent: input.Indent, Collapsed: input.Collapsed,
 		}
 		if block.Indent < 0 {

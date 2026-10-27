@@ -100,4 +100,17 @@ test("toggles, columns, code highlighting, page links, backlinks, breadcrumbs an
     buffer: pixel,
   })
   await expect(page.locator('img[src^="/api/files/"]')).toBeVisible()
+  const imageRow = page.locator("[data-block-row]").filter({ has: page.locator('img[src^="/api/files/"]') })
+  await imageRow.getByLabel("Image caption").fill("Tiny pixel")
+  await imageRow.hover()
+  await imageRow.getByLabel("Block options").first().click()
+  await page.getByRole("menuitem", { name: "Image size" }).hover()
+  await page.getByRole("menuitem", { name: "Medium" }).click()
+  await expect
+    .poll(async () => {
+      const saved = await getPage(request, account.token, created.id)
+      const image = saved.blocks.find((block) => block.type === "image")
+      return [image?.caption, image?.width]
+    })
+    .toEqual(["Tiny pixel", "medium"])
 })

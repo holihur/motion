@@ -30,6 +30,7 @@ func (s *Server) systemInfo(w http.ResponseWriter, _ *http.Request) {
 		"commit":      version.Commit,
 		"buildDate":   version.Date,
 		"appName":     settings.AppName,
+		"maps":        settings.Maps,
 		"repo":        settings.Update.Repo,
 		"checkedAt":   checked,
 		"latest":      last.Latest,

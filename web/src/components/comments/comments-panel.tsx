@@ -6,6 +6,7 @@ import type { Comment } from "@/lib/types"
 import { cn, formatRelative, initials } from "@/lib/utils"
 import { useAuthStore } from "@/stores/auth"
 import { tr } from "@/lib/i18n"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -344,6 +345,7 @@ function Thread({
             value={replyBody}
             onChange={(event) => onReplyChange(event.target.value)}
             onKeyDown={(event) => {
+              if (isImeKeyEvent(event)) return
               if (event.key === "Enter") {
                 event.preventDefault()
                 onReplySubmit()

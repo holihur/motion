@@ -352,6 +352,7 @@ function TreeItem({
             <FileText className="size-3.5 shrink-0 text-muted-foreground" />
           )}
           <span className="truncate" title={pageTitle(node.title)}>{pageTitle(node.title)}</span>
+          {node.isLayout && <span className="shrink-0 rounded bg-brand-soft px-1 text-[8px] font-semibold uppercase tracking-wider text-brand">{tr("Layout")}</span>}
           {node.locked && <LockKeyhole className="size-3 shrink-0 text-muted-foreground" />}
           {node.favorite && <Star className="size-3 shrink-0 fill-amber-400 text-amber-400" />}
         </button>

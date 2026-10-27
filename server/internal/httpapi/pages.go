@@ -52,6 +52,8 @@ var blockTypes = map[string]bool{
 	"qrcode":         true,
 	"barcode":        true,
 	"form":           true,
+	"map":            true,
+	"content":        true,
 }
 
 type createPageRequest struct {
@@ -217,6 +219,30 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 		}
 		updates["cover"] = strings.TrimSpace(cover)
 	}
+	if value, ok := raw["isLayout"]; ok {
+		var isLayout bool
+		if err := json.Unmarshal(value, &isLayout); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid layout flag")
+			return
+		}
+		updates["isLayout"] = isLayout
+		if isLayout {
+			updates["layoutId"] = ""
+		}
+	}
+	if value, ok := raw["theme"]; ok {
+		var theme string
+		if err := json.Unmarshal(value, &theme); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid theme")
+			return
+		}
+		theme = strings.TrimSpace(theme)
+		if len(theme) > 40 {
+			writeErr(w, http.StatusBadRequest, "invalid theme")
+			return
+		}
+		updates["theme"] = theme
+	}
 	if value, ok := raw["favorite"]; ok {
 		var favorite bool
 		if err := json.Unmarshal(value, &favorite); err != nil {
@@ -272,6 +298,26 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 		updates["order"] = order
 	}
 
+	if value, ok := raw["layoutId"]; ok && !strings.EqualFold(string(raw["isLayout"]), "true") {
+		var layoutID string
+		_ = json.Unmarshal(value, &layoutID)
+		layoutID = strings.TrimSpace(layoutID)
+		if layoutID != "" {
+			lid, err := primitive.ObjectIDFromHex(layoutID)
+			if err != nil || lid == pageID {
+				writeErr(w, http.StatusBadRequest, "invalid layout page")
+				return
+			}
+			var layout model.Page
+			if err := s.store.Pages.FindOne(r.Context(), bson.M{"_id": lid, "workspaceId": page.WorkspaceID, "archived": false}).Decode(&layout); err != nil || !layout.IsLayout || layout.LayoutID != "" {
+				writeErr(w, http.StatusBadRequest, "layout page not found or invalid")
+				return
+			}
+			updates["layoutId"] = layoutID
+		} else {
+			updates["layoutId"] = ""
+		}
+	}
 	if value, ok := raw["archived"]; ok {
 		var archived bool
 		if err := json.Unmarshal(value, &archived); err != nil {
@@ -279,6 +325,17 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if archived {
+			if page.IsLayout {
+				count, err := s.store.Pages.CountDocuments(r.Context(), bson.M{"layoutId": pageID, "archived": false})
+				if err != nil {
+					writeErr(w, http.StatusInternalServerError, "could not check layout references")
+					return
+				}
+				if count > 0 {
+					writeErr(w, http.StatusBadRequest, "this layout is still used by pages; detach it first")
+					return
+				}
+			}
 			ids, err := s.descendantIDs(r, page.WorkspaceID, pageID)
 			if err != nil {
 				writeErr(w, http.StatusInternalServerError, "could not archive page")
@@ -322,7 +379,7 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, changed := updates["title"]; changed || updates["icon"] != nil || updates["cover"] != nil ||
-		updates["favorite"] != nil || updates["archived"] != nil || updates["parentId"] != nil {
+		updates["favorite"] != nil || updates["archived"] != nil || updates["parentId"] != nil || updates["theme"] != nil || updates["layoutId"] != nil || updates["isLayout"] != nil {
 		_, name := s.editorFor(r)
 		userID := currentUserID(r).Hex()
 		s.hub.Broadcast(page.ID.Hex(), map[string]any{
@@ -724,6 +781,9 @@ func (s *Server) duplicatePage(w http.ResponseWriter, r *http.Request) {
 		Title:       title,
 		Icon:        original.Icon,
 		Cover:       original.Cover,
+		Theme:       original.Theme,
+		LayoutID:    original.LayoutID,
+		IsLayout:    original.IsLayout,
 		Blocks:      blocks,
 		BlocksRev:   1,
 		Text:        original.Text,
@@ -749,6 +809,17 @@ func (s *Server) deletePage(w http.ResponseWriter, r *http.Request) {
 	page, ok := s.editablePage(w, r, pageID)
 	if !ok {
 		return
+	}
+	if page.IsLayout {
+		count, err := s.store.Pages.CountDocuments(r.Context(), bson.M{"layoutId": pageID, "archived": false})
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "could not check layout references")
+			return
+		}
+		if count > 0 {
+			writeErr(w, http.StatusBadRequest, "this layout is still used by pages; detach it first")
+			return
+		}
 	}
 	ids := map[primitive.ObjectID]bool{page.ID: true}
 	descendants, err := s.descendantIDs(r, page.WorkspaceID, page.ID)

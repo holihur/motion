@@ -69,6 +69,14 @@ type FormField struct {
 	Options  []string `bson:"options,omitempty" json:"options,omitempty"`
 }
 
+type MapData struct {
+	Lat      float64 `bson:"lat" json:"lat"`
+	Lng      float64 `bson:"lng" json:"lng"`
+	Zoom     int     `bson:"zoom,omitempty" json:"zoom,omitempty"`
+	Label    string  `bson:"label,omitempty" json:"label,omitempty"`
+	Provider string  `bson:"provider,omitempty" json:"provider,omitempty"`
+}
+
 type FormData struct {
 	Title       string      `bson:"title,omitempty" json:"title,omitempty"`
 	Description string      `bson:"description,omitempty" json:"description,omitempty"`
@@ -95,6 +103,10 @@ type Block struct {
 	Checked    bool       `bson:"checked,omitempty" json:"checked,omitempty"`
 	Language   string     `bson:"language,omitempty" json:"language,omitempty"`
 	Color      string     `bson:"color,omitempty" json:"color,omitempty"`
+	TextColor  string     `bson:"textColor,omitempty" json:"textColor,omitempty"`
+	BGColor    string     `bson:"bgColor,omitempty" json:"bgColor,omitempty"`
+	Align      string     `bson:"align,omitempty" json:"align,omitempty"`
+	Width      string     `bson:"width,omitempty" json:"width,omitempty"`
 	URL        string     `bson:"url,omitempty" json:"url,omitempty"`
 	Caption    string     `bson:"caption,omitempty" json:"caption,omitempty"`
 	Ciphertext string     `bson:"ciphertext,omitempty" json:"ciphertext,omitempty"`
@@ -102,6 +114,7 @@ type Block struct {
 	IV         string     `bson:"iv,omitempty" json:"iv,omitempty"`
 	Table      *TableData `bson:"table,omitempty" json:"table,omitempty"`
 	Form       *FormData  `bson:"form,omitempty" json:"form,omitempty"`
+	Map        *MapData   `bson:"map,omitempty" json:"map,omitempty"`
 	Indent     int        `bson:"indent,omitempty" json:"indent,omitempty"`
 	Collapsed  bool       `bson:"collapsed,omitempty" json:"collapsed,omitempty"`
 	Locked     bool       `bson:"locked,omitempty" json:"locked,omitempty"`
@@ -114,6 +127,9 @@ type Page struct {
 	Title        string              `bson:"title" json:"title"`
 	Icon         string              `bson:"icon" json:"icon"`
 	Cover        string              `bson:"cover" json:"cover"`
+	Theme        string              `bson:"theme,omitempty" json:"theme,omitempty"`
+	LayoutID     string              `bson:"layoutId,omitempty" json:"layoutId,omitempty"`
+	IsLayout     bool                `bson:"isLayout,omitempty" json:"isLayout,omitempty"`
 	Blocks       []Block             `bson:"blocks" json:"blocks,omitempty"`
 	BlocksRev    int64               `bson:"blocksRev,omitempty" json:"blocksRev,omitempty"`
 	Text         string              `bson:"text" json:"-"`
@@ -137,6 +153,9 @@ type PageSummary struct {
 	Title     string              `bson:"title" json:"title"`
 	Icon      string              `bson:"icon" json:"icon"`
 	Cover     string              `bson:"cover" json:"cover"`
+	Theme     string              `bson:"theme,omitempty" json:"theme,omitempty"`
+	LayoutID  string              `bson:"layoutId,omitempty" json:"layoutId,omitempty"`
+	IsLayout  bool                `bson:"isLayout,omitempty" json:"isLayout,omitempty"`
 	Favorite  bool                `bson:"favorite" json:"favorite"`
 	Archived  bool                `bson:"archived" json:"archived"`
 	Locked    bool                `bson:"locked,omitempty" json:"locked"`
@@ -171,6 +190,13 @@ type PageRevision struct {
 	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
 }
 
+type CommentAnnotation struct {
+	X      float64 `bson:"x" json:"x"`
+	Y      float64 `bson:"y" json:"y"`
+	Width  float64 `bson:"width" json:"width"`
+	Height float64 `bson:"height" json:"height"`
+}
+
 type Comment struct {
 	ID          primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
 	PageID      primitive.ObjectID  `bson:"pageId" json:"pageId"`
@@ -179,6 +205,7 @@ type Comment struct {
 	Quote       string              `bson:"quote" json:"quote"`
 	StartOffset int                 `bson:"startOffset" json:"startOffset"`
 	EndOffset   int                 `bson:"endOffset" json:"endOffset"`
+	Annotation  *CommentAnnotation  `bson:"annotation,omitempty" json:"annotation,omitempty"`
 	Body        string              `bson:"body" json:"body"`
 	AuthorID    primitive.ObjectID  `bson:"authorId" json:"authorId"`
 	AuthorName  string              `bson:"authorName" json:"authorName"`

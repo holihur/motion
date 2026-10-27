@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Plus } from "lucide-react"
+import { Copy, Plus, Trash2, X } from "lucide-react"
+import { toast } from "sonner"
 import type { Block, BlockType, Comment, Member } from "@/lib/types"
 import { uid } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 import { markOnboardingStep } from "@/lib/onboarding"
 import { caretOffset, caretRect, focusBlockById, setCaret } from "@/lib/caret"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { BlockRow } from "@/components/editor/block-row"
 import { SlashMenu, type SlashState } from "@/components/editor/slash-menu"
 import { VirtualBlockList } from "@/components/editor/virtual-block-list"
@@ -13,6 +15,7 @@ import { defaultChartTable, defaultGanttTable } from "@/components/editor/data-b
 import { defaultColumnsTable } from "@/components/editor/link-blocks"
 import { defaultForm } from "@/components/editor/form-block"
 import { hasMarkdownSyntax, parseMarkdownToBlocks } from "@/lib/markdown-import"
+import { blocksToMarkdown } from "@/lib/markdown"
 import type { RealtimePresence } from "@/lib/realtime"
 import { filterCommands, type SlashCommand } from "@/components/editor/commands"
 
@@ -56,6 +59,7 @@ function createBlock(type: BlockType = "paragraph"): Block {
     ...(type === "qrcode" ? { language: "280" } : {}),
     ...(type === "barcode" ? { language: "CODE128" } : {}),
     ...(type === "form" ? { form: defaultForm() } : {}),
+    ...(type === "map" ? { map: { lat: 37.7749, lng: -122.4194, zoom: 12, label: "San Francisco", provider: "mapbox" } } : {}),
   }
 }
 
@@ -93,9 +97,11 @@ export function BlockEditor({
   commentCounts,
   blockComments,
   onOpenComments,
+  onCommentsChanged,
   onCommentBlock,
   scrollParentRef,
   readOnly = false,
+  isLayout = false,
   breadcrumb = [],
   workspaceId = "",
   pageId = "",
@@ -108,9 +114,11 @@ export function BlockEditor({
   commentCounts?: Record<string, number>
   blockComments?: Record<string, Comment[]>
   onOpenComments?: () => void
+  onCommentsChanged?: () => void
   onCommentBlock?: (blockId: string) => void
   scrollParentRef?: React.RefObject<HTMLDivElement | null>
   readOnly?: boolean
+  isLayout?: boolean
   breadcrumb?: { id: string; title: string; icon: string }[]
   workspaceId?: string
   pageId?: string
@@ -138,8 +146,25 @@ export function BlockEditor({
   const [slash, setSlash] = useState<SlashState | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)
   const [drop, setDrop] = useState<{ index: number; position: "before" | "after" } | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const selectionAnchorRef = useRef<number | null>(null)
 
-  const commands = useMemo(() => filterCommands(slash?.query ?? ""), [slash?.query])
+  useEffect(() => {
+    if (selectedIds.size === 0) return
+    const existing = new Set(blocks.map((block) => block.id))
+    let changed = false
+    const next = new Set<string>()
+    for (const id of selectedIds) {
+      if (existing.has(id)) next.add(id)
+      else changed = true
+    }
+    if (changed) setSelectedIds(next)
+  }, [blocks, selectedIds])
+
+  const commands = useMemo(
+    () => filterCommands(slash?.query ?? "").filter((command) => isLayout || command.type !== "content"),
+    [slash?.query, isLayout],
+  )
 
   useEffect(() => {
     function onInsert() {
@@ -192,15 +217,23 @@ export function BlockEditor({
   }, [blocks])
 
   const numbers = useMemo(() => {
-    let current = 0
-    let previousNumbered = false
+    // Number nested lists independently. A non-numbered block resets the
+    // counters at its own level and any deeper level.
+    const counters: number[] = []
+    let previous: { type: BlockType; indent: number } | null = null
     return blocks.map((block) => {
+      const indent = block.indent ?? 0
       if (block.type === "numbered") {
-        current = previousNumbered ? current + 1 : 1
-        previousNumbered = true
-        return current
+        const continues =
+          previous?.type === "numbered" &&
+          previous.indent === indent
+        counters[indent] = continues ? (counters[indent] ?? 0) + 1 : 1
+        counters.length = indent + 1
+        previous = { type: block.type, indent }
+        return counters[indent]
       }
-      previousNumbered = false
+      counters.length = Math.min(counters.length, indent)
+      previous = { type: block.type, indent }
       return 0
     })
   }, [blocks])
@@ -212,6 +245,33 @@ export function BlockEditor({
 
   function updateBlock(index: number, patch: Partial<Block>) {
     commit(blocksRef.current.map((block, position) => (position === index ? { ...block, ...patch } : block)))
+  }
+
+  function subtreeEndAt(list: Block[], index: number) {
+    const indent = list[index]?.indent ?? 0
+    let end = index + 1
+    while (end < list.length && (list[end].indent ?? 0) > indent) end += 1
+    return end
+  }
+
+  /** Indent/outdent a block together with its nested children. */
+  function changeIndent(index: number, delta: number, focus: "start" | "end" | false = false) {
+    const block = blocksRef.current[index]
+    if (!block) return
+    const current = block.indent ?? 0
+    const next = Math.max(0, Math.min(8, current + delta))
+    if (next === current) return
+    const shift = next - current
+    const end = subtreeEndAt(blocksRef.current, index)
+    const updated = blocksRef.current.map((candidate, position) => {
+      if (position === index) return { ...candidate, indent: next }
+      if (position > index && position < end) {
+        return { ...candidate, indent: Math.max(0, Math.min(8, (candidate.indent ?? 0) + shift)) }
+      }
+      return candidate
+    })
+    commit(updated)
+    if (focus) focusNew(block.id, focus)
   }
 
   function openSlash(
@@ -357,6 +417,7 @@ export function BlockEditor({
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLElement>, index: number) {
+    if (isImeKeyEvent(event)) return
     const block = blocksRef.current[index]
     if (!block) return
 
@@ -398,8 +459,7 @@ export function BlockEditor({
 
     if (event.key === "Tab") {
       event.preventDefault()
-      const next = Math.max(0, Math.min(8, (block.indent ?? 0) + (event.shiftKey ? -1 : 1)))
-      if (next !== (block.indent ?? 0)) updateBlock(index, { indent: next })
+      changeIndent(index, event.shiftKey ? -1 : 1)
       return
     }
 
@@ -431,8 +491,12 @@ export function BlockEditor({
       const after = block.text.slice(offset)
 
       if (LIST_TYPES.includes(block.type) && block.text.trim() === "") {
-        updateBlock(index, { type: "paragraph", checked: false })
-        focusSoon(block.id, "end")
+        if ((block.indent ?? 0) > 0) {
+          changeIndent(index, -1, "end")
+        } else {
+          updateBlock(index, { type: "paragraph", checked: false })
+          focusSoon(block.id, "end")
+        }
         return
       }
 
@@ -459,6 +523,11 @@ export function BlockEditor({
     }
 
     if (event.key === "Backspace" && caretOffset(el) === 0) {
+      if ((block.indent ?? 0) > 0) {
+        event.preventDefault()
+        changeIndent(index, -1, "start")
+        return
+      }
       if (index === 0) {
         if (block.type !== "paragraph" && block.text === "") {
           event.preventDefault()
@@ -583,42 +652,260 @@ export function BlockEditor({
   }
 
   function deleteBlock(index: number) {
-    const block = blocksRef.current[index]
-    const next = blocksRef.current.filter((_, position) => position !== index)
+    const blocksBefore = blocksRef.current
+    const end = subtreeEndAt(blocksBefore, index)
+    const next = [...blocksBefore.slice(0, index), ...blocksBefore.slice(end)]
     if (next.length === 0) {
       const fresh = createBlock("paragraph")
       commit([fresh])
       focusNew(fresh.id, "start")
       return
     }
-    const target = blocksRef.current[index - 1] ?? blocksRef.current[index + 1]
+    const target = blocksBefore[index - 1] ?? blocksBefore[end]
     commit(next)
     focusSoon(target.id, index === 0 ? "start" : "end")
   }
 
   function duplicateBlock(index: number) {
-    const block = blocksRef.current[index]
-    const copy = { ...block, id: uid() }
-    commit([...blocksRef.current.slice(0, index + 1), copy, ...blocksRef.current.slice(index + 1)])
-    focusNew(copy.id, "end")
+    const blocksBefore = blocksRef.current
+    const end = subtreeEndAt(blocksBefore, index)
+    const copies = blocksBefore.slice(index, end).map((block) => ({ ...block, id: uid() }))
+    const next = [...blocksBefore.slice(0, end), ...copies, ...blocksBefore.slice(end)]
+    commit(next)
+    focusNew(copies[0].id, "end")
   }
 
   function moveBlock(from: number, target: number, position: "before" | "after") {
-    if (from === target) {
+    const blocksBefore = blocksRef.current
+    const end = subtreeEndAt(blocksBefore, from)
+    if (from === target || (target > from && target < end)) {
       setDragging(null)
       setDrop(null)
       return
     }
-    let insert = position === "after" ? target + 1 : target
-    const next = [...blocksRef.current]
-    const [item] = next.splice(from, 1)
-    if (from < insert) insert -= 1
-    next.splice(insert, 0, item)
-    commit(next)
+    const group = blocksBefore.slice(from, end)
+    const targetId = blocksBefore[target]?.id
+    if (!targetId) return
+    const rest = blocksBefore.filter((_, position) => position < from || position >= end)
+    let insert = rest.findIndex((block) => block.id === targetId)
+    if (insert < 0) {
+      setDragging(null)
+      setDrop(null)
+      return
+    }
+    if (position === "after") insert += 1
+    rest.splice(insert, 0, ...group)
+    commit(rest)
     setDragging(null)
     setDrop(null)
-    focusSoon(item.id, "end")
+    focusSoon(group[0].id, "end")
   }
+
+  function moveBlockBy(index: number, delta: -1 | 1) {
+    const blocksBefore = blocksRef.current
+    const end = subtreeEndAt(blocksBefore, index)
+    if (delta < 0) {
+      if (index === 0) return
+      moveBlock(index, index - 1, "before")
+      return
+    }
+    if (end >= blocksBefore.length) return
+    const nextSiblingEnd = subtreeEndAt(blocksBefore, end)
+    moveBlock(index, nextSiblingEnd - 1, "after")
+  }
+
+  function insertNear(index: number, where: "before" | "after") {
+    const fresh = createBlock("paragraph")
+    const at = where === "before" ? index : subtreeEndAt(blocksRef.current, index)
+    commit([
+      ...blocksRef.current.slice(0, at),
+      fresh,
+      ...blocksRef.current.slice(at),
+    ])
+    // Let the block menu finish its close animation and focus restoration.
+    window.setTimeout(() => {
+      const element = document.getElementById(`block-input-${fresh.id}`) as HTMLElement | null
+      element?.focus()
+      focusNew(fresh.id, "start")
+      focusBlockById(fresh.id, "start")
+    }, 250)
+  }
+
+  function selectionRange(start: number, end: number) {
+    const from = Math.max(0, Math.min(start, end))
+    const to = Math.min(blocksRef.current.length - 1, Math.max(start, end))
+    return new Set(blocksRef.current.slice(from, to + 1).map((block) => block.id))
+  }
+
+  function selectedIndexes() {
+    const all = blocksRef.current
+    const indexes = new Set<number>()
+    all.forEach((block, index) => {
+      if (selectedIds.has(block.id)) indexes.add(index)
+    })
+    return indexes
+  }
+
+  function expandedSelection() {
+    const all = blocksRef.current
+    const indexes = new Set<number>()
+    for (const index of selectedIndexes()) {
+      const end = subtreeEndAt(all, index)
+      for (let position = index; position < end; position += 1) indexes.add(position)
+    }
+    return indexes
+  }
+
+  function beginSelection(event: React.MouseEvent<HTMLElement>, index: number) {
+    if (event.button !== 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    const all = blocksRef.current
+    const clicked = all[index]
+    if (!clicked) return
+    const previousAnchor = selectionAnchorRef.current
+    const anchor = event.shiftKey && previousAnchor !== null ? previousAnchor : index
+    selectionAnchorRef.current = anchor
+    const wasSelected = selectedIds.has(clicked.id)
+    const startY = event.clientY
+    let moved = false
+    const body = document.body
+    const previousUserSelect = body.style.userSelect
+    body.style.userSelect = "none"
+
+    if (event.shiftKey && previousAnchor !== null) {
+      setSelectedIds(selectionRange(anchor, index))
+    } else {
+      setSelectedIds(new Set([clicked.id]))
+    }
+
+    function onMove(moveEvent: MouseEvent) {
+      if (!moved && Math.abs(moveEvent.clientY - startY) > 4) moved = true
+      if (!moved) return
+      const element = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)
+      const row = element?.closest<HTMLElement>("[data-block-row]")
+      if (!row) return
+      const target = Number(row.dataset.blockIndex)
+      if (!Number.isFinite(target)) return
+      setSelectedIds(selectionRange(anchor, target))
+    }
+
+    function cleanup() {
+      window.removeEventListener("mousemove", onMove)
+      window.removeEventListener("mouseup", onUp)
+      body.style.userSelect = previousUserSelect
+    }
+
+    function onUp(upEvent: MouseEvent) {
+      cleanup()
+      if (moved) return
+      if (wasSelected && !upEvent.shiftKey) {
+        setSelectedIds((current) => {
+          const next = new Set(current)
+          next.delete(clicked.id)
+          return next
+        })
+      } else {
+        setSelectedIds(new Set([clicked.id]))
+      }
+    }
+
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+  }
+
+  function toggleSelection(index: number) {
+    const block = blocksRef.current[index]
+    if (!block) return
+    selectionAnchorRef.current = index
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (next.has(block.id)) next.delete(block.id)
+      else next.add(block.id)
+      return next
+    })
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+    selectionAnchorRef.current = null
+  }
+
+  function deleteSelected() {
+    const all = blocksRef.current
+    const expanded = expandedSelection()
+    if (expanded.size === 0) return
+    const first = Math.min(...expanded)
+    const next = all.filter((_, index) => !expanded.has(index))
+    clearSelection()
+    if (next.length === 0) {
+      const fresh = createBlock("paragraph")
+      commit([fresh])
+      focusNew(fresh.id, "start")
+      return
+    }
+    commit(next)
+    const target = next[Math.min(first, next.length - 1)]
+    focusSoon(target.id, first === 0 ? "start" : "end")
+  }
+
+  function duplicateSelected() {
+    const all = blocksRef.current
+    const expanded = expandedSelection()
+    if (expanded.size === 0) return
+    const last = Math.max(...expanded)
+    const copies = all
+      .filter((_, index) => expanded.has(index))
+      .map((block) => ({ ...block, id: uid() }))
+    const next = [
+      ...all.slice(0, last + 1),
+      ...copies,
+      ...all.slice(last + 1),
+    ]
+    commit(next)
+    setSelectedIds(new Set(copies.map((block) => block.id)))
+    if (copies[0]) focusNew(copies[0].id, "end")
+  }
+
+  function copySelected() {
+    const all = blocksRef.current
+    const expanded = expandedSelection()
+    const text = blocksToMarkdown(all.filter((_, index) => expanded.has(index)))
+    void navigator.clipboard.writeText(text).then(
+      () => toast.success(tr("Copied to clipboard")),
+      () => toast.error(tr("Could not copy text")),
+    )
+  }
+
+  useEffect(() => {
+    if (selectedIds.size === 0) return
+    function onKeyDown(event: KeyboardEvent) {
+      if (isImeKeyEvent(event)) return
+      const target = event.target as HTMLElement | null
+      if (target?.closest("input, textarea, select, [contenteditable=true]")) return
+      if (event.key === "Escape") {
+        event.preventDefault()
+        clearSelection()
+        return
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "d") {
+        event.preventDefault()
+        duplicateSelected()
+        return
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "c") {
+        event.preventDefault()
+        copySelected()
+        return
+      }
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault()
+        deleteSelected()
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [selectedIds, blocks])
 
   function appendBlock() {
     const last = blocksRef.current[blocksRef.current.length - 1]
@@ -670,9 +957,17 @@ export function BlockEditor({
         commentCount={commentCounts?.[block.id] ?? 0}
         comments={blockComments?.[block.id]}
         onOpenComments={onOpenComments}
+        onCommentsChanged={onCommentsChanged}
         onCommentBlock={onCommentBlock}
-        onFocusBlock={onFocusBlock}
+        onFocusBlock={(id) => {
+          clearSelection()
+          onFocusBlock?.(id)
+        }}
         readOnly={readOnly}
+        isLayout={isLayout}
+        selected={selectedIds.has(block.id)}
+        onSelectionStart={(event) => beginSelection(event, index)}
+        onSelectBlock={() => toggleSelection(index)}
         resetKey={resetKeysRef.current[block.id] ?? 0}
         autoFocus={autoFocus?.id === block.id}
         autoFocusWhere={autoFocus?.where}
@@ -693,6 +988,12 @@ export function BlockEditor({
         onConvert={(type) => convertBlock(index, type)}
         onDelete={() => deleteBlock(index)}
         onDuplicate={() => duplicateBlock(index)}
+        onInsertAbove={() => insertNear(index, "before")}
+        onInsertBelow={() => insertNear(index, "after")}
+        onMoveUp={() => moveBlockBy(index, -1)}
+        onMoveDown={() => moveBlockBy(index, 1)}
+        canMoveUp={index > 0}
+        canMoveDown={subtreeEndAt(blocks, index) < blocks.length}
         onInsertAfter={(rect) => openSlash(index, "insert", "", rect)}
         onDragStart={() => setDragging(index)}
         onDragEnd={() => {
@@ -733,6 +1034,47 @@ export function BlockEditor({
           <Plus className="size-3" /> Add block
         </span>
       </button>}
+
+      {!readOnly && selectedIds.size > 0 && (
+        <div
+          role="toolbar"
+          aria-label={tr("Selection actions")}
+          className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-xl border bg-popover/95 px-2 py-1.5 text-xs shadow-xl backdrop-blur animate-in fade-in-0 slide-in-from-bottom-2"
+        >
+          <span className="px-1.5 font-medium tabular-nums">
+            {tr("{n} selected", { n: selectedIds.size })}
+          </span>
+          <button
+            type="button"
+            onClick={duplicateSelected}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          >
+            <Copy className="size-3.5" /> {tr("Duplicate")}
+          </button>
+          <button
+            type="button"
+            onClick={copySelected}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          >
+            <Copy className="size-3.5" /> {tr("Copy")}
+          </button>
+          <button
+            type="button"
+            onClick={deleteSelected}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-destructive transition hover:bg-destructive/10"
+          >
+            <Trash2 className="size-3.5" /> {tr("Delete")}
+          </button>
+          <button
+            type="button"
+            onClick={clearSelection}
+            aria-label={tr("Deselect")}
+            className="ml-1 flex size-6 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
 
       {slash && !readOnly && (
         <SlashMenu

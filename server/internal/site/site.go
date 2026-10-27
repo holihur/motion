@@ -38,6 +38,13 @@ type Update struct {
 	IntervalHours int    `bson:"intervalHours" json:"intervalHours"`
 }
 
+type Maps struct {
+	MapboxToken   string `bson:"mapboxToken,omitempty" json:"mapboxToken"`
+	GoogleMapsKey string `bson:"googleMapsKey,omitempty" json:"googleMapsKey"`
+	AmapKey       string `bson:"amapKey,omitempty" json:"amapKey"`
+	BaiduMapAK    string `bson:"baiduMapAK,omitempty" json:"baiduMapAK"`
+}
+
 type Settings struct {
 	ID          string    `bson:"_id" json:"-"`
 	AppName     string    `bson:"appName" json:"appName"`
@@ -46,6 +53,7 @@ type Settings struct {
 	AIModel     string    `bson:"aiModel" json:"aiModel"`
 	AdminEmails []string  `bson:"adminEmails" json:"adminEmails"`
 	OIDC        OIDC      `bson:"oidc" json:"oidc"`
+	Maps        Maps      `bson:"maps,omitempty" json:"maps"`
 	Update      Update    `bson:"update" json:"update"`
 	UpdatedAt   time.Time `bson:"updatedAt" json:"updatedAt"`
 	UpdatedBy   string    `bson:"updatedBy" json:"updatedBy"`
@@ -73,6 +81,10 @@ func Defaults(cfg config.Config) Settings {
 			Scopes:         scopes,
 			AllowedDomains: append([]string(nil), cfg.OIDCAllowedDomains...),
 			AutoCreate:     cfg.OIDCAutoCreate,
+		},
+		Maps: Maps{
+			MapboxToken: cfg.MapboxToken, GoogleMapsKey: cfg.GoogleMapsKey,
+			AmapKey: cfg.AmapKey, BaiduMapAK: cfg.BaiduMapAK,
 		},
 		Update: Update{
 			Repo:          cfg.UpdateRepo,

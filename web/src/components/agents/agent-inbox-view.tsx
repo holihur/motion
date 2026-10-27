@@ -18,6 +18,7 @@ import { api } from "@/lib/api"
 import type { Agent, AgentMode, AIProposal, AuditLog } from "@/lib/types"
 import { formatRelative } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
+import { WorkspaceIcon } from "@/components/app/workspace-icon"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { SidebarToggle } from "@/components/app/sidebar-toggle"
 import { diffBlocks, ProposalDialog } from "@/components/agents/proposal-dialog"
@@ -46,6 +47,10 @@ export function AgentInboxView() {
   const [proposals, setProposals] = useState<AIProposal[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
   const [logs, setLogs] = useState<AuditLog[]>([])
+  const [auditPage, setAuditPage] = useState(1)
+  const [auditHasMore, setAuditHasMore] = useState(false)
+  const [auditTotal, setAuditTotal] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<AIProposal | null>(null)
   const [reviewing, setReviewing] = useState(false)
@@ -56,20 +61,39 @@ export function AgentInboxView() {
     if (!activeId) return
     setLoading(true)
     try {
-      const [nextProposals, nextAgents, nextLogs] = await Promise.all([
+      const [nextProposals, nextAgents, nextAudit] = await Promise.all([
         api.proposals.list(activeId),
         api.agents.list(activeId),
-        api.audit.list(activeId),
+        api.audit.list(activeId, 1, 50),
       ])
       setProposals(nextProposals)
       setAgents(nextAgents)
-      setLogs(nextLogs)
+      setLogs(nextAudit.items)
+      setAuditPage(nextAudit.page)
+      setAuditHasMore(nextAudit.hasMore)
+      setAuditTotal(nextAudit.total)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not load Agent Inbox"))
     } finally {
       setLoading(false)
     }
   }, [activeId])
+
+  async function loadMoreActivity() {
+    if (!activeId || loadingMore || !auditHasMore) return
+    setLoadingMore(true)
+    try {
+      const next = await api.audit.list(activeId, auditPage + 1, 50)
+      setLogs((current) => [...current, ...next.items])
+      setAuditPage(next.page)
+      setAuditHasMore(next.hasMore)
+      setAuditTotal(next.total)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not load activity"))
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   useEffect(() => {
     void load()
@@ -118,7 +142,7 @@ export function AgentInboxView() {
       <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
         <SidebarToggle />
         <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-          <span className="text-sm leading-none">{workspace?.icon ?? "🧭"}</span>
+          <WorkspaceIcon value={workspace?.icon} alt={workspace?.name} className="text-sm" />
           <span className="truncate font-medium text-foreground">{workspace?.name ?? "Motion"}</span>
           <span className="text-muted-foreground/60">/</span>
           <span>{tr("Agent Inbox")}</span>
@@ -213,7 +237,14 @@ export function AgentInboxView() {
               </div>
             </TabsContent>
             <TabsContent value="activity" className="pt-4">
-              <Activity logs={logs} loading={loading} />
+              <Activity
+                logs={logs}
+                loading={loading}
+                total={auditTotal}
+                hasMore={auditHasMore}
+                loadingMore={loadingMore}
+                onLoadMore={() => void loadMoreActivity()}
+              />
             </TabsContent>
           </Tabs>
         </div>
@@ -317,7 +348,16 @@ function describeDiff(proposal: AIProposal) {
   return parts.join(" · ") || tr("No visible content changes")
 }
 
-function Activity({ logs, loading }: { logs: AuditLog[]; loading: boolean }) {
+function Activity({
+  logs, loading, total, hasMore, loadingMore, onLoadMore,
+}: {
+  logs: AuditLog[]
+  loading: boolean
+  total: number
+  hasMore: boolean
+  loadingMore: boolean
+  onLoadMore: () => void
+}) {
   if (loading && logs.length === 0) {
     return <div className="space-y-2">{[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-12 rounded-lg" />)}</div>
   }
@@ -340,6 +380,18 @@ function Activity({ logs, loading }: { logs: AuditLog[]; loading: boolean }) {
           <span className="shrink-0 font-mono text-[9px] text-muted-foreground/60">{log.action}</span>
         </div>
       ))}
+      {hasMore && (
+        <div className="border-t p-2">
+          <button
+            type="button"
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            className="w-full rounded-md border border-border/70 px-2 py-1.5 text-[11px] font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
+          >
+            {loadingMore ? tr("Loading…") : tr("Load more ({n} of {total})", { n: logs.length, total })}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

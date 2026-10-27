@@ -103,7 +103,16 @@ func (s *Server) listFormSubmissions(w http.ResponseWriter, r *http.Request) {
 	if blockID := strings.TrimSpace(r.URL.Query().Get("blockId")); blockID != "" {
 		filter["blockId"] = blockID
 	}
-	cur, err := s.store.FormSubmissions.Find(r.Context(), filter, options.Find().SetSort(bson.D{{Key: "submittedAt", Value: -1}}).SetLimit(500))
+	pageNo, pageSize := paginationParams(r)
+	total, err := s.store.FormSubmissions.CountDocuments(r.Context(), filter)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load form responses")
+		return
+	}
+	cur, err := s.store.FormSubmissions.Find(r.Context(), filter, options.Find().
+		SetSort(bson.D{{Key: "submittedAt", Value: -1}}).
+		SetSkip((pageNo-1)*pageSize).
+		SetLimit(pageSize))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not load form responses")
 		return
@@ -114,5 +123,5 @@ func (s *Server) listFormSubmissions(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "could not load form responses")
 		return
 	}
-	writeJSON(w, http.StatusOK, items)
+	writeJSON(w, http.StatusOK, paginate(items, pageNo, pageSize, total))
 }

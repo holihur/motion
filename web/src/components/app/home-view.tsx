@@ -18,6 +18,7 @@ import { PAGE_TEMPLATES, templateBlocks, type PageTemplate } from "@/lib/templat
 import { formatDate, formatRelative, greeting, initials, modKey } from "@/lib/utils"
 import { pageTitle } from "@/lib/tree"
 import { tr } from "@/lib/i18n"
+import { WorkspaceIcon } from "@/components/app/workspace-icon"
 import { markOnboardingStep, useOnboardingProgress, type OnboardingStep } from "@/lib/onboarding"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspaceStore } from "@/stores/workspace"
@@ -99,7 +100,7 @@ export function HomeView() {
       <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
         <SidebarToggle />
         <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-          <span className="text-sm leading-none">{workspace?.icon ?? "🧭"}</span>
+          <WorkspaceIcon value={workspace?.icon} alt={workspace?.name} className="text-sm" />
           <span className="truncate font-medium text-foreground">{workspace?.name ?? "Motion"}</span>
           <span className="text-muted-foreground/60">/</span>
           <span>{tr("Home")}</span>

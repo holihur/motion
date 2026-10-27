@@ -21,6 +21,7 @@ import type {
   PublishResult,
   PageRevision,
   PageSummary,
+  Paginated,
   User,
   Workspace,
 } from "./types"
@@ -278,7 +279,8 @@ export const api = {
     reject: (id: string) => request<AIProposal>(`/proposals/${id}/reject`, { method: "POST" }),
   },
   audit: {
-    list: (workspaceId: string) => request<AuditLog[]>(`/workspaces/${workspaceId}/audit`),
+    list: (workspaceId: string, page = 1, pageSize = 50) =>
+      request<Paginated<AuditLog>>(`/workspaces/${workspaceId}/audit?page=${page}&pageSize=${pageSize}`),
   },
   ops: {
     settings: (opsToken: string) => request<OpsSettings>("/ops/settings", {}, opsToken),
@@ -288,6 +290,7 @@ export const api = {
       mcpEnabled?: boolean
       aiModel?: string
       adminEmails?: string[]
+      maps?: OpsSettings["maps"]
       oidc?: Partial<OpsSettings["oidc"]> & { clientSecret?: string; clearClientSecret?: boolean }
       update?: Partial<OpsSettings["update"]>
     }) => request<OpsSettings>("/ops/settings", { method: "PUT", body: body(input) }, opsToken),
@@ -432,8 +435,10 @@ export const api = {
         method: "POST",
         body: body({ blockId, values }),
       }),
-    formSubmissions: (pageId: string, blockId: string) =>
-      request<{ id: string; values: Record<string, string>; submittedAt: string }[]>(`/pages/${pageId}/form-submissions?blockId=${encodeURIComponent(blockId)}`),
+    formSubmissions: (pageId: string, blockId: string, page = 1, pageSize = 20) =>
+      request<Paginated<{ id: string; values: Record<string, string>; submittedAt: string }>>(
+        `/pages/${pageId}/form-submissions?blockId=${encodeURIComponent(blockId)}&page=${page}&pageSize=${pageSize}`,
+      ),
     exportFile: async (id: string, format: "html" | "pdf" | "docx") => {
       const headers = new Headers()
       const token = getToken()
@@ -457,6 +462,9 @@ export const api = {
         title?: string
         icon?: string
         cover?: string
+        theme?: string
+        layoutId?: string
+        isLayout?: boolean
         favorite?: boolean
         archived?: boolean
         parentId?: string | null
@@ -488,14 +496,15 @@ export const api = {
         endOffset: number
         body: string
         parentId?: string
+        annotation?: { x: number; y: number; width: number; height: number }
       },
     ) => request<Comment>(`/pages/${id}/comments`, { method: "POST", body: body(input) }),
     updateComment: (commentId: string, patch: { body?: string; resolved?: boolean }) =>
       request<Comment>(`/comments/${commentId}`, { method: "PATCH", body: body(patch) }),
     deleteComment: (commentId: string) =>
       request<void>(`/comments/${commentId}`, { method: "DELETE" }),
-    revisions: (id: string) =>
-      request<PageRevision[]>(`/pages/${id}/revisions`),
+    revisions: (id: string, page = 1, pageSize = 50) =>
+      request<Paginated<PageRevision>>(`/pages/${id}/revisions?page=${page}&pageSize=${pageSize}`),
     createRevision: (id: string) =>
       request<PageRevision>(`/pages/${id}/revisions`, { method: "POST" }),
     revision: (id: string, revisionId: string) =>
@@ -504,6 +513,16 @@ export const api = {
       request<Page>(`/pages/${id}/revisions/${revisionId}/restore`, { method: "POST" }),
     duplicate: (id: string) =>
       request<Page>(`/pages/${id}/duplicate`, { method: "POST" }),
+    split: (id: string, level: number) =>
+      request<{ page: Page; children: Page[] }>(`/pages/${id}/split`, {
+        method: "POST",
+        body: body({ level }),
+      }),
+    merge: (id: string, pageIds: string[], addTitles = true) =>
+      request<{ page: Page; merged: number }>(`/pages/${id}/merge`, {
+        method: "POST",
+        body: body({ pageIds, addTitles }),
+      }),
     remove: (id: string) => request<void>(`/pages/${id}`, { method: "DELETE" }),
   },
 }

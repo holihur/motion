@@ -25,6 +25,8 @@ export type BlockType =
   | "qrcode"
   | "barcode"
   | "form"
+  | "map"
+  | "content"
   | "toggle"
   | "toggleHeading1"
   | "toggleHeading2"
@@ -54,6 +56,16 @@ export interface FormData {
   fields?: FormField[]
 }
 
+export type MapProvider = "mapbox" | "google" | "amap" | "baidu" | "osm"
+
+export interface MapData {
+  lat: number
+  lng: number
+  zoom?: number
+  label?: string
+  provider?: MapProvider
+}
+
 export interface Block {
   id: string
   type: BlockType
@@ -63,6 +75,13 @@ export interface Block {
   checked?: boolean
   language?: string
   color?: string
+  /** Optional text/background palette keys for text-like blocks. */
+  textColor?: string
+  bgColor?: string
+  /** left | center | right */
+  align?: string
+  /** Image display width: small | medium | full. */
+  width?: string
   url?: string
   caption?: string
   /** Client-side encrypted password area. The server never sees plaintext. */
@@ -71,6 +90,7 @@ export interface Block {
   iv?: string
   table?: TableData
   form?: FormData
+  map?: MapData
   /** 0 = root. Used by toggles and nested content. */
   indent?: number
   collapsed?: boolean
@@ -128,10 +148,13 @@ export interface PageSummary {
   title: string
   icon: string
   cover: string
+  theme?: string
   favorite: boolean
   archived: boolean
   locked?: boolean
   lockedByName?: string
+  layoutId?: string
+  isLayout?: boolean
   order: number
   updatedAt: string
   snippet?: string
@@ -140,6 +163,7 @@ export interface PageSummary {
 export interface Page extends PageSummary {
   workspaceId: string
   role?: "owner" | "editor" | "viewer"
+  isLayout?: boolean
   blocksRev?: number
   blocks: Block[]
   createdBy: string
@@ -214,6 +238,13 @@ export interface RealtimePresence {
   blockId?: string
 }
 
+export interface CommentAnnotation {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface Comment {
   id: string
   pageId: string
@@ -222,6 +253,7 @@ export interface Comment {
   quote: string
   startOffset: number
   endOffset: number
+  annotation?: CommentAnnotation
   body: string
   authorId: string
   authorName: string
@@ -287,6 +319,14 @@ export interface AIProposal {
   reviewedBy?: string
 }
 
+export interface Paginated<T> {
+  items: T[]
+  page: number
+  pageSize: number
+  total: number
+  hasMore: boolean
+}
+
 export interface AuditLog {
   id: string
   workspaceId: string
@@ -330,6 +370,12 @@ export interface OpsSettings {
   aiModel: string
   adminEmails: string[]
   oidc: OpsOIDCSettings
+  maps: {
+    mapboxToken: string
+    googleMapsKey: string
+    amapKey: string
+    baiduMapAK: string
+  }
   update: {
     repo: string
     mode: "off" | "check" | "apply"
@@ -359,6 +405,12 @@ export interface SystemInfo {
   commit: string
   buildDate: string
   repo: string
+  maps?: {
+    mapboxToken: string
+    googleMapsKey: string
+    amapKey: string
+    baiduMapAK: string
+  }
   checkedAt?: string
   latest?: string
   available?: boolean

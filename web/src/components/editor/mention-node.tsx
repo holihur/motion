@@ -15,6 +15,7 @@ import {
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
 import type { Member } from "@/lib/types"
 import { tr } from "@/lib/i18n"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { initials } from "@/lib/utils"
 
 const MENTION_COLORS = ["#0ea5e9", "#8b5cf6", "#f59e0b", "#10b981", "#ef4444", "#ec4899", "#14b8a6", "#6366f1"]
@@ -165,6 +166,7 @@ export function MentionPlugin({ members }: { members: Member[] }) {
       KEY_DOWN_COMMAND,
       (event) => {
         if (!popup) return false
+        if (isImeKeyEvent(event)) return false
         if (event.key === "ArrowDown") {
           event.preventDefault()
           setPopup((current) => current ? { ...current, selected: (current.selected + 1) % current.options.length } : current)

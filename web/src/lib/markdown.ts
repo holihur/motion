@@ -40,16 +40,21 @@ function blockToMarkdown(block: Block, number: number): string {
   }
 }
 
-export function pageToMarkdown(page: Page): string {
+export function blocksToMarkdown(blocks: Block[]): string {
   let number = 0
-  const parts: string[] = [`# ${page.title.trim() || "Untitled"}`, ""]
-  for (const block of page.blocks) {
+  const parts: string[] = []
+  for (const block of blocks) {
     if (block.type === "numbered") number += 1
     else number = 0
     const value = blockToMarkdown(block, number)
     if (value) parts.push(value)
   }
-  return parts.join("\n\n").trim() + "\n"
+  return parts.join("\n\n").trim()
+}
+
+export function pageToMarkdown(page: Page): string {
+  const body = blocksToMarkdown(page.blocks)
+  return [`# ${page.title.trim() || "Untitled"}`, body].filter(Boolean).join("\n\n").trim() + "\n"
 }
 
 export function downloadMarkdown(page: Page) {

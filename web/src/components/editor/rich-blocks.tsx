@@ -25,6 +25,7 @@ import "katex/dist/katex.min.css"
 import type { Block } from "@/lib/types"
 import { api } from "@/lib/api"
 import { tr } from "@/lib/i18n"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { cn } from "@/lib/utils"
 
 export interface HeadingItem {
@@ -122,6 +123,7 @@ function LinkPrompt({
         readOnly={readOnly}
         onChange={(event) => { setUrl(event.target.value); setError("") }}
         onKeyDown={(event) => {
+          if (isImeKeyEvent(event)) return
           if (event.key === "Enter") {
             event.preventDefault()
             save()

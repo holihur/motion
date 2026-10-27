@@ -20,6 +20,10 @@ type Config struct {
 	AppName             string
 	AllowSignup         bool
 	MCPEnabled          bool
+	MapboxToken         string
+	GoogleMapsKey       string
+	AmapKey             string
+	BaiduMapAK          string
 	AdminEmails         []string
 	OpsToken            string
 	UpdateRepo          string
@@ -51,6 +55,10 @@ func Load() Config {
 		AppName:             env("APP_NAME", "Motion"),
 		AllowSignup:         env("ALLOW_SIGNUP", "true") == "true",
 		MCPEnabled:          env("MCP_ENABLED", "true") == "true",
+		MapboxToken:         env("MAPBOX_TOKEN", ""),
+		GoogleMapsKey:       env("GOOGLE_MAPS_KEY", ""),
+		AmapKey:             env("AMAP_KEY", ""),
+		BaiduMapAK:          env("BAIDU_MAP_AK", ""),
 		AdminEmails:         split(strings.ToLower(env("ADMIN_EMAILS", ""))),
 		OpsToken:            env("OPS_TOKEN", ""),
 		UpdateRepo:          env("UPDATE_REPO", "holihur/motion"),

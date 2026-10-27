@@ -17,6 +17,15 @@ export interface ApiBlock {
   type: string
   text: string
   checked?: boolean
+  indent?: number
+  color?: string
+  textColor?: string
+  bgColor?: string
+  align?: string
+  width?: string
+  url?: string
+  caption?: string
+  map?: { lat: number; lng: number; zoom?: number; label?: string; provider?: string }
 }
 
 export interface ApiPage extends ApiPageSummary {
@@ -67,7 +76,7 @@ export async function createPage(
       headers: authHeaders(token),
       data: { blocks: input.blocks },
     })
-    expect(save.ok()).toBeTruthy()
+    expect(save.ok(), `save blocks failed: ${save.status()} ${await save.text()}`).toBeTruthy()
   }
   return { ...page, blocks: input.blocks ?? [] }
 }

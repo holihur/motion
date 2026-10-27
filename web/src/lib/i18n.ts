@@ -768,6 +768,12 @@ const zh: Record<string, string> = {
   "Test all integrations": "测试全部集成",
   "All integrations connected": "全部集成连接正常",
   "Testing…": "测试中…",
+  "Tencent Cloud COS": "腾讯云 COS",
+  "Store uploads and published pages in Tencent Cloud COS using the native COS API.": "使用腾讯云 COS 原生 API 存储上传文件并发布页面。",
+  "Endpoint (optional)": "Endpoint（可选）",
+  "SecretId": "SecretId",
+  "Save Tencent COS": "保存腾讯云 COS",
+  "Tencent COS saved": "腾讯云 COS 配置已保存",
 }
 
 

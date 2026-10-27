@@ -65,6 +65,12 @@
 - 配置 Endpoint、Bucket、Prefix、Public base URL、AccessKey
 - 可同时用于上传文件和静态发布
 
+### 腾讯云 COS
+
+- 原生腾讯云 COS SDK
+- 配置 Bucket、Region、可选 Endpoint、Prefix、Public base URL、SecretId / SecretKey
+- 可同时用于上传文件和静态发布
+
 ### 七牛 Kodo
 
 - 原生七牛 SDK

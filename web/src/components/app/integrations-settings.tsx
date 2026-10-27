@@ -35,6 +35,7 @@ export function IntegrationsSettings() {
   const s3 = integrations.find((item) => item.provider === "s3")
   const aliyun = integrations.find((item) => item.provider === "aliyun_oss")
   const qiniu = integrations.find((item) => item.provider === "qiniu")
+  const tencent = integrations.find((item) => item.provider === "tencent_cos")
   const [webhookURL, setWebhookURL] = useState("")
   const [webhookSecret, setWebhookSecret] = useState("")
   const [webhookEvents, setWebhookEvents] = useState<string[]>(["*"])
@@ -86,6 +87,13 @@ export function IntegrationsSettings() {
   const [qiniuHTTPS, setQiniuHTTPS] = useState(true)
   const [qiniuAccess, setQiniuAccess] = useState("")
   const [qiniuSecret, setQiniuSecret] = useState("")
+  const [tenBucket, setTenBucket] = useState("")
+  const [tenRegion, setTenRegion] = useState("")
+  const [tenEndpoint, setTenEndpoint] = useState("")
+  const [tenPrefix, setTenPrefix] = useState("")
+  const [tenPublic, setTenPublic] = useState("")
+  const [tenSecretID, setTenSecretID] = useState("")
+  const [tenSecretKey, setTenSecretKey] = useState("")
 
   async function load() {
     if (!workspace) return
@@ -131,6 +139,12 @@ export function IntegrationsSettings() {
         setAliEndpoint(al.config.endpoint ?? ""); setAliBucket(al.config.bucket ?? "")
         setAliPrefix(al.config.prefix ?? ""); setAliPublic(al.config.publicBaseUrl ?? "")
       }
+      const tc = items.find((item) => item.provider === "tencent_cos")
+      if (tc) {
+        setTenBucket(tc.config.bucket ?? ""); setTenRegion(tc.config.region ?? "")
+        setTenEndpoint(tc.config.endpoint ?? ""); setTenPrefix(tc.config.prefix ?? "")
+        setTenPublic(tc.config.publicBaseUrl ?? "")
+      }
       const qn = items.find((item) => item.provider === "qiniu")
       if (qn) {
         setQiniuBucket(qn.config.bucket ?? ""); setQiniuPrefix(qn.config.prefix ?? "")
@@ -160,12 +174,12 @@ export function IntegrationsSettings() {
   if (!workspace) return <p className="pt-4 text-sm text-muted-foreground">{tr("No workspace selected.")}</p>
   if (loading) return <div className="h-32 animate-pulse rounded-lg bg-muted/60" />
 
-  async function save(provider: "webhook" | "ssh" | "git" | "jira" | "confluence" | "s3" | "aliyun_oss" | "qiniu", config: Record<string, string>, secret: string, events?: string[]) {
+  async function save(provider: "webhook" | "ssh" | "git" | "jira" | "confluence" | "s3" | "aliyun_oss" | "qiniu" | "tencent_cos", config: Record<string, string>, secret: string, events?: string[]) {
     if (saving) return
     setSaving(provider)
     try {
       await api.integrations.save(workspace!.id, provider, { config, secret, events, enabled: enabled[provider] ?? true })
-      toast.success(provider === "webhook" ? tr("Webhook saved") : provider === "git" ? tr("Git publishing saved") : provider === "jira" ? tr("Jira publishing saved") : provider === "confluence" ? tr("Confluence publishing saved") : provider === "s3" ? tr("S3 storage saved") : provider === "aliyun_oss" ? tr("Aliyun OSS saved") : provider === "qiniu" ? tr("Qiniu saved") : tr("SSH publishing saved"))
+      toast.success(provider === "webhook" ? tr("Webhook saved") : provider === "git" ? tr("Git publishing saved") : provider === "jira" ? tr("Jira publishing saved") : provider === "confluence" ? tr("Confluence publishing saved") : provider === "s3" ? tr("S3 storage saved") : provider === "aliyun_oss" ? tr("Aliyun OSS saved") : provider === "qiniu" ? tr("Qiniu saved") : provider === "tencent_cos" ? tr("Tencent COS saved") : tr("SSH publishing saved"))
       setWebhookSecret("")
       setPrivateKey("")
       await load()
@@ -349,6 +363,26 @@ ${aliSecret}`)}>{saving === "aliyun_oss" ? tr("Saving…") : tr("Save Aliyun OSS
           {qiniu && <Button type="button" variant="ghost" size="sm" onClick={() => void remove("qiniu")} disabled={!owner} className="gap-1 text-destructive"><Trash2 className="size-3.5" /> {tr("Remove")}</Button>}
           <Button type="button" size="sm" disabled={!owner || saving === "qiniu"} onClick={() => void save("qiniu", { bucket: qiniuBucket.trim(), prefix: qiniuPrefix.trim(), publicBaseUrl: qiniuPublic.trim(), useHTTPS: qiniuHTTPS ? "true" : "false" }, `${qiniuAccess}
 ${qiniuSecret}`)}>{saving === "qiniu" ? tr("Saving…") : tr("Save Qiniu")}</Button>
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="space-y-3 rounded-xl border p-4">
+        <div className="flex items-center gap-2 text-sm font-medium"><Database className="size-4 text-brand" /> {tr("Tencent Cloud COS")} {tencent && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="tencent_cos" /></div>
+        <p className="text-xs text-muted-foreground">{tr("Store uploads and published pages in Tencent Cloud COS using the native COS API.")}</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5"><Label>{tr("Bucket")}</Label><Input value={tenBucket} disabled={!owner} onChange={(event) => setTenBucket(event.target.value)} placeholder="motion-assets-1250000000" /></div>
+          <div className="space-y-1.5"><Label>{tr("Region")}</Label><Input value={tenRegion} disabled={!owner} onChange={(event) => setTenRegion(event.target.value)} placeholder="ap-guangzhou" /></div>
+          <div className="space-y-1.5"><Label>{tr("Endpoint (optional)")}</Label><Input value={tenEndpoint} disabled={!owner} onChange={(event) => setTenEndpoint(event.target.value)} placeholder="https://bucket.cos.region.myqcloud.com" /></div>
+          <div className="space-y-1.5"><Label>{tr("Public base URL")}</Label><Input value={tenPublic} disabled={!owner} onChange={(event) => setTenPublic(event.target.value)} placeholder="https://cdn.example.com" /></div>
+          <div className="space-y-1.5"><Label>{tr("Prefix")}</Label><Input value={tenPrefix} disabled={!owner} onChange={(event) => setTenPrefix(event.target.value)} placeholder="workspace/" /></div>
+          <div className="space-y-1.5"><Label>{tr("SecretId")}</Label><Input value={tenSecretID} disabled={!owner} onChange={(event) => setTenSecretID(event.target.value)} placeholder="AKID…" /></div>
+          <div className="space-y-1.5"><Label>{tr("SecretKey")}</Label><Input type="password" value={tenSecretKey} disabled={!owner} onChange={(event) => setTenSecretKey(event.target.value)} placeholder={tencent?.hasSecret ? tr("Saved — leave blank to keep") : tr("SecretKey")} /></div>
+        </div>
+        <div className="flex justify-end gap-2">
+          {tencent && <Button type="button" variant="ghost" size="sm" onClick={() => void remove("tencent_cos")} disabled={!owner} className="gap-1 text-destructive"><Trash2 className="size-3.5" /> {tr("Remove")}</Button>}
+          <Button type="button" size="sm" disabled={!owner || saving === "tencent_cos"} onClick={() => void save("tencent_cos", { bucket: tenBucket.trim(), region: tenRegion.trim(), endpoint: tenEndpoint.trim(), prefix: tenPrefix.trim(), publicBaseUrl: tenPublic.trim() }, `${tenSecretID}\n${tenSecretKey}`)}>{saving === "tencent_cos" ? tr("Saving…") : tr("Save Tencent COS")}</Button>
         </div>
       </section>
 

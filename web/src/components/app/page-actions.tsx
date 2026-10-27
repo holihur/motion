@@ -62,10 +62,22 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const duplicatePage = useWorkspaceStore((state) => state.duplicatePage)
   const activeId = useWorkspaceStore((state) => state.activeId)
   const [renameOpen, setRenameOpen] = useState(false)
+  const [enabledProviders, setEnabledProviders] = useState<Set<string>>(new Set())
   const importRef = useRef<HTMLInputElement>(null)
   const locked = Boolean(page.locked)
 
   const isCurrent = location.pathname === `/page/${page.id}`
+  const hasStorage = ["s3", "aliyun_oss", "qiniu", "tencent_cos"].some((provider) => enabledProviders.has(provider))
+
+  async function refreshEnabledIntegrations() {
+    if (!activeId) return
+    try {
+      const integrations = await api.integrations.list(activeId)
+      setEnabledProviders(new Set(integrations.filter((item) => item.enabled).map((item) => item.provider)))
+    } catch {
+      setEnabledProviders(new Set())
+    }
+  }
 
   async function onAddSubpage() {
     window.dispatchEvent(
@@ -204,7 +216,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu onOpenChange={(open) => { if (open) void refreshEnabledIntegrations() }}>
         <DropdownMenuTrigger asChild>
           {trigger ?? (
             <button
@@ -251,19 +263,19 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           <DropdownMenuItem onSelect={() => void onExport()}>
             <Download /> {tr("Export as Markdown")}
           </DropdownMenuItem>
-          {!readOnly && <DropdownMenuItem onSelect={() => void onPublishGit()}>
+          {!readOnly && enabledProviders.has("git") && <DropdownMenuItem onSelect={() => void onPublishGit()}>
             <GitBranch /> {tr("Publish to Git")}
           </DropdownMenuItem>}
-          {!readOnly && <DropdownMenuItem onSelect={() => void onPublishAtlassian("jira")}>
+          {!readOnly && enabledProviders.has("jira") && <DropdownMenuItem onSelect={() => void onPublishAtlassian("jira")}>
             <Bug /> {tr("Publish to Jira")}
           </DropdownMenuItem>}
-          {!readOnly && <DropdownMenuItem onSelect={() => void onPublishAtlassian("confluence")}>
+          {!readOnly && enabledProviders.has("confluence") && <DropdownMenuItem onSelect={() => void onPublishAtlassian("confluence")}>
             <BookOpen /> {tr("Publish to Confluence")}
           </DropdownMenuItem>}
-          {!readOnly && <DropdownMenuItem onSelect={() => void onPublishS3()}>
+          {!readOnly && hasStorage && <DropdownMenuItem onSelect={() => void onPublishS3()}>
             <CloudUpload /> {tr("Publish to object storage")}
           </DropdownMenuItem>}
-          {!readOnly && <DropdownMenuItem onSelect={() => void onPublishSSH()}>
+          {!readOnly && enabledProviders.has("ssh") && <DropdownMenuItem onSelect={() => void onPublishSSH()}>
             <CloudUpload /> {tr("Publish via SSH")}
           </DropdownMenuItem>}
           {!readOnly && !locked && <DropdownMenuSeparator />}

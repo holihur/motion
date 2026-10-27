@@ -96,7 +96,7 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	provider := strings.ToLower(strings.TrimSpace(chiURLParam(r, "provider")))
-	if provider != "webhook" && provider != "ssh" && provider != "git" && provider != "jira" && provider != "confluence" && provider != "s3" && provider != "aliyun_oss" && provider != "qiniu" {
+	if provider != "webhook" && provider != "ssh" && provider != "git" && provider != "jira" && provider != "confluence" && provider != "s3" && provider != "aliyun_oss" && provider != "qiniu" && provider != "tencent_cos" {
 		writeErr(w, http.StatusBadRequest, "unsupported integration provider")
 		return
 	}
@@ -137,6 +137,13 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if provider == "aliyun_oss" {
 		for _, key := range []string{"endpoint", "bucket"} {
+			if strings.TrimSpace(req.Config[key]) == "" {
+				writeErr(w, http.StatusBadRequest, key+" is required")
+				return
+			}
+		}
+	} else if provider == "tencent_cos" {
+		for _, key := range []string{"bucket", "region"} {
 			if strings.TrimSpace(req.Config[key]) == "" {
 				writeErr(w, http.StatusBadRequest, key+" is required")
 				return
@@ -217,7 +224,7 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		set["secretHint"] = hint
 	}
 	if err == mongo.ErrNoDocuments {
-		if (provider == "ssh" || provider == "git" || provider == "jira" || provider == "confluence" || provider == "s3" || provider == "aliyun_oss" || provider == "qiniu") && strings.TrimSpace(req.Secret) == "" {
+		if (provider == "ssh" || provider == "git" || provider == "jira" || provider == "confluence" || provider == "s3" || provider == "aliyun_oss" || provider == "qiniu" || provider == "tencent_cos") && strings.TrimSpace(req.Secret) == "" {
 			writeErr(w, http.StatusBadRequest, "a private key or access token is required")
 			return
 		}
@@ -688,7 +695,7 @@ func (s *Server) testIntegration(w http.ResponseWriter, r *http.Request) {
 			})
 			err = client.Test(ctx, provider)
 		}
-	case "s3", "aliyun_oss", "qiniu":
+	case "s3", "aliyun_oss", "qiniu", "tencent_cos":
 		var value string
 		value, err = secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
 		if err == nil {
@@ -700,6 +707,12 @@ func (s *Server) testIntegration(w http.ResponseWriter, r *http.Request) {
 					Endpoint: integration.Config["endpoint"], Bucket: integration.Config["bucket"],
 					AccessKey: parts[0], SecretKey: parts[1], Prefix: integration.Config["prefix"],
 					PublicBase: integration.Config["publicBaseUrl"],
+				})
+			} else if provider == "tencent_cos" {
+				err = objectstore.TestTencentCOS(ctx, objectstore.TencentCOSConfig{
+					Bucket: integration.Config["bucket"], Region: integration.Config["region"],
+					SecretID: parts[0], SecretKey: parts[1], Endpoint: integration.Config["endpoint"],
+					Prefix: integration.Config["prefix"], PublicBase: integration.Config["publicBaseUrl"],
 				})
 			} else if provider == "qiniu" {
 				err = objectstore.TestQiniu(ctx, objectstore.QiniuConfig{
@@ -729,7 +742,7 @@ func (s *Server) testIntegration(w http.ResponseWriter, r *http.Request) {
 
 // storageFor returns the first enabled object storage backend for a workspace.
 func (s *Server) storageFor(ctx context.Context, workspaceID primitive.ObjectID) (objectstore.Putter, string, string, error) {
-	for _, provider := range []string{"aliyun_oss", "qiniu", "s3"} {
+	for _, provider := range []string{"aliyun_oss", "qiniu", "tencent_cos", "s3"} {
 		var integration model.Integration
 		if err := s.store.Integrations.FindOne(ctx, bson.M{
 			"workspaceId": workspaceID, "provider": provider, "disabled": bson.M{"$ne": true},
@@ -750,6 +763,13 @@ func (s *Server) storageFor(ctx context.Context, workspaceID primitive.ObjectID)
 			store, err := objectstore.NewAliyunOSS(objectstore.AliyunOSSConfig{
 				Endpoint: integration.Config["endpoint"], Bucket: integration.Config["bucket"],
 				AccessKey: parts[0], SecretKey: parts[1], Prefix: integration.Config["prefix"], PublicBase: publicBase,
+			})
+			return store, provider, publicBase, err
+		case "tencent_cos":
+			store, err := objectstore.NewTencentCOS(objectstore.TencentCOSConfig{
+				Bucket: integration.Config["bucket"], Region: integration.Config["region"],
+				SecretID: parts[0], SecretKey: parts[1], Endpoint: integration.Config["endpoint"],
+				Prefix: integration.Config["prefix"], PublicBase: publicBase,
 			})
 			return store, provider, publicBase, err
 		case "qiniu":

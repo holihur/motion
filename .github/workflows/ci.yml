@@ -17,10 +17,10 @@ jobs:
         working-directory: server
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: jdx/mise-action@v2
         with:
-          go-version: "1.27.x"
-          cache-dependency-path: server/go.sum
+          install: true
+          cache: true
       - name: Download modules
         run: go mod download
       - name: Vet
@@ -38,14 +38,10 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: jdx/mise-action@v2
         with:
-          version: "12.15.0"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "26.12.1"
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
+          install: true
+          cache: true
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm build
@@ -71,15 +67,10 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: jdx/mise-action@v2
         with:
-          version: "12.15.0"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "26.12.1"
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.27.x"
+          install: true
+          cache: true
       - uses: actions/download-artifact@v4
         with:
           name: motion-web-dist

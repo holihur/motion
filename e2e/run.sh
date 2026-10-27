@@ -11,4 +11,4 @@ if [[ -z "${CHROMIUM_PATH:-}" ]]; then
   fi
 fi
 
-exec pnpm exec playwright test "$@"
+exec mise exec -- pnpm exec playwright test "$@"

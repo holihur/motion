@@ -1,4 +1,6 @@
 SHELL := /bin/bash
+MISE ?= mise
+MISE_EXEC := $(MISE) exec --
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -11,7 +13,7 @@ LDFLAGS := -s -w \
 
 help:
 	@echo "Motion targets:"
-	@echo "  make install    Install frontend and e2e dependencies"
+	@echo "  make install    Install mise toolchains and frontend/e2e dependencies"
 	@echo "  make build      Build a single production binary with embedded frontend"
 	@echo "  make dev-api    Run the Go API (uses ./web/dist when present)"
 	@echo "  make dev-web    Run the Vite dev server"
@@ -21,15 +23,16 @@ help:
 	@echo "  make docker     Build the production container image"
 
 install:
-	cd web && pnpm install --frozen-lockfile
-	cd e2e && pnpm install --frozen-lockfile
+	$(MISE) install
+	cd web && $(MISE_EXEC) pnpm install --frozen-lockfile
+	cd e2e && $(MISE_EXEC) pnpm install --frozen-lockfile
 
 typecheck:
-	cd web && pnpm typecheck
+	cd web && $(MISE_EXEC) pnpm typecheck
 
 build-web:
-	cd web && pnpm install --frozen-lockfile
-	cd web && pnpm build
+	cd web && $(MISE_EXEC) pnpm install --frozen-lockfile
+	cd web && $(MISE_EXEC) pnpm build
 
 embed: build-web
 	rm -rf server/internal/webassets/dist
@@ -37,25 +40,25 @@ embed: build-web
 	cp -R web/dist/. server/internal/webassets/dist/
 
 build: embed
-	cd server && CGO_ENABLED=0 go build -tags embedweb -trimpath -ldflags "$(LDFLAGS)" -o bin/motion ./cmd/server
+	cd server && CGO_ENABLED=0 $(MISE_EXEC) go build -tags embedweb -trimpath -ldflags "$(LDFLAGS)" -o bin/motion ./cmd/server
 	@echo "Built server/bin/motion ($(VERSION)) — frontend embedded"
 
 build-api:
-	cd server && go build -o bin/motion-api ./cmd/server
+	cd server && $(MISE_EXEC) go build -o bin/motion-api ./cmd/server
 
 dev-api:
-	cd server && go run ./cmd/server
+	cd server && $(MISE_EXEC) go run ./cmd/server
 
 dev-web:
-	cd web && pnpm dev
+	cd web && $(MISE_EXEC) pnpm dev
 
 test:
-	cd server && go test ./...
-	cd web && pnpm typecheck
+	cd server && $(MISE_EXEC) go test ./...
+	cd web && $(MISE_EXEC) pnpm typecheck
 
 e2e: build-web build-api
-	cd e2e && pnpm install --frozen-lockfile
-	cd e2e && pnpm test
+	cd e2e && $(MISE_EXEC) pnpm install --frozen-lockfile
+	cd e2e && $(MISE_EXEC) pnpm test
 
 clean:
 	rm -rf web/dist web/public/vendor server/bin server/internal/webassets/dist e2e/test-results e2e/playwright-report

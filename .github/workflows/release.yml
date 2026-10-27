@@ -9,24 +9,16 @@ permissions:
   contents: write
   packages: write
 
-env:
-  GO_VERSION: "1.27.x"
-  NODE_VERSION: "26.12.1"
-
 jobs:
   prepare:
     name: Build frontend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: jdx/mise-action@v2
         with:
-          version: "12.15.0"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
+          install: true
+          cache: true
       - working-directory: web
         run: pnpm install --frozen-lockfile
       - working-directory: web
@@ -58,10 +50,10 @@ jobs:
         with:
           name: web-dist
           path: web/dist
-      - uses: actions/setup-go@v5
+      - uses: jdx/mise-action@v2
         with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: server/go.sum
+          install: true
+          cache: true
       - name: Embed frontend
         run: |
           rm -rf server/internal/webassets/dist

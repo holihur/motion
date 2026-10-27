@@ -37,7 +37,7 @@
 | 层 | 技术 |
 | --- | --- |
 | 前端 | React 19, TypeScript, Vite, TailwindCSS 4, shadcn/ui, Lexical, Radix UI, cmdk, Sonner, Mermaid |
-| 后端 | Go 1.26, chi, MongoDB Go Driver, JWT, OIDC, WebSocket |
+| 后端 | Go 1.27, chi, MongoDB Go Driver, JWT, OIDC, WebSocket |
 | AI | Google ADK Go, Gemini 原生 / OpenAI-compatible 适配器 |
 | 数据 | MongoDB |
 | 测试 | Go test, Playwright（控制台零警告/零错误） |
@@ -84,7 +84,13 @@ curl -fsSL https://raw.githubusercontent.com/holihur/motion/main/install.sh | su
 
 ### 方式三：本地开发
 
-前置：Go 1.26、Node 22+、pnpm 12、MongoDB。
+前置：mise、MongoDB。工具链版本固定在 `mise.toml`（Go 1.27.3 / Node 26.12.1 / pnpm 12.15.0）。
+
+```bash
+mise install
+```
+
+所有构建命令都通过 mise 执行，不再依赖系统全局的 Go/Node/pnpm。
 
 ```bash
 make install

@@ -40,7 +40,7 @@ test("splits a page into heading sections and leaves a page index", async ({ pag
   expect(beta.title).toBe("Beta")
   expect(beta.blocks.map((block) => block.text)).toEqual(["Beta", "Beta body"])
 
-  await expect(page.locator("[data-block-row]").filter({ hasText: "Alpha" })).toBeVisible()
+  await expect(page.locator("[data-block-row]").filter({ hasText: "Alpha" }).first()).toBeVisible()
 })
 
 test("merges direct sub-pages into the current page and archives them", async ({ page, request }) => {

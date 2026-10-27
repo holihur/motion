@@ -16,7 +16,11 @@ export const test = base.extend<Fixtures>({
       const allowed: RegExp[] = []
       page.on("console", (message) => {
         if (message.type() === "warning" || message.type() === "error") {
-          problems.push(`${message.type()}: ${message.text()}`)
+          const text = message.text()
+          // WebGL driver diagnostics from third-party map iframes are
+          // environment noise, not application warnings.
+          if (/GL Driver Message .*GPU stall due to ReadPixels/.test(text)) return
+          problems.push(`${message.type()}: ${text}`)
         }
       })
       page.on("pageerror", (error) => {

@@ -59,7 +59,7 @@ export function QRCodeBlock({
             <input value={block.caption ?? ""} onChange={(event) => onUpdate({ caption: event.target.value })} placeholder={tr("Caption (optional)")} className="h-8 rounded-md border bg-background px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/25" />
           </div>
         )}
-        {!value && <div className="rounded-lg border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">{tr("Enter text or a URL to generate a QR code.")}</div>}
+        {!value && <div className="rounded-lg border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">{readOnly ? tr("No QR code content.") : tr("Enter text or a URL to generate a QR code.")}</div>}
         {value && dataURL && (
           <div className="flex flex-col items-center gap-2">
             <img src={dataURL} width={size} height={size} alt={block.caption || "QR code"} className="max-w-full rounded-lg bg-white" />
@@ -131,7 +131,7 @@ export function BarcodeBlock({
             <input value={block.caption ?? ""} onChange={(event) => onUpdate({ caption: event.target.value })} placeholder={tr("Caption (optional)")} className="h-8 rounded-md border bg-background px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/25" />
           </div>
         )}
-        {!value && <div className="rounded-lg border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">{tr("Enter a value to generate a barcode.")}</div>}
+        {!value && <div className="rounded-lg border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">{readOnly ? tr("No barcode content.") : tr("Enter a value to generate a barcode.")}</div>}
         <div className={value ? "overflow-x-auto rounded-lg bg-white p-2" : "hidden"}>
           <svg ref={svgRef} className="mx-auto max-w-full" />
         </div>

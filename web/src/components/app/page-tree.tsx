@@ -156,7 +156,7 @@ export function PageTree({
   }
 
   async function movePage(dragId: string, targetId: string, position: "before" | "after" | "inside") {
-    if (dragId === targetId) return
+    if (readOnly || dragId === targetId) return
     const dragged = pages.find((page) => page.id === dragId)
     const target = pages.find((page) => page.id === targetId)
     if (!dragged || !target) return
@@ -291,6 +291,7 @@ function TreeItem({
         }}
         onDragEnd={onDragEnd}
         onDragOver={(event) => {
+          if (readOnly) return
           event.preventDefault()
           event.dataTransfer.dropEffect = "move"
           const rect = event.currentTarget.getBoundingClientRect()
@@ -299,6 +300,7 @@ function TreeItem({
         }}
         onDragLeave={() => onDragLeave(node.id)}
         onDrop={(event) => {
+          if (readOnly) return
           event.preventDefault()
           event.stopPropagation()
           const rect = event.currentTarget.getBoundingClientRect()

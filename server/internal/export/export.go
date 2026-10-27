@@ -148,6 +148,24 @@ func (r *pdfRenderer) block(block model.Block) {
 		r.text("▸ "+block.Text, 11, 17, 4)
 	case "breadcrumb":
 		r.text(block.Text, 9, 14, 2)
+	case "form":
+		if block.Form != nil {
+			r.text(block.Form.Title, 13, 18, 8)
+			if block.Form.Description != "" {
+				r.text(block.Form.Description, 10, 15, 12)
+			}
+			for _, field := range block.Form.Fields {
+				mark := ""
+				if field.Required {
+					mark = " *"
+				}
+				r.text("☐ "+field.Label+mark, 10, 15, 16)
+			}
+		}
+	case "qrcode", "barcode":
+		if block.Text != "" {
+			r.text("["+block.Type+"] "+block.Text, 9.5, 15, 6)
+		}
 	default:
 		r.text(block.Text, 11, 18, 0)
 	}

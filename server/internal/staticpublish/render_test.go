@@ -28,3 +28,25 @@ func TestRenderIncludesChildrenAndEscapesContent(t *testing.T) {
 		t.Fatalf("unexpected index: %s", index)
 	}
 }
+
+func TestRenderFormShowsFieldsWithoutSubmitting(t *testing.T) {
+	root := model.Page{ID: primitive.NewObjectID(), Title: "Survey", Blocks: []model.Block{
+		{ID: "form", Type: "form", Form: &model.FormData{
+			Title: "Feedback", Description: "Tell us", SubmitLabel: "Send",
+			Fields: []model.FormField{{ID: "name", Label: "Name <you>", Type: "text", Required: true}},
+		}},
+	}}
+	files, err := Render(root.ID, []model.Page{root}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	index := string(files["index.html"])
+	for _, want := range []string{"Feedback", "Tell us", "Name &lt;you&gt;", "Send", "static export"} {
+		if !strings.Contains(index, want) {
+			t.Fatalf("missing %q in %s", want, index)
+		}
+	}
+	if strings.Contains(index, "<you>") {
+		t.Fatal("form labels must be escaped")
+	}
+}

@@ -42,6 +42,10 @@
 
 ## 构建
 
-- `make build`：前端 → 内嵌 → 单二进制
+- `make dev`：快速打包前端 + API，然后只用 Go server 提供服务（默认，低内存）
+- `make dev-watch`：Go server + Vite build watch（自动重建，仍有 Node 进程）
+- `make dev-hmr`：Go server + Vite dev server（HMR，需要更多内存）
+- `make build-fast`：内嵌前端但不做 gzip/brotli，适合本地验证单二进制
+- `make build`：前端 → 预压缩 → 内嵌 → 单二进制（发布用）
 - 没有 `embedweb` tag 时前端从 `web/dist` 读取，便于开发
 - GitHub Actions：Go test、前端 typecheck/build、Playwright E2E、Release、GHCR 镜像

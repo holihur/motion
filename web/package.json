@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:watch": "node scripts/copy-vendor.mjs && vite build --watch --minify false --clearScreen false",
     "build": "vite build && node scripts/precompress.mjs",
     "preview": "vite preview",
     "lint": "tsc -b --noEmit",
     "predev": "node scripts/copy-vendor.mjs",
     "prebuild": "node scripts/copy-vendor.mjs",
-    "build:fast": "vite build && node scripts/precompress.mjs",
+    "build:fast": "node scripts/copy-vendor.mjs && vite build",
     "typecheck": "tsc -b",
     "build:check": "pnpm typecheck && pnpm build"
   },

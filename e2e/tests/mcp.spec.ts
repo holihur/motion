@@ -59,6 +59,17 @@ test.describe("MCP", () => {
         arguments: { pageId: page.id },
       })
       expect(JSON.stringify(read.content)).toContain("From MCP")
+
+      const disposable = await createPage(request, account.token, workspaces[0].id, {
+        title: "MCP Delete Me",
+      })
+      const deleted = await client.callTool({
+        name: "delete_page",
+        arguments: { pageId: disposable.id, permanent: true },
+      })
+      expect(deleted.isError).toBeFalsy()
+      const gone = await request.get(`/api/pages/${disposable.id}`, { headers: authHeaders(account.token) })
+      expect(gone.status()).toBe(404)
     } finally {
       await client.close()
     }

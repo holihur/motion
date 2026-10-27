@@ -34,7 +34,7 @@ export function FormBlock({
 }) {
   const form = useMemo(() => block.form ?? defaultForm(), [block.form])
   const fields = form.fields ?? []
-  const [editing, setEditing] = useState(autoFocus || fields.length === 0)
+  const [editing, setEditing] = useState(!readOnly && (autoFocus || fields.length === 0))
   const [submitted, setSubmitted] = useState(false)
   const [pending, setPending] = useState(false)
   const [responses, setResponses] = useState<{ id: string; values: Record<string, string>; submittedAt: string }[]>([])
@@ -42,10 +42,14 @@ export function FormBlock({
   const titleRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    if (readOnly) {
+      setEditing(false)
+      return
+    }
     if (!block.form) onUpdate({ form: defaultForm() })
     if (autoFocus) titleRef.current?.focus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [block.id])
+  }, [block.id, readOnly])
 
   function save(next: FormData) {
     onUpdate({ form: next })
@@ -81,11 +85,10 @@ export function FormBlock({
     }
   }
 
-  const fieldInput = (field: FormField) => {
-    if (field.type === "textarea") return <textarea name={field.id} defaultValue="" rows={3} required={field.required} className="w-full resize-y rounded-md border bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/25" />
-    if (field.type === "select") return <select name={field.id} defaultValue="" required={field.required} className="h-9 w-full rounded-md border bg-background px-2.5 text-sm outline-none"><option value="">{tr("Choose…")}</option>{(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</select>
-    if (field.type === "checkbox") return <label className="flex items-center gap-2 text-sm"><input type="checkbox" name={field.id} /> {field.label}</label>
-    return <Input name={field.id} type={field.type} defaultValue="" required={field.required} className="h-9 text-sm" />
+  const fieldInput = (field: FormField, inputId: string) => {
+    if (field.type === "textarea") return <textarea id={inputId} name={field.id} defaultValue="" rows={3} required={field.required} className="w-full resize-y rounded-md border bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/25" />
+    if (field.type === "select") return <select id={inputId} name={field.id} defaultValue="" required={field.required} className="h-9 w-full rounded-md border bg-background px-2.5 text-sm outline-none"><option value="">{tr("Choose…")}</option>{(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</select>
+    return <Input id={inputId} name={field.id} type={field.type} defaultValue="" required={field.required} className="h-9 text-sm" />
   }
 
   return (
@@ -141,12 +144,25 @@ export function FormBlock({
               })
               void submit(next)
             }} className="space-y-3">
-              {fields.map((field) => (
-                <label key={field.id} className="block space-y-1.5 text-xs font-medium">
-                  {field.type !== "checkbox" && <span>{field.label}{field.required && <span className="text-destructive"> *</span>}</span>}
-                  {fieldInput(field)}
-                </label>
-              ))}
+              {fields.map((field) => {
+                const inputId = `form-${block.id}-${field.id}`
+                if (field.type === "checkbox") {
+                  return (
+                    <label key={field.id} htmlFor={inputId} className="flex items-center gap-2 text-sm font-medium">
+                      <input id={inputId} name={field.id} type="checkbox" />
+                      <span>{field.label}{field.required && <span className="text-destructive"> *</span>}</span>
+                    </label>
+                  )
+                }
+                return (
+                  <div key={field.id} className="space-y-1.5">
+                    <label htmlFor={inputId} className="block text-xs font-medium">
+                      {field.label}{field.required && <span className="text-destructive"> *</span>}
+                    </label>
+                    {fieldInput(field, inputId)}
+                  </div>
+                )
+              })}
               <Button type="submit" size="sm" disabled={pending}>{pending && <Loader2 className="size-3.5 animate-spin" />} {form.submitLabel || tr("Submit")}</Button>
             </form>
           )}

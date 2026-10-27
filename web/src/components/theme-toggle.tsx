@@ -1,5 +1,6 @@
 import { Moon, Sun } from "lucide-react"
 import { useThemeStore } from "@/stores/theme"
+import { tr } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -14,12 +15,12 @@ export function ThemeToggle({ className }: { className?: string }) {
           size="icon-sm"
           onClick={toggle}
           className={className}
-          aria-label="Toggle theme"
+          aria-label={tr("Toggle theme")}
         >
           {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{isDark ? "Light mode" : "Dark mode"}</TooltipContent>
+      <TooltipContent>{isDark ? tr("Light mode") : tr("Dark mode")}</TooltipContent>
     </Tooltip>
   )
 }

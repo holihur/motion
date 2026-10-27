@@ -53,6 +53,22 @@ func DOCX(page model.Page) ([]byte, error) {
 			body.WriteString(docxParagraph("🔒 "+block.Text, 0, false, ""))
 		case "toggle":
 			body.WriteString(docxParagraph("▸ "+block.Text, 0, true, ""))
+		case "form":
+			if block.Form != nil {
+				body.WriteString(docxParagraph(block.Form.Title, 28, true, ""))
+				if block.Form.Description != "" {
+					body.WriteString(docxParagraph(block.Form.Description, 0, false, ""))
+				}
+				for _, field := range block.Form.Fields {
+					mark := ""
+					if field.Required {
+						mark = " *"
+					}
+					body.WriteString(docxParagraph("☐ "+field.Label+mark, 0, false, ""))
+				}
+			}
+		case "qrcode", "barcode":
+			body.WriteString(docxParagraph("["+block.Type+"] "+block.Text, 0, false, ""))
 		default:
 			body.WriteString(docxParagraph(block.Text, 0, false, ""))
 		}

@@ -44,7 +44,7 @@ jobs:
           cache: true
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - run: pnpm build
+      - run: pnpm build:fast
       - uses: actions/upload-artifact@v4
         with:
           name: motion-web-dist
@@ -75,15 +75,17 @@ jobs:
         with:
           name: motion-web-dist
           path: web/dist
-      - name: Install frontend deps
-        working-directory: web
-        run: pnpm install --frozen-lockfile
       - name: Build API
         working-directory: server
         run: go build -o bin/motion-api ./cmd/server
       - name: Install e2e deps
         working-directory: e2e
         run: pnpm install --frozen-lockfile
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/pnpm-lock.yaml') }}
       - name: Install Chromium
         working-directory: e2e
         run: pnpm exec playwright install --with-deps chromium

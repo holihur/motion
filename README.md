@@ -6,13 +6,14 @@
 
 ## 功能
 
-- **块编辑器**：标题、列表、待办、引用、Callout、**可折叠 Toggle/Toggle 标题**、**代码高亮**、分割线、图片、**表格**、**Mermaid 流程图**、**甘特图**、**柱状/折线/饼图**、书签卡片、视频/网页嵌入、文件、LaTeX 公式、目录、**页面链接/面包屑/反向链接**、**分栏**，以及**客户端加密的密码区域**。
+- **块编辑器**：标题、列表、待办、引用、Callout、**可折叠 Toggle/Toggle 标题**、**代码高亮**、分割线、图片、**表格**、**Mermaid 流程图**、**甘特图**、**柱状/折线/饼图**、**表单（收集回答）**、**二维码/条形码**、书签卡片、视频/网页嵌入、文件、LaTeX 公式、目录、**页面链接/面包屑/反向链接**、**分栏**，以及**客户端加密的密码区域**。
 - **Lexical 富文本**：加粗、斜体、下划线、删除线、行内代码、链接、撤销/重做、Markdown 行内快捷输入和浮动格式工具栏。
 - **密码区域**：密码在浏览器内通过 PBKDF2 + AES-GCM 加密，服务端只保存密文；刷新或 10 分钟后自动重新上锁。
 - **附件上传**：图片/文件上传到 GridFS，支持图片拖拽、粘贴和块内上传；代码块支持自动检测/手动语言、语法高亮、行内编辑与复制。
 - **@成员提及**：在正文中输入 `@` 搜索工作区成员，提及会随 Lexical 富文本保存。
 - **防误操作锁定**：页面级锁定会暂停所有编辑并在侧边栏显示锁图标；单个区块也可独立锁定/解锁。
 - **增量同步 + 虚拟列表**：只同步变更块与顺序，WebSocket 不再广播整页；超过 80 块自动虚拟化。
+- **页面树拖拽**：拖到页面之间调整顺序，拖到页面内部创建子页面；支持多级折叠与搜索恢复。
 - **Markdown 快捷输入** 与 `/` 斜杠菜单，块拖拽排序，自动保存。
 - **Viewer 只读模式**：无编辑权限时真正的只读界面，不显示编辑控件，不会出现“输入后才报 403”。
 - **多人实时协作**：工作区成员共享页面，基于 WebSocket 的在线状态、正在编辑的块、实时内容同步和块级三方合并。
@@ -24,7 +25,7 @@
 - **Webhook 集成**：工作区可配置带 HMAC 签名的 outgoing webhook，支持评论、AI 审批、发布事件与投递日志。
 - **静态发布**：页面可渲染为静态 HTML，通过 SSH/SFTP、GitHub/GitLab/Gitea Pages 或 Jira/Confluence ADF 发布。
 - **存储后端**：工作区可选择 GridFS、S3/MinIO/R2、阿里云 OSS、七牛 Kodo 或腾讯云 COS 保存上传文件并发布静态页面。
-- **MCP 服务器**：`/mcp` 暴露搜索、读写页面、追加块、更新块、批量删除页面、评论等工具，使用带 Scope 的 PAT 授权。
+- **MCP 服务器**：`/mcp` 暴露搜索、读写页面、追加块、更新块、删除单个/批量页面、评论等工具，使用带 Scope 的 PAT 授权。
 - **OIDC 单点登录**：Google、Keycloak、Auth0、Authentik 等任何 OIDC Provider。
 - **Ops 管理页**：使用独立于用户账号的 `OPS_TOKEN` 保护；注册开关、管理员、OIDC、AI 默认模型、MCP、更新策略、实例统计都在网页里配置，无需改命令行。
 - **PAT 与 Scope 授权**：`pages:read`、`pages:write`、`workspace:read`、`workspace:write`、`ai:use`。
@@ -99,28 +100,55 @@ mise install
 
 ```bash
 make install
-# 终端 1
-make dev-api
-
-# 终端 2
-make dev-web
+make dev
 ```
 
-打开 <http://localhost:5173>。演示账号：`demo@motion.app` / `demo1234`。
+`make dev` 会先快速打包前端和 Go API，然后**只运行 Go server**（<http://localhost:8787>），不会启动 Vite dev server，内存占用最低。演示账号：`demo@motion.app` / `demo1234`。
+
+开发循环：
+
+```bash
+# 只改 Go：重新编译 API，然后复用当前前端
+make build-api
+./server/bin/motion-api
+
+# 只改前端：重新打包，刷新浏览器
+make build-web-fast
+
+# 前端自动重建，但仍是 Go server；需要额外 Node 进程
+make dev-watch
+
+# 需要 HMR 时才用 Vite dev server
+make dev-hmr
+```
+
+`make dev` 每次都重新打包，适合提交前验证；日常小改可以拆成上面的单独命令。
+
+常用快速命令：
+
+```bash
+make typecheck      # 前端类型检查
+make build-api      # 只编译 Go API，前端从 web/dist 读取
+make build-web-fast # 只打包前端，不做 gzip/brotli 预压缩
+make e2e            # 快速构建并跑 Playwright
+cd e2e && ./run.sh tests/editor.spec.ts   # 只跑相关用例
+```
 
 Ops 默认关闭。开发时给它一个独立 token：
 
 ```bash
-OPS_TOKEN=dev-ops-token make dev-api
+OPS_TOKEN=dev-ops-token make dev
 # 然后打开 http://localhost:5173/ops，输入 dev-ops-token
 ```
 
-生产构建（单二进制，内嵌前端）：
+生产构建（单二进制，内嵌前端 + 预压缩资源）：
 
 ```bash
 make build
 ./server/bin/motion
 ```
+
+本地只想验证内嵌版本时用 `make build-fast`（跳过 gzip/brotli，启动更快）。
 
 ## Ops 管理页
 

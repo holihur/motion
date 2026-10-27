@@ -2,6 +2,11 @@ import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { extname, join, resolve } from "node:path"
 import { brotliCompressSync, constants, gzipSync } from "node:zlib"
 
+if (process.env.SKIP_PRECOMPRESS === "1") {
+  console.log("[precompress] skipped")
+  process.exit(0)
+}
+
 const dist = resolve("dist")
 const compressible = new Set([".html", ".js", ".mjs", ".css", ".svg", ".json", ".txt", ".xml"])
 const minSize = 1024

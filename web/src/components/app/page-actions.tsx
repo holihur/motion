@@ -55,6 +55,10 @@ interface PageActionsProps {
   onRenameRequest?: () => void
 }
 
+function safeFilename(name: string) {
+  return name.replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim() || "page"
+}
+
 export function PageActionsMenu({ page, align = "start", trigger, readOnly = false, onRenameRequest }: PageActionsProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -164,9 +168,12 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
       const href = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = href
-      link.download = `${pageTitle(page.title)}.${format}`
+      link.download = `${safeFilename(pageTitle(page.title))}.${format}`
+      document.body.appendChild(link)
       link.click()
-      URL.revokeObjectURL(href)
+      link.remove()
+      // Keep the object URL alive until the browser has started the download.
+      window.setTimeout(() => URL.revokeObjectURL(href), 1000)
       toast.success(tr("Export ready"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not export page"))

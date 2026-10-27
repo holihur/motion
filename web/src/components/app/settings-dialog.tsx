@@ -40,7 +40,7 @@ export function SettingsDialog() {
         </DialogHeader>
         <Tabs defaultValue="profile" className="flex min-h-[360px] flex-col">
           <div className="px-6 pt-4">
-            <TabsList className="w-full justify-start bg-transparent p-0">
+            <TabsList className="h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
               <TabsTrigger value="profile" className="data-[state=active]:bg-muted">{tr("Profile")}</TabsTrigger>
               <TabsTrigger value="workspace" className="data-[state=active]:bg-muted">{tr("Workspace")}</TabsTrigger>
               <TabsTrigger value="agent" className="data-[state=active]:bg-muted">{tr("Agent")}</TabsTrigger>
@@ -126,7 +126,7 @@ function ProfileSettings() {
       </div>
       <div className="flex justify-end">
         <Button type="submit" disabled={!name.trim() || pending || name.trim() === user?.name}>
-          Save changes
+          {tr("Save changes")}
         </Button>
       </div>
     </form>
@@ -149,7 +149,7 @@ function WorkspaceSettings() {
     setIcon(workspace?.icon ?? "🧭")
   }, [workspace?.id, workspace?.name, workspace?.icon])
 
-  if (!workspace) return <p className="pt-4 text-sm text-muted-foreground">No workspace selected.</p>
+  if (!workspace) return <p className="pt-4 text-sm text-muted-foreground">{tr("No workspace selected.")}</p>
 
   async function save(event: React.FormEvent) {
     event.preventDefault()
@@ -196,7 +196,7 @@ function WorkspaceSettings() {
         </div>
         <div className="flex justify-end">
           <Button type="submit" disabled={!name.trim() || pending || (name.trim() === workspace.name && icon === workspace.icon)}>
-            Save workspace
+            {tr("Save workspace")}
           </Button>
         </div>
       </form>
@@ -211,7 +211,7 @@ function WorkspaceSettings() {
           </div>
         </div>
         <Button variant="destructive" size="sm" onClick={() => setConfirmOpen(true)}>
-          <Trash2 /> Delete
+          <Trash2 /> {tr("Delete")}
         </Button>
       </div>
 
@@ -750,7 +750,7 @@ function AppearanceSettings() {
       <div>
         <h3 className="text-sm font-medium">{tr("Theme")}</h3>
         <p className="mt-0.5 text-xs text-muted-foreground">{tr("Choose how Motion looks on this device.")}</p>
-        <div className="mt-4 grid grid-cols-3 gap-3">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           {options.map((option) => (
             <button
               key={option.value}

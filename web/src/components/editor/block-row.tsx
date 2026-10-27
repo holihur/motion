@@ -566,7 +566,7 @@ export function BlockRow(props: BlockRowProps) {
       case "barcode":
         return <BarcodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "form":
-        return <FormBlock block={block} pageId={pageId} readOnly={pageReadOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+        return <FormBlock block={block} pageId={pageId} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "image":
         return block.url ? (
           <figure

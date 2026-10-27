@@ -237,11 +237,72 @@ func renderBlock(block model.Block, files map[string]string, base string) string
 		return `<p class="breadcrumb">📍 ` + text + `</p>`
 	case "toggle":
 		return `<details class="toggle"><summary>` + text + `</summary><div class="toggle-body">Collapsed content is available in Motion.</div></details>`
+	case "form":
+		return renderForm(block.Form)
+	case "qrcode", "barcode":
+		label := "QR code"
+		if block.Type == "barcode" {
+			label = "Barcode"
+		}
+		if strings.TrimSpace(block.Text) == "" && strings.TrimSpace(block.Caption) == "" {
+			return ""
+		}
+		return `<div class="code-image"><strong>` + label + `</strong> <code>` + text + `</code>` + caption(block.Caption) + `</div>`
 	case "paragraph", "":
 		return `<p>` + text + `</p>`
 	default:
 		return `<p>` + text + `</p>`
 	}
+}
+
+func renderForm(form *model.FormData) string {
+	if form == nil {
+		return ""
+	}
+	title := strings.TrimSpace(form.Title)
+	if title == "" {
+		title = "Form"
+	}
+	submit := strings.TrimSpace(form.SubmitLabel)
+	if submit == "" {
+		submit = "Submit"
+	}
+	var b strings.Builder
+	b.WriteString(`<div class="form"><h3>` + html.EscapeString(title) + `</h3>`)
+	if strings.TrimSpace(form.Description) != "" {
+		b.WriteString(`<p>` + escapeLines(form.Description) + `</p>`)
+	}
+	b.WriteString(`<form>`)
+	for _, field := range form.Fields {
+		required := ""
+		if field.Required {
+			required = ` <span class="required">*</span>`
+		}
+		b.WriteString(`<label><span>` + html.EscapeString(field.Label) + required + `</span>`)
+		switch field.Type {
+		case "textarea":
+			b.WriteString(`<textarea rows="3" disabled></textarea>`)
+		case "select":
+			b.WriteString(`<select disabled><option>Choose…</option>`)
+			for _, option := range field.Options {
+				b.WriteString(`<option>` + html.EscapeString(option) + `</option>`)
+			}
+			b.WriteString(`</select>`)
+		case "checkbox":
+			b.WriteString(`<input type="checkbox" disabled>`)
+		default:
+			kind := "text"
+			switch field.Type {
+			case "email", "number", "date":
+				kind = field.Type
+			}
+			b.WriteString(`<input type="` + kind + `" disabled>`)
+		}
+		b.WriteString(`</label>`)
+	}
+	b.WriteString(`<button type="button" disabled>` + html.EscapeString(submit) + `</button></form>`)
+	b.WriteString(`<p class="form-hint">This is a static export. Open the page in Motion to submit a response.</p></div>`)
+	return b.String()
 }
 
 func caption(value string) string {
@@ -289,6 +350,8 @@ img{max-width:100%;height:auto;border-radius:10px}figure{margin:18px 0}figcaptio
 .callout{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:16px 0;display:flex;gap:10px}
 .todo{display:flex;gap:8px;margin:8px 0}.todo input{margin-top:6px}.todo input:checked+span{color:var(--muted);text-decoration:line-through}
 .locked{background:var(--card);border:1px dashed var(--border);border-radius:10px;padding:12px 14px;color:var(--muted)}
+.code-image{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:16px 0;font-size:14px}.code-image code{word-break:break-all}
+.form{border:1px solid var(--border);border-radius:12px;padding:18px;margin:20px 0;background:var(--card)}.form h3{margin:0 0 6px}.form p{color:var(--muted);font-size:14px}.form form{display:grid;gap:12px;margin-top:14px}.form label{display:grid;gap:5px;font-size:13px}.form input,.form select,.form textarea{border:1px solid var(--border);border-radius:7px;padding:7px 9px;background:var(--bg);color:var(--fg);font:inherit}.form .required{color:#dc2626}.form button{justify-self:start;border:0;border-radius:7px;background:var(--brand);color:#fff;padding:8px 14px;font:inherit;opacity:.65}.form-hint{font-size:12px!important;margin-bottom:0!important}
 .page-link,.embed-link{color:var(--brand);text-decoration:none}.page-link:hover,.embed-link:hover{text-decoration:underline}
 .breadcrumb{color:var(--muted);font-size:13px}.toggle summary{cursor:pointer;font-weight:600}
 .children{margin-top:48px;border-top:1px solid var(--border);padding-top:20px}.children h2{font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}

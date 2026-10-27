@@ -16,6 +16,34 @@ const PROVIDERS: { value: MapProvider; label: string }[] = [
   { value: "osm", label: "OpenStreetMap" },
 ]
 
+
+// WGS84 is used by Mapbox, Google and OpenStreetMap. Amap expects GCJ-02 and
+// Baidu expects BD-09, so convert only for those providers.
+function outOfChina(lat: number, lng: number) {
+  return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271
+}
+function wgs84ToGcj02(lat: number, lng: number) {
+  if (outOfChina(lat, lng)) return { lat, lng }
+  const a = 6378245
+  const ee = 0.00669342162296594323
+  const transformLat = (x: number, y: number) => -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x)) + (20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2 / 3 + (20 * Math.sin(y * Math.PI) + 40 * Math.sin(y / 3 * Math.PI)) * 2 / 3 + (160 * Math.sin(y / 12 * Math.PI) + 320 * Math.sin(y * Math.PI / 30)) * 2 / 3
+  const transformLng = (x: number, y: number) => 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x)) + (20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2 / 3 + (20 * Math.sin(x * Math.PI) + 40 * Math.sin(x / 3 * Math.PI)) * 2 / 3 + (150 * Math.sin(x / 12 * Math.PI) + 300 * Math.sin(x / 30 * Math.PI)) * 2 / 3
+  let dLat = transformLat(lng - 105, lat - 35)
+  let dLng = transformLng(lng - 105, lat - 35)
+  const radLat = lat / 180 * Math.PI
+  let magic = Math.sin(radLat)
+  magic = 1 - ee * magic * magic
+  const sqrtMagic = Math.sqrt(magic)
+  dLat = (dLat * 180) / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI)
+  dLng = (dLng * 180) / (a / sqrtMagic * Math.cos(radLat) * Math.PI)
+  return { lat: lat + dLat, lng: lng + dLng }
+}
+function gcj02ToBd09(lat: number, lng: number) {
+  const z = Math.sqrt(lng * lng + lat * lat) + 2e-5 * Math.sin(lat * Math.PI * 3000 / 180)
+  const theta = Math.atan2(lat, lng) + 3e-6 * Math.cos(lng * Math.PI * 3000 / 180)
+  return { lat: z * Math.sin(theta) + 0.006, lng: z * Math.cos(theta) + 0.0065 }
+}
+
 let mapsPromise: Promise<{ mapboxToken?: string; googleMapsKey?: string; amapKey?: string; baiduMapAK?: string }> | null = null
 function loadMapKeys() {
   mapsPromise ??= api.system.info().then((info) => info.maps ?? {}).catch(() => ({}))
@@ -43,6 +71,8 @@ export function MapBlock({
   }, [data.lat, data.lng, data.label, data.zoom])
 
   const provider = data.provider ?? "mapbox"
+  const gcj = wgs84ToGcj02(data.lat, data.lng)
+  const bd = gcj02ToBd09(gcj.lat, gcj.lng)
   const encodedLabel = encodeURIComponent(data.label || `${data.lat.toFixed(4)}, ${data.lng.toFixed(4)}`)
   const mapbox = keys.mapboxToken?.trim()
   const src = useMemo(() => {
@@ -55,14 +85,14 @@ export function MapBlock({
         : `https://www.google.com/maps?q=${data.lat},${data.lng}&z=${data.zoom ?? 12}&output=embed`
     }
     if (provider === "amap") {
-      return `https://uri.amap.com/marker?position=${data.lng},${data.lat}&name=${encodedLabel}&coordinate=gaode&callnative=0&src=motion${keys.amapKey ? `&key=${encodeURIComponent(keys.amapKey)}` : ""}`
+      return `https://uri.amap.com/marker?position=${gcj.lng},${gcj.lat}&name=${encodedLabel}&coordinate=gaode&callnative=0&src=motion${keys.amapKey ? `&key=${encodeURIComponent(keys.amapKey)}` : ""}`
     }
     if (provider === "baidu") {
-      return `https://api.map.baidu.com/marker?location=${data.lat},${data.lng}&title=${encodedLabel}&content=${encodedLabel}&output=html&src=webapp.motion${keys.baiduMapAK ? `&ak=${encodeURIComponent(keys.baiduMapAK)}` : ""}`
+      return `https://api.map.baidu.com/marker?location=${bd.lat},${bd.lng}&title=${encodedLabel}&content=${encodedLabel}&output=html&src=webapp.motion${keys.baiduMapAK ? `&ak=${encodeURIComponent(keys.baiduMapAK)}` : ""}`
     }
     const delta = 360 / Math.pow(2, Math.max(2, Math.min(18, data.zoom ?? 12)))
     return `https://www.openstreetmap.org/export/embed.html?bbox=${data.lng - delta},${data.lat - delta * 0.6},${data.lng + delta},${data.lat + delta * 0.6}&layer=mapnik&marker=${data.lat},${data.lng}`
-  }, [provider, data.lat, data.lng, data.zoom, data.label, encodedLabel, mapbox, keys.googleMapsKey, keys.amapKey, keys.baiduMapAK])
+  }, [provider, data.lat, data.lng, data.zoom, data.label, encodedLabel, mapbox, keys.googleMapsKey, keys.amapKey, keys.baiduMapAK, gcj.lat, gcj.lng, bd.lat, bd.lng])
 
   function apply() {
     const lat = Number(draft.lat)
@@ -95,9 +125,9 @@ export function MapBlock({
   }
 
   const openURL = provider === "amap"
-    ? `https://uri.amap.com/marker?position=${data.lng},${data.lat}&name=${encodedLabel}`
+    ? `https://uri.amap.com/marker?position=${gcj.lng},${gcj.lat}&name=${encodedLabel}`
     : provider === "baidu"
-      ? `https://map.baidu.com/?latlng=${data.lat},${data.lng}&title=${encodedLabel}`
+      ? `https://map.baidu.com/?latlng=${bd.lat},${bd.lng}&title=${encodedLabel}`
       : `https://www.openstreetmap.org/?mlat=${data.lat}&mlon=${data.lng}#map=${data.zoom ?? 12}/${data.lat}/${data.lng}`
 
   return (

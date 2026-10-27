@@ -828,6 +828,7 @@ const zh: Record<string, string> = {
   "Could not move page": "无法移动页面",
   "Workspace unlocked": "工作区已解锁",
   "You have unlocked the core workflow. Keep exploring — the tour will stay out of your way.": "你已经解锁核心流程。继续探索吧——引导不会再打扰你。",
+  "Lines": "行号",
   "Align column": "对齐此列",
   "Resize column": "调整列宽",
   "Download": "下载",

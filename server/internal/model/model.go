@@ -98,28 +98,29 @@ type FormSubmission struct {
 }
 
 type Block struct {
-	ID         string     `bson:"id" json:"id"`
-	Type       string     `bson:"type" json:"type"`
-	Text       string     `bson:"text" json:"text"`
-	Rich       string     `bson:"rich,omitempty" json:"rich,omitempty"`
-	Checked    bool       `bson:"checked,omitempty" json:"checked,omitempty"`
-	Language   string     `bson:"language,omitempty" json:"language,omitempty"`
-	Color      string     `bson:"color,omitempty" json:"color,omitempty"`
-	TextColor  string     `bson:"textColor,omitempty" json:"textColor,omitempty"`
-	BGColor    string     `bson:"bgColor,omitempty" json:"bgColor,omitempty"`
-	Align      string     `bson:"align,omitempty" json:"align,omitempty"`
-	Width      string     `bson:"width,omitempty" json:"width,omitempty"`
-	URL        string     `bson:"url,omitempty" json:"url,omitempty"`
-	Caption    string     `bson:"caption,omitempty" json:"caption,omitempty"`
-	Ciphertext string     `bson:"ciphertext,omitempty" json:"ciphertext,omitempty"`
-	Salt       string     `bson:"salt,omitempty" json:"salt,omitempty"`
-	IV         string     `bson:"iv,omitempty" json:"iv,omitempty"`
-	Table      *TableData `bson:"table,omitempty" json:"table,omitempty"`
-	Form       *FormData  `bson:"form,omitempty" json:"form,omitempty"`
-	Map        *MapData   `bson:"map,omitempty" json:"map,omitempty"`
-	Indent     int        `bson:"indent,omitempty" json:"indent,omitempty"`
-	Collapsed  bool       `bson:"collapsed,omitempty" json:"collapsed,omitempty"`
-	Locked     bool       `bson:"locked,omitempty" json:"locked,omitempty"`
+	ID          string     `bson:"id" json:"id"`
+	Type        string     `bson:"type" json:"type"`
+	Text        string     `bson:"text" json:"text"`
+	Rich        string     `bson:"rich,omitempty" json:"rich,omitempty"`
+	Checked     bool       `bson:"checked,omitempty" json:"checked,omitempty"`
+	Language    string     `bson:"language,omitempty" json:"language,omitempty"`
+	Color       string     `bson:"color,omitempty" json:"color,omitempty"`
+	TextColor   string     `bson:"textColor,omitempty" json:"textColor,omitempty"`
+	BGColor     string     `bson:"bgColor,omitempty" json:"bgColor,omitempty"`
+	Align       string     `bson:"align,omitempty" json:"align,omitempty"`
+	Width       string     `bson:"width,omitempty" json:"width,omitempty"`
+	URL         string     `bson:"url,omitempty" json:"url,omitempty"`
+	Caption     string     `bson:"caption,omitempty" json:"caption,omitempty"`
+	Ciphertext  string     `bson:"ciphertext,omitempty" json:"ciphertext,omitempty"`
+	Salt        string     `bson:"salt,omitempty" json:"salt,omitempty"`
+	IV          string     `bson:"iv,omitempty" json:"iv,omitempty"`
+	Table       *TableData `bson:"table,omitempty" json:"table,omitempty"`
+	Form        *FormData  `bson:"form,omitempty" json:"form,omitempty"`
+	Map         *MapData   `bson:"map,omitempty" json:"map,omitempty"`
+	LineNumbers bool       `bson:"lineNumbers,omitempty" json:"lineNumbers,omitempty"`
+	Indent      int        `bson:"indent,omitempty" json:"indent,omitempty"`
+	Collapsed   bool       `bson:"collapsed,omitempty" json:"collapsed,omitempty"`
+	Locked      bool       `bson:"locked,omitempty" json:"locked,omitempty"`
 }
 
 type Page struct {

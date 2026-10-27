@@ -481,7 +481,7 @@ func blocksEqual(a, b model.Block) bool {
 	// Compare the persisted content, not only the id.
 	return a.ID == b.ID && a.Type == b.Type && a.Text == b.Text && a.Rich == b.Rich &&
 		a.Checked == b.Checked && a.Language == b.Language && a.Color == b.Color &&
-		a.TextColor == b.TextColor && a.BGColor == b.BGColor && a.Align == b.Align && a.Width == b.Width &&
+		a.TextColor == b.TextColor && a.BGColor == b.BGColor && a.Align == b.Align && a.Width == b.Width && a.LineNumbers == b.LineNumbers &&
 		a.URL == b.URL && a.Caption == b.Caption && a.Ciphertext == b.Ciphertext &&
 		a.Salt == b.Salt && a.IV == b.IV && tableEqual(a.Table, b.Table) && formEqual(a.Form, b.Form) && mapEqual(a.Map, b.Map) &&
 		a.Indent == b.Indent && a.Collapsed == b.Collapsed && a.Locked == b.Locked

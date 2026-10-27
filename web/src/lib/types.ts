@@ -93,6 +93,7 @@ export interface Block {
   table?: TableData
   form?: FormData
   map?: MapData
+  lineNumbers?: boolean
   /** 0 = root. Used by toggles and nested content. */
   indent?: number
   collapsed?: boolean

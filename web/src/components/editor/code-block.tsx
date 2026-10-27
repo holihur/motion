@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react"
 import hljs from "highlight.js/lib/common"
-import { Code2, Copy, Download } from "lucide-react"
+import { Code2, Copy, Download, ListOrdered } from "lucide-react"
 import { toast } from "sonner"
 import type { Block } from "@/lib/types"
 import { tr } from "@/lib/i18n"
@@ -83,6 +83,14 @@ export function CodeBlock({
       <div className="flex items-center gap-0.5">
       <button
         type="button"
+        onClick={() => onUpdate({ lineNumbers: !block.lineNumbers })}
+        aria-pressed={Boolean(block.lineNumbers)}
+        className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] transition hover:bg-background hover:text-foreground ${block.lineNumbers ? "text-brand" : "text-muted-foreground"}`}
+      >
+        <ListOrdered className="size-3" /> {tr("Lines")}
+      </button>
+      <button
+        type="button"
         onClick={() => {
           const extension = language === "auto" || language === "plaintext" ? "txt" : language === "xml" ? "html" : language
           const blob = new Blob([block.text], { type: "text/plain;charset=utf-8" })
@@ -116,7 +124,15 @@ export function CodeBlock({
   return (
     <div className="overflow-hidden rounded-lg border border-border/80 bg-muted/30">
       {header}
-      <div className="relative">
+      <div className="flex">
+        {block.lineNumbers && (
+          <div aria-hidden className="select-none border-r border-border/50 bg-muted/20 px-2 py-3 text-right font-mono text-[11px] leading-6 text-muted-foreground/50">
+            {Array.from({ length: Math.max(1, block.text.split("\n").length) }, (_, index) => (
+              <div key={index}>{index + 1}</div>
+            ))}
+          </div>
+        )}
+        <div className="relative min-w-0 flex-1">
         <pre aria-hidden className="min-h-[44px] overflow-x-auto whitespace-pre-wrap break-words px-3.5 py-3 font-mono text-[13px] leading-6">
           <code className="hljs bg-transparent p-0" dangerouslySetInnerHTML={{ __html: highlighted }} />
         </pre>
@@ -140,6 +156,7 @@ export function CodeBlock({
         {readOnly && (
           <span id={`block-input-${block.id}`} data-block-input tabIndex={0} onFocus={onFocus} className="pointer-events-none absolute inset-0 outline-none" />
         )}
+        </div>
       </div>
     </div>
   )

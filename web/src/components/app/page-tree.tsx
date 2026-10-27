@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronRight, FileText, Plus, Star } from "lucide-react"
+import { ChevronRight, FileText, LockKeyhole, Plus, Star } from "lucide-react"
 import { toast } from "sonner"
 import { buildTree, pageTitle, type TreeNode } from "@/lib/tree"
 import { allAncestorIds } from "@/lib/tree"
@@ -246,6 +246,7 @@ function TreeItem({
             <FileText className="size-3.5 shrink-0 text-muted-foreground" />
           )}
           <span className="truncate" title={pageTitle(node.title)}>{pageTitle(node.title)}</span>
+          {node.locked && <LockKeyhole className="size-3 shrink-0 text-muted-foreground" />}
           {node.favorite && <Star className="size-3 shrink-0 fill-amber-400 text-amber-400" />}
         </button>
 

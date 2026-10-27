@@ -14,6 +14,7 @@ import type {
   Comment,
   Member,
   Page,
+  Backlink,
   PageRevision,
   PageSummary,
   User,
@@ -218,6 +219,8 @@ export const api = {
     list: () => request<Workspace[]>("/workspaces"),
     create: (name: string, icon = "🧭") =>
       request<Workspace>("/workspaces", { method: "POST", body: body({ name, icon }) }),
+    lock: (id: string) => request<Page>(`/pages/${id}/lock`, { method: "POST" }),
+    unlock: (id: string) => request<Page>(`/pages/${id}/unlock`, { method: "POST" }),
     update: (id: string, patch: { name?: string; icon?: string }) =>
       request<Workspace>(`/workspaces/${id}`, { method: "PATCH", body: body(patch) }),
     remove: (id: string) => request<void>(`/workspaces/${id}`, { method: "DELETE" }),
@@ -336,6 +339,25 @@ export const api = {
       onToken: (text: string) => void,
     ) => streamChat(input, onToken),
   },
+  files: {
+    upload: async (file: File, workspaceId: string) => {
+      const form = new FormData()
+      form.append("file", file)
+      form.append("workspaceId", workspaceId)
+      const headers = new Headers()
+      const token = getToken()
+      if (token) headers.set("Authorization", `Bearer ${token}`)
+      headers.set("X-Motion-Client", getClientId())
+      const response = await fetch("/api/files", { method: "POST", headers, body: form })
+      const payload = await response.json().catch(() => null) as
+        | { id: string; url: string; name: string; size: number; contentType: string; error?: string }
+        | null
+      if (!response.ok) {
+        throw new ApiError(localizeApiError(payload?.error || `请求失败（${response.status}）`), response.status)
+      }
+      return payload as { id: string; url: string; name: string; size: number; contentType: string }
+    },
+  },
   pages: {
     list: (workspaceId: string) =>
       request<PageSummary[]>(`/workspaces/${workspaceId}/pages`),
@@ -346,6 +368,9 @@ export const api = {
         `/workspaces/${workspaceId}/search?q=${encodeURIComponent(query)}`,
       ),
     get: (id: string) => request<Page>(`/pages/${id}`),
+    backlinks: (id: string) => request<Backlink[]>(`/pages/${id}/backlinks`),
+    lock: (id: string) => request<Page>(`/pages/${id}/lock`, { method: "POST" }),
+    unlock: (id: string) => request<Page>(`/pages/${id}/unlock`, { method: "POST" }),
     create: (input: { workspaceId: string; parentId?: string | null; title?: string; icon?: string }) =>
       request<Page>("/pages", { method: "POST", body: body(input) }),
     update: (

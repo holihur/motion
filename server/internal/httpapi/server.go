@@ -173,6 +173,7 @@ func (s *Server) Router() http.Handler {
 		r.Get("/auth/oidc/callback", s.oidcCallback)
 		r.Post("/auth/oidc/exchange", s.oidcExchange)
 		r.Get("/ws", s.websocket)
+		r.Get("/files/{fileID}", s.downloadFile)
 
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireOpsToken)
@@ -222,9 +223,13 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("pages:write")).Post("/proposals/{proposalID}/approve", s.approveProposal)
 			r.With(s.requireScope("pages:write")).Post("/proposals/{proposalID}/reject", s.rejectProposal)
 
+			r.With(s.requireScope("pages:write")).Post("/files", s.uploadFile)
 			r.With(s.requireScope("pages:write")).Post("/pages", s.createPage)
 			r.With(s.requireScope("pages:read"), middleware.Compress(5, "application/json")).Get("/pages/{pageID}", s.getPage)
+			r.With(s.requireScope("pages:read"), middleware.Compress(5, "application/json")).Get("/pages/{pageID}/backlinks", s.pageBacklinks)
 			r.With(s.requireScope("pages:write")).Patch("/pages/{pageID}", s.updatePage)
+			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/lock", s.lockPage)
+			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/unlock", s.unlockPage)
 			r.With(s.requireScope("pages:write")).Put("/pages/{pageID}/blocks", s.saveBlocks)
 			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/ops", s.syncBlocks)
 			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/duplicate", s.duplicatePage)

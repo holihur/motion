@@ -146,7 +146,7 @@ test.describe("page editor", () => {
     await firstRow.hover()
     await firstRow.getByLabel("Block options").first().click()
     await page.getByRole("menuitem", { name: "Turn into" }).hover()
-    await page.getByRole("menuitem", { name: "Heading 1" }).click()
+    await page.getByRole("menuitem", { name: "Heading 1", exact: true }).click()
 
     await expect
       .poll(async () => (await getPage(request, account.token, target.id)).blocks[0]?.type)

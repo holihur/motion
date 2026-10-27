@@ -43,7 +43,7 @@ npx -y mcp-remote http://localhost:8787/mcp \
 | `search_pages` | 搜索标题/正文/表格，空查询列出最近页面 | `pages:read` |
 | `read_page` | 读取页面块、块 ID 和 Markdown | `pages:read` |
 | `create_page` | 用 Markdown 创建页面 | `pages:write` |
-| `append_blocks` | 追加段落、标题、列表、待办、表格、Mermaid、甘特图、图表 | `pages:write` |
+| `append_blocks` | 追加段落、标题、列表、待办、表格、Mermaid、甘特图、图表、Toggle、页面链接、分栏 | `pages:write` |
 | `update_page` | 修改标题/Emoji | `pages:write` |
 | `update_block` | 替换某个块的文本 | `pages:write` |
 | `delete_pages` | 批量归档/永久删除页面，可包含子页面 | `pages:write` |

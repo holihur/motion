@@ -1,0 +1,120 @@
+package httpapi
+
+import (
+	"io"
+	"mime"
+	"net/http"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo/gridfs"
+	"go.mongodb.org/mongo-driver/mongo/options"
+)
+
+const maxUploadBytes = 25 << 20
+
+type uploadResponse struct {
+	ID          string `json:"id"`
+	URL         string `json:"url"`
+	Name        string `json:"name"`
+	Size        int64  `json:"size"`
+	ContentType string `json:"contentType"`
+}
+
+// uploadFile stores attachments in GridFS. Reviewers can fetch the returned
+// capability URL without a bearer token, so <img>/<a> work naturally.
+func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes+1<<20)
+	if err := r.ParseMultipartForm(maxUploadBytes + 1<<20); err != nil {
+		writeErr(w, http.StatusBadRequest, "file is too large (maximum 25 MB)")
+		return
+	}
+	workspaceID, err := primitive.ObjectIDFromHex(strings.TrimSpace(r.FormValue("workspaceId")))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	if _, ok := s.requireEditor(w, r, workspaceID); !ok {
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "choose a file to upload")
+		return
+	}
+	defer file.Close()
+	if header.Size > maxUploadBytes {
+		writeErr(w, http.StatusBadRequest, "file is too large (maximum 25 MB)")
+		return
+	}
+	name := filepath.Base(strings.TrimSpace(header.Filename))
+	if name == "" || name == "." {
+		name = "attachment"
+	}
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" || contentType == "application/octet-stream" {
+		contentType = mime.TypeByExtension(filepath.Ext(name))
+	}
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	bucket, err := gridfs.NewBucket(s.store.DB, options.GridFSBucket().SetName("uploads"))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not open file storage")
+		return
+	}
+	id := primitive.NewObjectID()
+	err = bucket.UploadFromStreamWithID(id, name, io.LimitReader(file, maxUploadBytes+1), options.GridFSUpload().
+		SetMetadata(bson.M{"contentType": contentType, "uploaderId": currentUserID(r), "workspaceId": workspaceID}))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not store file")
+		return
+	}
+	writeJSON(w, http.StatusCreated, uploadResponse{
+		ID: id.Hex(), URL: "/api/files/" + id.Hex(), Name: name,
+		Size: header.Size, ContentType: contentType,
+	})
+}
+
+func (s *Server) downloadFile(w http.ResponseWriter, r *http.Request) {
+	id, err := primitive.ObjectIDFromHex(chiURLParam(r, "fileID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid file id")
+		return
+	}
+	bucket, err := gridfs.NewBucket(s.store.DB, options.GridFSBucket().SetName("uploads"))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not open file storage")
+		return
+	}
+	stream, err := bucket.OpenDownloadStream(id)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "file not found")
+		return
+	}
+	defer stream.Close()
+	meta := stream.GetFile()
+	contentType := "application/octet-stream"
+	if len(meta.Metadata) > 0 {
+		var data struct {
+			ContentType string `bson:"contentType"`
+		}
+		if bson.Unmarshal(meta.Metadata, &data) == nil && data.ContentType != "" {
+			contentType = data.ContentType
+		}
+	}
+	if contentType == "application/octet-stream" {
+		if detected := mime.TypeByExtension(filepath.Ext(meta.Name)); detected != "" {
+			contentType = detected
+		}
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Length", strconv.FormatInt(meta.Length, 10))
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	w.Header().Set("Content-Disposition", "inline; filename=\""+strings.ReplaceAll(meta.Name, "\"", "")+"\"")
+	w.Header().Set("Last-Modified", meta.UploadDate.UTC().Format(http.TimeFormat))
+	_, _ = io.Copy(w, stream)
+}

@@ -9,11 +9,13 @@ import {
   Pencil,
   Play,
   Sigma,
+  Upload,
   Video,
 } from "lucide-react"
 import katex from "katex"
 import "katex/dist/katex.min.css"
 import type { Block } from "@/lib/types"
+import { api } from "@/lib/api"
 import { tr } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
@@ -42,18 +44,21 @@ function LinkPrompt({
   kind,
   readOnly,
   autoFocus,
+  workspaceId,
   onUpdate,
 }: {
   block: Block
   kind: "bookmark" | "video" | "embed" | "file"
   readOnly: boolean
   autoFocus?: boolean
+  workspaceId?: string
   onUpdate: (patch: Partial<Block>) => void
 }) {
   const [url, setUrl] = useState(block.url ?? "")
   const [title, setTitle] = useState(block.text ?? "")
   const [caption, setCaption] = useState(block.caption ?? "")
   const [error, setError] = useState("")
+  const [uploading, setUploading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const config = {
     bookmark: { label: tr("Link URL"), placeholder: "https://example.com", icon: Bookmark },
@@ -66,6 +71,23 @@ function LinkPrompt({
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus()
   }, [autoFocus])
+
+  async function upload(file: File) {
+    if (!workspaceId || uploading) return
+    setUploading(true)
+    setError("")
+    try {
+      const uploaded = await api.files.upload(file, workspaceId)
+      setUrl(uploaded.url)
+      setTitle(uploaded.name)
+      setError("")
+      onUpdate({ url: uploaded.url, text: uploaded.name, caption: "", rich: "" })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : tr("Could not upload file"))
+    } finally {
+      setUploading(false)
+    }
+  }
 
   function save() {
     const value = url.trim()
@@ -120,7 +142,13 @@ function LinkPrompt({
       )}
       {error && <p className="text-[11px] text-destructive">{error}</p>}
       {!readOnly && (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {kind === "file" && workspaceId && (
+            <label className="flex cursor-pointer items-center gap-1 rounded-md border px-2.5 py-1.5 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground">
+              <Upload className="size-3" /> {uploading ? tr("Uploading…") : tr("Upload file")}
+              <input type="file" className="hidden" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); event.target.value = "" }} />
+            </label>
+          )}
           <button
             type="button"
             onClick={save}
@@ -269,14 +297,14 @@ export function EmbedBlock({
 }
 
 export function FileBlock({
-  block, readOnly, autoFocus, onUpdate,
+  block, readOnly, autoFocus, workspaceId, onUpdate,
 }: {
-  block: Block; readOnly: boolean; autoFocus?: boolean; onUpdate: (patch: Partial<Block>) => void
+  block: Block; readOnly: boolean; autoFocus?: boolean; workspaceId?: string; onUpdate: (patch: Partial<Block>) => void
 }) {
   const [editing, setEditing] = useState(!block.url)
   useEffect(() => { if (!block.url) setEditing(true) }, [block.url])
   if (editing) {
-    return <LinkPrompt block={block} kind="file" readOnly={readOnly} autoFocus={autoFocus} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
+    return <LinkPrompt block={block} kind="file" readOnly={readOnly} autoFocus={autoFocus} workspaceId={workspaceId} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
   }
   const name = block.text || block.url?.split("/").filter(Boolean).pop() || tr("Attachment")
   return (

@@ -35,6 +35,20 @@ function estimatedHeight(block: Block): number {
       return 360
     case "chart":
       return 380
+    case "toggleHeading1":
+      return 58
+    case "toggleHeading2":
+      return 50
+    case "toggleHeading3":
+      return 44
+    case "toggle":
+      return 38
+    case "pageLink":
+      return 56
+    case "breadcrumb":
+      return 42
+    case "columns":
+      return 280
     case "divider":
       return 32
     case "callout":
@@ -46,11 +60,11 @@ function estimatedHeight(block: Block): number {
 }
 
 export function VirtualBlockList({
-  blocks,
+  items,
   scrollParentRef,
   renderRow,
 }: {
-  blocks: Block[]
+  items: { block: Block; index: number }[]
   scrollParentRef: React.RefObject<HTMLDivElement | null>
   renderRow: (block: Block, index: number) => React.ReactNode
 }) {
@@ -60,28 +74,28 @@ export function VirtualBlockList({
   useLayoutEffect(() => {
     const next = listRef.current?.offsetTop ?? 0
     setScrollMargin((current) => (current === next ? current : next))
-  }, [blocks.length])
+  }, [items.length])
 
   const virtualizer = useVirtualizer({
-    count: blocks.length,
+    count: items.length,
     getScrollElement: () => scrollParentRef.current,
-    estimateSize: (index) => estimatedHeight(blocks[index]),
+    estimateSize: (index) => estimatedHeight(items[index].block),
     overscan: 10,
     scrollMargin,
-    getItemKey: (index) => blocks[index].id,
+    getItemKey: (index) => items[index].block.id,
   })
 
   useEffect(() => {
     function scrollTo(event: Event) {
       const detail = (event as CustomEvent<{ id?: string }>).detail
       if (!detail?.id) return
-      const index = blocks.findIndex((block) => block.id === detail.id)
+      const index = items.findIndex((item) => item.block.id === detail.id)
       if (index >= 0) virtualizer.scrollToIndex(index, { align: "auto" })
     }
     function focusTo(event: Event) {
       const detail = (event as CustomEvent<{ id?: string; replay?: boolean }>).detail
       if (!detail?.id || detail.replay) return
-      const index = blocks.findIndex((block) => block.id === detail.id)
+      const index = items.findIndex((item) => item.block.id === detail.id)
       if (index < 0) return
       virtualizer.scrollToIndex(index, { align: "auto" })
       window.setTimeout(() => {
@@ -96,7 +110,7 @@ export function VirtualBlockList({
       window.removeEventListener("motion:scroll-block", scrollTo)
       window.removeEventListener("motion:focus-block", focusTo)
     }
-  }, [blocks, virtualizer])
+  }, [items, virtualizer])
 
   return (
     <div
@@ -107,8 +121,9 @@ export function VirtualBlockList({
       }}
     >
       {virtualizer.getVirtualItems().map((item) => {
-        const block = blocks[item.index]
-        if (!block) return null
+        const entry = items[item.index]
+        if (!entry) return null
+        const { block, index } = entry
         return (
           <div
             key={block.id}
@@ -117,7 +132,7 @@ export function VirtualBlockList({
             className="absolute left-0 top-0 w-full"
             style={{ transform: `translateY(${item.start - scrollMargin}px)` }}
           >
-            {renderRow(block, item.index)}
+            {renderRow(block, index)}
           </div>
         )
       })}

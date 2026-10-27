@@ -4,6 +4,7 @@ import {
   ChartColumn,
   ChartGantt,
   CheckSquare,
+  Columns2,
   Code2,
   FileText,
   Frame,
@@ -13,7 +14,10 @@ import {
   Image,
   KeyRound,
   List,
+  ListCollapse,
   ListTree,
+  Link2,
+  PanelTop,
   Sigma,
   Video,
   ListOrdered,
@@ -58,6 +62,13 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { type: "toc", title: "Table of contents", description: "Link to every heading on the page", icon: ListTree, keywords: "toc contents outline headings index" },
   { type: "gantt", title: "Gantt", description: "Plan tasks on a timeline", icon: ChartGantt, keywords: "gantt timeline project schedule tasks plan" },
   { type: "chart", title: "Chart", description: "Visualize data as bar, line or pie", icon: ChartColumn, keywords: "chart graph bar line pie data visualize" },
+  { type: "toggle", title: "Toggle", description: "Collapsible text section", icon: ListCollapse, keywords: "toggle collapse fold details" },
+  { type: "toggleHeading1", title: "Toggle heading 1", description: "Collapsible large heading", icon: Heading1, keywords: "toggle heading h1 fold" },
+  { type: "toggleHeading2", title: "Toggle heading 2", description: "Collapsible medium heading", icon: Heading2, keywords: "toggle heading h2 fold" },
+  { type: "toggleHeading3", title: "Toggle heading 3", description: "Collapsible small heading", icon: Heading3, keywords: "toggle heading h3 fold" },
+  { type: "pageLink", title: "Page link", description: "Mention another page", icon: Link2, keywords: "page mention link reference backlink" },
+  { type: "breadcrumb", title: "Breadcrumb", description: "Show this page's path", icon: PanelTop, keywords: "breadcrumb path parent navigation" },
+  { type: "columns", title: "Columns", description: "Place text side by side", icon: Columns2, keywords: "columns layout grid side" },
 ]
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
@@ -84,6 +95,13 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   toc: "Table of contents",
   gantt: "Gantt",
   chart: "Chart",
+  toggle: "Toggle",
+  toggleHeading1: "Toggle heading 1",
+  toggleHeading2: "Toggle heading 2",
+  toggleHeading3: "Toggle heading 3",
+  pageLink: "Page link",
+  breadcrumb: "Breadcrumb",
+  columns: "Columns",
 }
 
 export function filterCommands(query: string) {

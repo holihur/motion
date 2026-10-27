@@ -19,29 +19,36 @@ import (
 )
 
 var blockTypes = map[string]bool{
-	"paragraph": true,
-	"heading1":  true,
-	"heading2":  true,
-	"heading3":  true,
-	"bulleted":  true,
-	"numbered":  true,
-	"todo":      true,
-	"quote":     true,
-	"callout":   true,
-	"code":      true,
-	"divider":   true,
-	"image":     true,
-	"table":     true,
-	"diagram":   true,
-	"password":  true,
-	"bookmark":  true,
-	"video":     true,
-	"embed":     true,
-	"file":      true,
-	"equation":  true,
-	"toc":       true,
-	"gantt":     true,
-	"chart":     true,
+	"paragraph":      true,
+	"heading1":       true,
+	"heading2":       true,
+	"heading3":       true,
+	"bulleted":       true,
+	"numbered":       true,
+	"todo":           true,
+	"quote":          true,
+	"callout":        true,
+	"code":           true,
+	"divider":        true,
+	"image":          true,
+	"table":          true,
+	"diagram":        true,
+	"password":       true,
+	"bookmark":       true,
+	"video":          true,
+	"embed":          true,
+	"file":           true,
+	"equation":       true,
+	"toc":            true,
+	"gantt":          true,
+	"chart":          true,
+	"toggle":         true,
+	"toggleHeading1": true,
+	"toggleHeading2": true,
+	"toggleHeading3": true,
+	"pageLink":       true,
+	"breadcrumb":     true,
+	"columns":        true,
 }
 
 type createPageRequest struct {
@@ -451,8 +458,14 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		if len(b.Language) > 40 {
 			b.Language = b.Language[:40]
 		}
-		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" {
+		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" || b.Type == "columns" {
 			b.Table = sanitizeTable(b.Table)
+		}
+		if b.Indent < 0 {
+			b.Indent = 0
+		}
+		if b.Indent > 8 {
+			b.Indent = 8
 		}
 		if b.Type == "password" {
 			if len(b.Ciphertext) > 200_000 || len(b.Salt) > 100 || len(b.IV) > 100 {
@@ -554,8 +567,14 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 		if len(b.Language) > 40 {
 			b.Language = b.Language[:40]
 		}
-		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" {
+		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" || b.Type == "columns" {
 			b.Table = sanitizeTable(b.Table)
+		}
+		if b.Indent < 0 {
+			b.Indent = 0
+		}
+		if b.Indent > 8 {
+			b.Indent = 8
 		}
 		if b.Type == "password" {
 			if len(b.Ciphertext) > 200_000 || len(b.Salt) > 100 || len(b.IV) > 100 {
@@ -712,6 +731,50 @@ func (s *Server) deletePage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// pageBacklinks returns pages in the same workspace that link to this page
+// through a pageLink block.
+func (s *Server) pageBacklinks(w http.ResponseWriter, r *http.Request) {
+	pageID, err := primitive.ObjectIDFromHex(chiURLParam(r, "pageID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid page id")
+		return
+	}
+	page, _, err := s.accessiblePage(r, pageID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "page not found")
+		return
+	}
+	cur, err := s.store.Pages.Find(r.Context(), bson.M{
+		"workspaceId": page.WorkspaceID,
+		"_id":         bson.M{"$ne": page.ID},
+		"archived":    false,
+		"blocks": bson.M{"$elemMatch": bson.M{
+			"type": "pageLink", "url": page.ID.Hex(),
+		}},
+	}, options.Find().
+		SetProjection(bson.M{"title": 1, "icon": 1, "updatedAt": 1}).
+		SetSort(bson.D{{Key: "updatedAt", Value: -1}}).
+		SetLimit(50))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load backlinks")
+		return
+	}
+	defer cur.Close(r.Context())
+	var pages []model.Page
+	if err := cur.All(r.Context(), &pages); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load backlinks")
+		return
+	}
+	out := make([]map[string]any, 0, len(pages))
+	for _, item := range pages {
+		out = append(out, map[string]any{
+			"id": item.ID.Hex(), "title": item.Title, "icon": item.Icon,
+			"updatedAt": item.UpdatedAt,
+		})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 func sanitizeTable(table *model.TableData) *model.TableData {
 	if table == nil {
 		return &model.TableData{
@@ -755,4 +818,65 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 		cleaned[i] = out
 	}
 	return &model.TableData{Columns: columns, Rows: cleaned, Header: table.Header}
+}
+
+func (s *Server) setPageLocked(w http.ResponseWriter, r *http.Request, locked bool) {
+	pageID, err := primitive.ObjectIDFromHex(chiURLParam(r, "pageID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid page id")
+		return
+	}
+	page, role, err := s.accessiblePage(r, pageID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "page not found")
+		return
+	}
+	if !canEdit(role) {
+		writeErr(w, http.StatusForbidden, "you do not have permission to edit this page")
+		return
+	}
+	now := time.Now().UTC()
+	set := bson.M{"locked": locked, "updatedAt": now}
+	unset := bson.M{}
+	if locked {
+		_, name := s.editorFor(r)
+		page.LockedByName = name
+		page.LockedAt = &now
+		set["lockedByName"] = name
+		set["lockedAt"] = now
+	} else {
+		page.LockedByName = ""
+		page.LockedAt = nil
+		unset["lockedByName"] = ""
+		unset["lockedAt"] = ""
+	}
+	update := bson.M{"$set": set}
+	if len(unset) > 0 {
+		update["$unset"] = unset
+	}
+	if _, err := s.store.Pages.UpdateByID(r.Context(), page.ID, update); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not update page lock")
+		return
+	}
+	page.Locked = locked
+	userID, name := s.editorFor(r)
+	s.hub.Broadcast(page.ID.Hex(), map[string]any{
+		"type": "meta", "pageId": page.ID.Hex(), "clientId": clientID(r),
+		"page": map[string]any{
+			"title": page.Title, "icon": page.Icon, "cover": page.Cover,
+			"favorite": page.Favorite, "archived": page.Archived,
+			"locked": page.Locked, "lockedByName": page.LockedByName,
+		},
+		"editor": map[string]string{"userId": userID, "name": name, "color": realtime.ColorFor(userID)},
+	}, clientID(r))
+	s.broadcastTree(page.WorkspaceID, clientID(r))
+	writeJSON(w, http.StatusOK, page)
+}
+
+func (s *Server) lockPage(w http.ResponseWriter, r *http.Request) {
+	s.setPageLocked(w, r, true)
+}
+
+func (s *Server) unlockPage(w http.ResponseWriter, r *http.Request) {
+	s.setPageLocked(w, r, false)
 }

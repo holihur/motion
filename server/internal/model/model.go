@@ -58,26 +58,32 @@ type Block struct {
 	Salt       string     `bson:"salt,omitempty" json:"salt,omitempty"`
 	IV         string     `bson:"iv,omitempty" json:"iv,omitempty"`
 	Table      *TableData `bson:"table,omitempty" json:"table,omitempty"`
+	Indent     int        `bson:"indent,omitempty" json:"indent,omitempty"`
+	Collapsed  bool       `bson:"collapsed,omitempty" json:"collapsed,omitempty"`
+	Locked     bool       `bson:"locked,omitempty" json:"locked,omitempty"`
 }
 
 type Page struct {
-	ID          primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
-	WorkspaceID primitive.ObjectID  `bson:"workspaceId" json:"workspaceId"`
-	ParentID    *primitive.ObjectID `bson:"parentId,omitempty" json:"parentId,omitempty"`
-	Title       string              `bson:"title" json:"title"`
-	Icon        string              `bson:"icon" json:"icon"`
-	Cover       string              `bson:"cover" json:"cover"`
-	Blocks      []Block             `bson:"blocks" json:"blocks,omitempty"`
-	BlocksRev   int64               `bson:"blocksRev,omitempty" json:"blocksRev,omitempty"`
-	Text        string              `bson:"text" json:"-"`
-	Role        string              `bson:"-" json:"role,omitempty"`
-	Favorite    bool                `bson:"favorite" json:"favorite"`
-	Archived    bool                `bson:"archived" json:"archived"`
-	Order       float64             `bson:"order" json:"order"`
-	CreatedBy   primitive.ObjectID  `bson:"createdBy" json:"createdBy"`
-	CreatedAt   time.Time           `bson:"createdAt" json:"createdAt"`
-	UpdatedAt   time.Time           `bson:"updatedAt" json:"updatedAt"`
-	ArchivedAt  *time.Time          `bson:"archivedAt,omitempty" json:"archivedAt,omitempty"`
+	ID           primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
+	WorkspaceID  primitive.ObjectID  `bson:"workspaceId" json:"workspaceId"`
+	ParentID     *primitive.ObjectID `bson:"parentId,omitempty" json:"parentId,omitempty"`
+	Title        string              `bson:"title" json:"title"`
+	Icon         string              `bson:"icon" json:"icon"`
+	Cover        string              `bson:"cover" json:"cover"`
+	Blocks       []Block             `bson:"blocks" json:"blocks,omitempty"`
+	BlocksRev    int64               `bson:"blocksRev,omitempty" json:"blocksRev,omitempty"`
+	Text         string              `bson:"text" json:"-"`
+	Role         string              `bson:"-" json:"role,omitempty"`
+	Favorite     bool                `bson:"favorite" json:"favorite"`
+	Archived     bool                `bson:"archived" json:"archived"`
+	Locked       bool                `bson:"locked,omitempty" json:"locked"`
+	LockedByName string              `bson:"lockedByName,omitempty" json:"lockedByName,omitempty"`
+	LockedAt     *time.Time          `bson:"lockedAt,omitempty" json:"lockedAt,omitempty"`
+	Order        float64             `bson:"order" json:"order"`
+	CreatedBy    primitive.ObjectID  `bson:"createdBy" json:"createdBy"`
+	CreatedAt    time.Time           `bson:"createdAt" json:"createdAt"`
+	UpdatedAt    time.Time           `bson:"updatedAt" json:"updatedAt"`
+	ArchivedAt   *time.Time          `bson:"archivedAt,omitempty" json:"archivedAt,omitempty"`
 }
 
 // PageSummary is the lightweight shape used by the sidebar tree.
@@ -89,6 +95,7 @@ type PageSummary struct {
 	Cover     string              `bson:"cover" json:"cover"`
 	Favorite  bool                `bson:"favorite" json:"favorite"`
 	Archived  bool                `bson:"archived" json:"archived"`
+	Locked    bool                `bson:"locked,omitempty" json:"locked"`
 	Order     float64             `bson:"order" json:"order"`
 	UpdatedAt time.Time           `bson:"updatedAt" json:"updatedAt"`
 	Text      string              `bson:"text,omitempty" json:"-"`

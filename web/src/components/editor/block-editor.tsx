@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Plus } from "lucide-react"
-import type { Block, BlockType, Comment } from "@/lib/types"
+import type { Block, BlockType, Comment, Member } from "@/lib/types"
 import { uid } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 import { markOnboardingStep } from "@/lib/onboarding"
@@ -10,10 +10,12 @@ import { SlashMenu, type SlashState } from "@/components/editor/slash-menu"
 import { VirtualBlockList } from "@/components/editor/virtual-block-list"
 import type { HeadingItem } from "@/components/editor/rich-blocks"
 import { defaultChartTable, defaultGanttTable } from "@/components/editor/data-blocks"
+import { defaultColumnsTable } from "@/components/editor/link-blocks"
 import type { RealtimePresence } from "@/lib/realtime"
 import { filterCommands, type SlashCommand } from "@/components/editor/commands"
 
 const LIST_TYPES: BlockType[] = ["bulleted", "numbered", "todo"]
+const TOGGLE_TYPES: BlockType[] = ["toggle", "toggleHeading1", "toggleHeading2", "toggleHeading3"]
 
 const SHORTCUTS: [string, BlockType][] = [
   ["### ", "heading3"],
@@ -35,7 +37,7 @@ function createBlock(type: BlockType = "paragraph"): Block {
     type,
     text: type === "diagram" ? DEFAULT_DIAGRAM : "",
     checked: false,
-    ...(type === "code" ? { language: "plain text" } : {}),
+    ...(type === "code" ? { language: "auto" } : {}),
     ...(type === "callout" ? { color: "amber" } : {}),
     ...(type === "table"
       ? {
@@ -48,6 +50,7 @@ function createBlock(type: BlockType = "paragraph"): Block {
       : {}),
     ...(type === "gantt" ? { table: defaultGanttTable() } : {}),
     ...(type === "chart" ? { table: defaultChartTable(), language: "bar" } : {}),
+    ...(type === "columns" ? { table: defaultColumnsTable() } : {}),
   }
 }
 
@@ -88,6 +91,9 @@ export function BlockEditor({
   onCommentBlock,
   scrollParentRef,
   readOnly = false,
+  breadcrumb = [],
+  workspaceId = "",
+  members = [],
 }: {
   blocks: Block[]
   onChange: (blocks: Block[]) => void
@@ -99,6 +105,9 @@ export function BlockEditor({
   onCommentBlock?: (blockId: string) => void
   scrollParentRef?: React.RefObject<HTMLDivElement | null>
   readOnly?: boolean
+  breadcrumb?: { id: string; title: string; icon: string }[]
+  workspaceId?: string
+  members?: Member[]
 }) {
   const blocksRef = useRef(blocks)
   blocksRef.current = blocks
@@ -139,14 +148,41 @@ export function BlockEditor({
   const headings = useMemo<HeadingItem[]>(
     () =>
       blocks
-        .filter((block) => block.type === "heading1" || block.type === "heading2" || block.type === "heading3")
+        .filter((block) => ["heading1", "heading2", "heading3", "toggleHeading1", "toggleHeading2", "toggleHeading3"].includes(block.type))
         .map((block) => ({
           id: block.id,
           text: block.text,
-          level: block.type === "heading1" ? 1 : block.type === "heading2" ? 2 : 3,
+          level: block.type.includes("1") ? 1 : block.type.includes("2") ? 2 : 3,
         })),
     [blocks],
   )
+
+  const visibleEntries = useMemo(() => {
+    const entries: { block: Block; index: number }[] = []
+    let hiddenIndent: number | null = null
+    blocks.forEach((block, index) => {
+      const indent = block.indent ?? 0
+      if (hiddenIndent !== null && indent > hiddenIndent) return
+      if (hiddenIndent !== null) hiddenIndent = null
+      entries.push({ block, index })
+      if (TOGGLE_TYPES.includes(block.type) && block.collapsed) hiddenIndent = indent
+    })
+    return entries
+  }, [blocks])
+
+  const toggleHasChildren = useMemo(() => {
+    const result = new Set<string>()
+    blocks.forEach((block, index) => {
+      if (!TOGGLE_TYPES.includes(block.type)) return
+      const indent = block.indent ?? 0
+      for (let next = index + 1; next < blocks.length; next += 1) {
+        const nextIndent = blocks[next].indent ?? 0
+        if (nextIndent <= indent) break
+        result.add(block.id)
+      }
+    })
+    return result
+  }, [blocks])
 
   const numbers = useMemo(() => {
     let current = 0
@@ -208,7 +244,7 @@ export function BlockEditor({
       text: nextText,
       rich: "",
       checked: false,
-      ...(type === "code" ? { language: block.language || "plain text" } : {}),
+      ...(type === "code" ? { language: block.language || "auto" } : {}),
       ...(type === "callout" ? { color: block.color || "amber" } : {}),
       ...(type === "table"
         ? {
@@ -228,6 +264,7 @@ export function BlockEditor({
             language: "bar",
           }
         : {}),
+      ...(type === "columns" ? { table: block.type === "columns" && block.table ? block.table : defaultColumnsTable() } : {}),
     })
     focusNew(block.id, clear ? "start" : "end")
     closeSlash()
@@ -272,7 +309,7 @@ export function BlockEditor({
         text: "",
         rich: "",
         checked: false,
-        ...(type === "code" ? { language: "plain text" } : {}),
+        ...(type === "code" ? { language: "auto" } : {}),
       })
       closeSlash()
       focusNew(block.id, "start")
@@ -352,6 +389,13 @@ export function BlockEditor({
       return
     }
 
+    if (event.key === "Tab") {
+      event.preventDefault()
+      const next = Math.max(0, Math.min(8, (block.indent ?? 0) + (event.shiftKey ? -1 : 1)))
+      if (next !== (block.indent ?? 0)) updateBlock(index, { indent: next })
+      return
+    }
+
     if (block.type === "divider" || block.type === "image") {
       if (event.key === "Enter") {
         event.preventDefault()
@@ -389,9 +433,13 @@ export function BlockEditor({
       if (block.type === "bulleted" || block.type === "numbered" || block.type === "todo") {
         nextType = block.type
       }
+      if (TOGGLE_TYPES.includes(block.type) && block.collapsed) {
+        updateBlock(index, { collapsed: false })
+      }
       const fresh = createBlock(nextType)
       fresh.text = after
       fresh.rich = ""
+      fresh.indent = TOGGLE_TYPES.includes(block.type) ? (block.indent ?? 0) + 1 : block.indent ?? 0
       commit([
         ...blocksRef.current.slice(0, index),
         { ...block, text: before, rich: after ? "" : block.rich },
@@ -612,6 +660,12 @@ export function BlockEditor({
         autoFocusWhere={autoFocus?.where}
         autoFocusOffset={autoFocus?.offset}
         headings={headings}
+        breadcrumb={breadcrumb}
+        workspaceId={workspaceId}
+        members={members}
+        hasChildren={toggleHasChildren.has(block.id)}
+        onToggleCollapsed={() => updateBlock(index, { collapsed: !block.collapsed })}
+        onToggleLock={() => updateBlock(index, { locked: !block.locked })}
         onInput={(text, el, rich) => handleInput(index, text, el, rich)}
         onKeyDown={handleKeyDown}
         onPaste={(text) => handlePaste(index, text)}
@@ -644,9 +698,9 @@ export function BlockEditor({
   return (
     <div className="relative">
       {blocks.length > 80 && scrollParentRef ? (
-        <VirtualBlockList blocks={blocks} scrollParentRef={scrollParentRef} renderRow={renderRow} />
+        <VirtualBlockList items={visibleEntries} scrollParentRef={scrollParentRef} renderRow={renderRow} />
       ) : (
-        <div className="space-y-0.5">{blocks.map(renderRow)}</div>
+        <div className="space-y-0.5">{visibleEntries.map(({ block, index }) => renderRow(block, index))}</div>
       )}
 
 

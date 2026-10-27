@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react"
 import {
   Check,
-  Code2,
   Copy,
   GripVertical,
+  LockKeyhole,
+  LockOpen,
   ImageIcon,
   MessageSquare,
   MoreHorizontal,
@@ -11,12 +12,15 @@ import {
   Network,
   Plus,
   RefreshCw,
+  ChevronRight,
   Table2,
   Trash2,
+  Upload,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
-import type { Block, BlockType, Comment } from "@/lib/types"
+import { api } from "@/lib/api"
+import type { Block, BlockType, Comment, Member } from "@/lib/types"
 import { BLOCK_LABELS, SLASH_COMMANDS } from "@/components/editor/commands"
 import { CALLOUT_COLORS, CALLOUT_EMOJI } from "@/lib/covers"
 import { cn, formatRelative } from "@/lib/utils"
@@ -36,7 +40,9 @@ import type { RealtimePresence } from "@/lib/realtime"
 import { MermaidDiagram } from "@/components/editor/mermaid-diagram"
 import { LexicalBlock } from "@/components/editor/lexical-block"
 import { PasswordBlock } from "@/components/editor/password-block"
+import { CodeBlock } from "@/components/editor/code-block"
 import { ChartBlock, GanttBlock } from "@/components/editor/data-blocks"
+import { BreadcrumbBlock, ColumnsBlock, PageLinkBlock } from "@/components/editor/link-blocks"
 import {
   BookmarkBlock,
   EmbedBlock,
@@ -57,11 +63,17 @@ export interface BlockRowProps {
   isDragging: boolean
   dropPosition: "before" | "after" | null
   readOnly?: boolean
+  onToggleLock?: () => void
   resetKey?: number
   autoFocus?: boolean
   autoFocusWhere?: "start" | "end"
   autoFocusOffset?: number
+  hasChildren?: boolean
+  onToggleCollapsed?: () => void
   headings?: HeadingItem[]
+  breadcrumb?: { id: string; title: string; icon: string }[]
+  workspaceId?: string
+  members?: Member[]
   focusUsers?: RealtimePresence[]
   commentCount?: number
   comments?: Comment[]
@@ -92,12 +104,18 @@ export function BlockRow(props: BlockRowProps) {
     slashActive,
     isDragging,
     dropPosition,
-    readOnly = false,
+    readOnly: pageReadOnly = false,
+    onToggleLock,
     resetKey = 0,
     autoFocus = false,
     autoFocusWhere,
     autoFocusOffset,
+    hasChildren = false,
+    onToggleCollapsed,
     headings = [],
+    breadcrumb = [],
+    workspaceId = "",
+    members = [],
     focusUsers,
     commentCount = 0,
     comments = [],
@@ -119,25 +137,21 @@ export function BlockRow(props: BlockRowProps) {
     onDrop,
   } = props
 
+  const locked = Boolean(block.locked)
+  const readOnly = pageReadOnly || locked
+
   const editableRef = useRef<HTMLDivElement>(null)
-  const codeRef = useRef<HTMLTextAreaElement>(null)
   const imageRef = useRef<HTMLDivElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
   const [imageDraft, setImageDraft] = useState("")
   const [imageError, setImageError] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [diagramEditing, setDiagramEditing] = useState(!block.text)
 
   useEffect(() => {
     const el = editableRef.current
     if (!el) return
     if (el.innerText !== block.text) el.innerText = block.text
-  }, [block.text, block.type])
-
-  useEffect(() => {
-    const el = codeRef.current
-    if (!el) return
-    el.style.height = "auto"
-    el.style.height = `${el.scrollHeight}px`
   }, [block.text, block.type])
 
   useEffect(() => {
@@ -185,12 +199,65 @@ export function BlockRow(props: BlockRowProps) {
         onInput={(text, rich, el) => onInput(text, el, rich)}
         onKeyDown={(event) => onKeyDown(event, index)}
         onPaste={(text) => onPaste(text)}
+        members={members}
       />
     )
   }
 
+  async function uploadImage(file: File) {
+    if (!workspaceId || uploading) return
+    setUploading(true)
+    try {
+      const uploaded = await api.files.upload(file, workspaceId)
+      onUpdate({ url: uploaded.url, caption: block.caption || uploaded.name, rich: "" })
+      toast.success(tr("Image uploaded"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not upload image"))
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  function imageDrop(event: React.DragEvent) {
+    const file = Array.from(event.dataTransfer.files).find((item) => item.type.startsWith("image/"))
+    if (!file) return
+    event.preventDefault()
+    event.stopPropagation()
+    void uploadImage(file)
+  }
+
   function renderContent() {
     switch (block.type) {
+      case "toggle":
+      case "toggleHeading1":
+      case "toggleHeading2":
+      case "toggleHeading3": {
+        const headingClass =
+          block.type === "toggleHeading1"
+            ? "text-[30px] font-semibold leading-[1.25] tracking-[-0.02em] py-1.5 mt-5"
+            : block.type === "toggleHeading2"
+              ? "text-[24px] font-semibold leading-[1.3] tracking-[-0.015em] py-1 mt-4"
+              : block.type === "toggleHeading3"
+                ? "text-[19px] font-semibold leading-[1.4] py-1 mt-3"
+                : "text-[15px] leading-[1.7] py-[3px]"
+        return (
+          <div className={cn("flex items-start gap-1", block.type !== "toggle" && "mt-0.5")}>
+            <button
+              type="button"
+              aria-label={block.collapsed ? tr("Expand") : tr("Collapse")}
+              aria-expanded={!block.collapsed}
+              onClick={onToggleCollapsed}
+              className={cn(
+                "mt-[7px] flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground",
+                !hasChildren && "opacity-30",
+              )}
+            >
+              <ChevronRight className={cn("size-3.5 transition-transform", !block.collapsed && "rotate-90")} />
+            </button>
+            {renderEditable(headingClass)}
+          </div>
+        )
+      }
       case "heading1":
         return renderEditable("text-[30px] font-semibold leading-[1.25] tracking-[-0.02em] py-1.5 mt-5")
       case "heading2":
@@ -264,40 +331,17 @@ export function BlockRow(props: BlockRowProps) {
       }
       case "code":
         return (
-          <div className="overflow-hidden rounded-lg border border-border/80 bg-muted/45">
-            <div className="flex items-center justify-between border-b border-border/60 px-3 py-1.5">
-              <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                <Code2 className="size-3" />
-                {block.language || "plain text"}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  void navigator.clipboard.writeText(block.text).then(
-                    () => toast.success("Code copied"),
-                    () => toast.error("Could not copy code"),
-                  )
-                }}
-                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition hover:bg-background hover:text-foreground"
-              >
-                <Copy className="size-3" /> Copy
-              </button>
-            </div>
-            <textarea
-              ref={codeRef}
-              id={`block-input-${block.id}`}
-              data-block-input
-              value={block.text}
-              rows={1}
-              readOnly={readOnly}
-              spellCheck={false}
-              placeholder={placeholder}
-              onChange={(event) => onInput(event.target.value, event.currentTarget)}
-              onKeyDown={(event) => onKeyDown(event, index)}
-              onFocus={() => onFocusBlock?.(block.id)}
-              className="block-input block-code-input min-h-[44px] w-full resize-none bg-transparent px-3.5 py-3 font-mono text-[13px] leading-6 outline-none placeholder:text-muted-foreground/50"
-            />
-          </div>
+          <CodeBlock
+            block={block}
+            index={index}
+            readOnly={readOnly}
+            placeholder={placeholder}
+            autoFocus={autoFocus}
+            onInput={(text, el) => onInput(text, el)}
+            onKeyDown={(event, rowIndex) => onKeyDown(event, rowIndex)}
+            onFocus={() => onFocusBlock?.(block.id)}
+            onUpdate={onUpdate}
+          />
         )
       case "table": {
         const table = block.table ?? {
@@ -498,7 +542,7 @@ export function BlockRow(props: BlockRowProps) {
       case "embed":
         return <EmbedBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "file":
-        return <FileBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+        return <FileBlock block={block} readOnly={readOnly} autoFocus={autoFocus} workspaceId={workspaceId} onUpdate={onUpdate} />
       case "equation":
         return <EquationBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "toc":
@@ -507,6 +551,12 @@ export function BlockRow(props: BlockRowProps) {
         return <GanttBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "chart":
         return <ChartBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+      case "pageLink":
+        return <PageLinkBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
+      case "breadcrumb":
+        return <BreadcrumbBlock block={block} breadcrumb={breadcrumb} />
+      case "columns":
+        return <ColumnsBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
       case "image":
         return block.url ? (
           <figure
@@ -516,6 +566,8 @@ export function BlockRow(props: BlockRowProps) {
             tabIndex={0}
             onKeyDown={(event) => onKeyDown(event, index)}
             onFocus={() => onFocusBlock?.(block.id)}
+            onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) event.preventDefault() }}
+            onDrop={imageDrop}
             className="my-2 overflow-hidden rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
           >
             {imageError ? (
@@ -545,6 +597,14 @@ export function BlockRow(props: BlockRowProps) {
                 {block.caption}
               </figcaption>
             )}
+            {!readOnly && (
+              <div className="flex justify-end border-t border-border/40 p-1.5">
+                <label className="flex cursor-pointer items-center gap-1 rounded px-2 py-1 text-[10px] text-muted-foreground transition hover:bg-accent hover:text-foreground">
+                  <Upload className="size-3" /> {uploading ? tr("Uploading…") : tr("Replace image")}
+                  <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.target.value = "" }} />
+                </label>
+              </div>
+            )}
           </figure>
         ) : (
           <div
@@ -554,6 +614,8 @@ export function BlockRow(props: BlockRowProps) {
             tabIndex={0}
             onKeyDown={(event) => onKeyDown(event, index)}
             onFocus={() => onFocusBlock?.(block.id)}
+            onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) event.preventDefault() }}
+            onDrop={imageDrop}
             className="my-2 flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-6 outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
           >
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -583,6 +645,10 @@ export function BlockRow(props: BlockRowProps) {
               >
                 Embed
               </button>
+              <label className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md border px-2 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground">
+                <Upload className="size-3" /> {uploading ? tr("Uploading…") : tr("Upload")}
+                <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadImage(file); event.target.value = "" }} />
+              </label>
             </div>}
           </div>
         )
@@ -604,6 +670,7 @@ export function BlockRow(props: BlockRowProps) {
         dropPosition === "after" && "block-drop-after",
         slashActive && "z-10",
       )}
+      style={{ marginLeft: (block.indent ?? 0) * 18 }}
       onDragOver={handleOver}
       onDrop={handleDrop}
     >
@@ -642,6 +709,8 @@ export function BlockRow(props: BlockRowProps) {
         </Tooltip>
         <BlockMenu
           block={block}
+          locked={locked}
+          onToggleLock={onToggleLock}
           onConvert={onConvert}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
@@ -669,6 +738,17 @@ export function BlockRow(props: BlockRowProps) {
       <div key={block.type} className="min-w-0 flex-1">
         {renderContent()}
       </div>
+
+      {locked && !pageReadOnly && (
+        <button
+          type="button"
+          onClick={onToggleLock}
+          aria-label={tr("Unlock block")}
+          className="ml-1 mt-1 flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground"
+        >
+          <LockOpen className="size-3" />
+        </button>
+      )}
 
       {commentCount > 0 && (
         <Popover>
@@ -726,6 +806,8 @@ export function BlockRow(props: BlockRowProps) {
       {!readOnly && <div className="flex size-6 shrink-0 items-center justify-center md:hidden">
         <BlockMenu
           block={block}
+          locked={locked}
+          onToggleLock={onToggleLock}
           onConvert={onConvert}
           onDuplicate={onDuplicate}
           onDelete={onDelete}
@@ -748,6 +830,8 @@ export function BlockRow(props: BlockRowProps) {
 
 function BlockMenu({
   block,
+  locked = false,
+  onToggleLock,
   trigger,
   onConvert,
   onDuplicate,
@@ -756,6 +840,8 @@ function BlockMenu({
   align = "start",
 }: {
   block: Block
+  locked?: boolean
+  onToggleLock?: () => void
   trigger: React.ReactNode
   onConvert: (type: BlockType) => void
   onDuplicate: () => void
@@ -783,6 +869,12 @@ function BlockMenu({
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        {onToggleLock && (
+          <DropdownMenuItem onSelect={onToggleLock}>
+            {locked ? <LockOpen /> : <LockKeyhole />}
+            {locked ? tr("Unlock block") : tr("Lock block")}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={onDuplicate}>
           <Copy /> Duplicate
         </DropdownMenuItem>

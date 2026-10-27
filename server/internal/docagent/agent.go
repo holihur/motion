@@ -288,6 +288,26 @@ func markdownFor(page model.Page) string {
 				}
 				builder.WriteString("\n")
 			}
+		case "pageLink":
+			builder.WriteString("[" + block.Text + "](/page/" + block.URL + ")\n\n")
+		case "toggle", "toggleHeading1", "toggleHeading2", "toggleHeading3":
+			prefix := "> "
+			if block.Type == "toggleHeading1" {
+				prefix = "# "
+			}
+			if block.Type == "toggleHeading2" {
+				prefix = "## "
+			}
+			if block.Type == "toggleHeading3" {
+				prefix = "### "
+			}
+			builder.WriteString(prefix + block.Text + "\n\n")
+		case "breadcrumb", "columns":
+			if block.Table != nil {
+				for _, row := range block.Table.Rows {
+					builder.WriteString(strings.Join(row, " | ") + "\n\n")
+				}
+			}
 		case "password":
 			builder.WriteString("🔒 " + block.Text + "\n\n")
 		default:

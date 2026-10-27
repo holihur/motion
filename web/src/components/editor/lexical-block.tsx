@@ -39,6 +39,8 @@ import {
 } from "@lexical/markdown"
 import { LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link"
 import { mergeRegister } from "@lexical/utils"
+import { MentionNode, MentionPlugin } from "@/components/editor/mention-node"
+import type { Member } from "@/lib/types"
 import { caretOffset } from "@/lib/caret"
 import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
@@ -84,6 +86,7 @@ export interface LexicalBlockProps {
   onInput: (text: string, rich: string, el: HTMLElement) => void
   onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => void
   onPaste: (text: string) => void
+  members?: Member[]
 }
 
 export function LexicalBlock({
@@ -101,6 +104,7 @@ export function LexicalBlock({
   onInput,
   onKeyDown,
   onPaste,
+  members = [],
 }: LexicalBlockProps) {
   const lastRichRef = useRef(rich ?? "")
   const composerKey = `${id}:${readOnly ? "ro" : "rw"}:${resetKey}`
@@ -108,7 +112,7 @@ export function LexicalBlock({
   const initialConfig = {
     namespace: `motion-block-${id}`,
     theme: THEME,
-    nodes: [LinkNode],
+    nodes: [LinkNode, MentionNode],
     editable: !readOnly,
     editorState: rich || textToEditorState(text),
     onError(error: Error) {
@@ -165,6 +169,7 @@ export function LexicalBlock({
           lastRichRef={lastRichRef}
           onInput={onInput}
         />
+        <MentionPlugin members={members} />
         <FocusBridge
           id={id}
           autoFocus={autoFocus}

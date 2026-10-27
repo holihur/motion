@@ -280,3 +280,36 @@
   text-underline-offset: 2px;
   cursor: pointer;
 }
+
+/* Syntax highlighting (highlight.js token classes) */
+.hljs { color: var(--foreground); }
+.hljs-comment, .hljs-quote { color: #6b7280; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-section, .hljs-link { color: #7c3aed; }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attribute, .hljs-meta .hljs-string { color: #047857; }
+.hljs-number, .hljs-symbol, .hljs-bullet, .hljs-variable, .hljs-template-variable { color: #b45309; }
+.hljs-title, .hljs-title.class_, .hljs-title.function_, .hljs-built_in, .hljs-type { color: #0369a1; }
+.hljs-attr, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id { color: #be123c; }
+.hljs-tag, .hljs-name { color: #0f766e; }
+.hljs-meta, .hljs-doctag { color: #6d28d9; }
+.hljs-deletion { color: #b91c1c; }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
+.dark .hljs-comment, .dark .hljs-quote { color: #8b949e; }
+.dark .hljs-keyword, .dark .hljs-selector-tag, .dark .hljs-literal, .dark .hljs-section, .dark .hljs-link { color: #c4b5fd; }
+.dark .hljs-string, .dark .hljs-regexp, .dark .hljs-addition, .dark .hljs-attribute, .dark .hljs-meta .hljs-string { color: #86efac; }
+.dark .hljs-number, .dark .hljs-symbol, .dark .hljs-bullet, .dark .hljs-variable, .dark .hljs-template-variable { color: #fcd34d; }
+.dark .hljs-title, .dark .hljs-title.class_, .dark .hljs-title.function_, .dark .hljs-built_in, .dark .hljs-type { color: #7dd3fc; }
+.dark .hljs-attr, .dark .hljs-selector-attr, .dark .hljs-selector-class, .dark .hljs-selector-id { color: #f9a8d4; }
+.dark .hljs-tag, .dark .hljs-name { color: #5eead4; }
+.dark .hljs-meta, .dark .hljs-doctag { color: #d8b4fe; }
+.dark .hljs-deletion { color: #fca5a5; }
+
+/* Inline @user mentions */
+.lexical-mention {
+  color: var(--mention-color, var(--brand));
+  background: color-mix(in oklch, var(--mention-color, var(--brand)) 13%, transparent);
+  border-radius: 0.3rem;
+  padding: 0.04rem 0.24rem;
+  font-weight: 500;
+  white-space: nowrap;
+}

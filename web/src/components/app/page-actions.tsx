@@ -5,6 +5,8 @@ import {
   Download,
   FilePlus2,
   Link2,
+  LockKeyhole,
+  LockOpen,
   MoreHorizontal,
   PencilLine,
   Star,
@@ -54,6 +56,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const restorePage = useWorkspaceStore((state) => state.restorePage)
   const duplicatePage = useWorkspaceStore((state) => state.duplicatePage)
   const [renameOpen, setRenameOpen] = useState(false)
+  const locked = Boolean(page.locked)
 
   const isCurrent = location.pathname === `/page/${page.id}`
 
@@ -105,6 +108,19 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     }
   }
 
+  async function onToggleLock() {
+    try {
+      const updated = locked ? await api.pages.unlock(page.id) : await api.pages.lock(page.id)
+      useWorkspaceStore.getState().patchSummary(page.id, { locked: updated.locked })
+      window.dispatchEvent(new CustomEvent("motion:page-lock", {
+        detail: { id: page.id, locked: updated.locked, lockedByName: updated.lockedByName },
+      }))
+      toast.success(updated.locked ? tr("Page locked") : tr("Page unlocked"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not change page lock"))
+    }
+  }
+
   async function onExport() {
     try {
       const full = await api.pages.get(page.id)
@@ -135,10 +151,15 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align={align} className="w-56">
-          {!readOnly && <DropdownMenuItem onSelect={openRename}>
+          {!readOnly && <DropdownMenuItem onSelect={onToggleLock}>
+            {locked ? <LockOpen /> : <LockKeyhole />}
+            {locked ? tr("Unlock page") : tr("Lock page")}
+          </DropdownMenuItem>}
+          {!readOnly && <DropdownMenuSeparator />}
+          {!readOnly && !locked && <DropdownMenuItem onSelect={openRename}>
             <PencilLine /> {tr("Rename")}
           </DropdownMenuItem>}
-          {!readOnly && <DropdownMenuItem
+          {!readOnly && !locked && <DropdownMenuItem
             onSelect={() => {
               void toggleFavorite(page.id).then((favorite) =>
                 toast.success(favorite ? "Added to Favorites" : "Removed from Favorites"),
@@ -148,11 +169,11 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
             {page.favorite ? <StarOff /> : <Star />}
             {page.favorite ? tr("Remove from Favorites") : tr("Add to Favorites")}
           </DropdownMenuItem>}
-          {!readOnly && <DropdownMenuItem onSelect={() => void onAddSubpage()}>
+          {!readOnly && !locked && <DropdownMenuItem onSelect={() => void onAddSubpage()}>
             <FilePlus2 /> {tr("Add sub-page")}
           </DropdownMenuItem>}
-          {!readOnly && <DropdownMenuSeparator />}
-          {!readOnly && <DropdownMenuItem onSelect={() => void onDuplicate()}>
+          {!readOnly && !locked && <DropdownMenuSeparator />}
+          {!readOnly && !locked && <DropdownMenuItem onSelect={() => void onDuplicate()}>
             <Copy /> {tr("Duplicate")}
           </DropdownMenuItem>}
           <DropdownMenuItem onSelect={() => void onCopyLink()}>
@@ -161,8 +182,8 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           <DropdownMenuItem onSelect={() => void onExport()}>
             <Download /> {tr("Export as Markdown")}
           </DropdownMenuItem>
-          {!readOnly && <DropdownMenuSeparator />}
-          {!readOnly && <DropdownMenuItem variant="destructive" onSelect={() => void onArchive()}>
+          {!readOnly && !locked && <DropdownMenuSeparator />}
+          {!readOnly && !locked && <DropdownMenuItem variant="destructive" onSelect={() => void onArchive()}>
             <Trash2 /> {tr("Move to Trash")}
           </DropdownMenuItem>}
         </DropdownMenuContent>

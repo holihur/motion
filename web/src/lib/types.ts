@@ -22,6 +22,13 @@ export type BlockType =
   | "toc"
   | "gantt"
   | "chart"
+  | "toggle"
+  | "toggleHeading1"
+  | "toggleHeading2"
+  | "toggleHeading3"
+  | "pageLink"
+  | "breadcrumb"
+  | "columns"
 
 export interface TableData {
   columns: string[]
@@ -45,6 +52,10 @@ export interface Block {
   salt?: string
   iv?: string
   table?: TableData
+  /** 0 = root. Used by toggles and nested content. */
+  indent?: number
+  collapsed?: boolean
+  locked?: boolean
 }
 
 export interface User {
@@ -83,6 +94,8 @@ export interface PageSummary {
   cover: string
   favorite: boolean
   archived: boolean
+  locked?: boolean
+  lockedByName?: string
   order: number
   updatedAt: string
   snippet?: string
@@ -96,6 +109,13 @@ export interface Page extends PageSummary {
   createdBy: string
   createdAt: string
   archivedAt?: string
+}
+
+export interface Backlink {
+  id: string
+  title: string
+  icon: string
+  updatedAt: string
 }
 
 export interface PageRevision {

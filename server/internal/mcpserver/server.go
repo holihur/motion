@@ -357,13 +357,15 @@ func (s *Server) createPage(ctx context.Context, _ *mcp.CallToolRequest, args Cr
 }
 
 type BlockArg struct {
-	Type     string           `json:"type" jsonschema:"paragraph, heading1, heading2, heading3, bulleted, numbered, todo, quote, callout, code, divider, image, table, diagram, bookmark, video, embed, file, equation, toc, gantt or chart"`
-	Text     string           `json:"text,omitempty"`
-	Checked  bool             `json:"checked,omitempty"`
-	Language string           `json:"language,omitempty"`
-	Color    string           `json:"color,omitempty"`
-	URL      string           `json:"url,omitempty"`
-	Table    *model.TableData `json:"table,omitempty"`
+	Type      string           `json:"type" jsonschema:"paragraph, heading1, heading2, heading3, bulleted, numbered, todo, quote, callout, code, divider, image, table, diagram, bookmark, video, embed, file, equation, toc, gantt, chart, toggle, toggleHeading1, toggleHeading2, toggleHeading3, pageLink, breadcrumb or columns"`
+	Text      string           `json:"text,omitempty"`
+	Checked   bool             `json:"checked,omitempty"`
+	Language  string           `json:"language,omitempty"`
+	Color     string           `json:"color,omitempty"`
+	URL       string           `json:"url,omitempty"`
+	Table     *model.TableData `json:"table,omitempty"`
+	Indent    int              `json:"indent,omitempty"`
+	Collapsed bool             `json:"collapsed,omitempty"`
 }
 
 type AppendBlocksArgs struct {
@@ -383,6 +385,9 @@ func (s *Server) appendBlocks(ctx context.Context, _ *mcp.CallToolRequest, args 
 	if role == "viewer" {
 		return toolError("you only have view access")
 	}
+	if page.Locked {
+		return toolError("page is locked; unlock it before editing")
+	}
 	if len(args.Blocks) == 0 {
 		return toolError("no blocks provided")
 	}
@@ -392,7 +397,9 @@ func (s *Server) appendBlocks(ctx context.Context, _ *mcp.CallToolRequest, args 
 		"callout": true, "code": true, "divider": true, "image": true,
 		"table": true, "diagram": true, "bookmark": true, "video": true,
 		"embed": true, "file": true, "equation": true, "toc": true,
-		"gantt": true, "chart": true,
+		"gantt": true, "chart": true, "toggle": true,
+		"toggleHeading1": true, "toggleHeading2": true, "toggleHeading3": true,
+		"pageLink": true, "breadcrumb": true, "columns": true,
 	}
 	now := time.Now().UTC()
 	for _, input := range args.Blocks {
@@ -402,7 +409,13 @@ func (s *Server) appendBlocks(ctx context.Context, _ *mcp.CallToolRequest, args 
 		block := model.Block{
 			ID: primitive.NewObjectID().Hex(), Type: input.Type, Text: input.Text,
 			Checked: input.Checked, Language: input.Language, Color: input.Color,
-			URL: input.URL, Table: input.Table,
+			URL: input.URL, Table: input.Table, Indent: input.Indent, Collapsed: input.Collapsed,
+		}
+		if block.Indent < 0 {
+			block.Indent = 0
+		}
+		if block.Indent > 8 {
+			block.Indent = 8
 		}
 		if block.Type == "code" && block.Language == "" {
 			block.Language = "plain text"
@@ -443,6 +456,9 @@ func (s *Server) updatePage(ctx context.Context, _ *mcp.CallToolRequest, args Up
 	if role == "viewer" {
 		return toolError("you only have view access")
 	}
+	if page.Locked {
+		return toolError("page is locked; unlock it before editing")
+	}
 	updates := bson.M{"updatedAt": time.Now().UTC()}
 	if title := strings.TrimSpace(args.Title); title != "" {
 		page.Title = title
@@ -478,6 +494,9 @@ func (s *Server) updateBlock(ctx context.Context, _ *mcp.CallToolRequest, args U
 	}
 	if role == "viewer" {
 		return toolError("you only have view access")
+	}
+	if page.Locked {
+		return toolError("page is locked; unlock it before editing")
 	}
 	found := false
 	for i := range page.Blocks {
@@ -520,6 +539,9 @@ func (s *Server) addComment(ctx context.Context, _ *mcp.CallToolRequest, args Ad
 	}
 	if role == "viewer" {
 		return toolError("you only have view access")
+	}
+	if page.Locked {
+		return toolError("page is locked; unlock it before editing")
 	}
 	if strings.TrimSpace(args.Body) == "" {
 		return toolError("comment body is required")
@@ -627,6 +649,9 @@ func (s *Server) deletePages(ctx context.Context, _ *mcp.CallToolRequest, args D
 		}
 		if role == "viewer" {
 			return toolError(fmt.Sprintf("page %s: you only have view access", id))
+		}
+		if page.Locked {
+			return toolError(fmt.Sprintf("page %s: page is locked", id))
 		}
 		roots = append(roots, page)
 	}

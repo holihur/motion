@@ -8,6 +8,7 @@ import {
   FileQuestion,
   FileText,
   ImagePlus,
+  LockKeyhole,
   Loader2,
   MessageSquare,
   MessageSquarePlus,
@@ -23,13 +24,14 @@ import {
 import { toast } from "sonner"
 import { ApiError, api, getClientId } from "@/lib/api"
 import { tr } from "@/lib/i18n"
-import type { Block, Comment, Page } from "@/lib/types"
+import type { Block, Comment, Member, Page } from "@/lib/types"
 import { applyBlockSync, diffBlocks } from "@/lib/blocks"
 import { cn, initials, uid } from "@/lib/utils"
 import { caretOffset, focusBlockById, setCaret } from "@/lib/caret"
 import { RealtimeClient, type RealtimePresence } from "@/lib/realtime"
 import { coverStyle } from "@/lib/covers"
 import { buildTree, ancestorChain, pageTitle } from "@/lib/tree"
+import { Backlinks } from "@/components/editor/backlinks"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { SidebarToggle } from "@/components/app/sidebar-toggle"
 import { PageActionsMenu } from "@/components/app/page-actions"
@@ -94,6 +96,7 @@ export function PageEditor() {
 
   const [page, setPage] = useState<Page | null>(null)
   const [blocks, setBlocks] = useState<Block[]>([emptyBlock()])
+  const [members, setMembers] = useState<Member[]>([])
   const [title, setTitle] = useState("")
   const [icon, setIcon] = useState("")
   const [cover, setCover] = useState("")
@@ -135,7 +138,8 @@ export function PageEditor() {
 
   const summary = pages.find((item) => item.id === pageId)
   const favorite = summary?.favorite ?? page?.favorite ?? false
-  const readOnly = page?.role === "viewer"
+  const pageLocked = Boolean(page?.locked)
+  const readOnly = page?.role === "viewer" || pageLocked
 
   useEffect(() => {
     stateRef.current = { pageId: page?.id ?? "", title, icon, cover, blocks }
@@ -495,6 +499,10 @@ export function PageEditor() {
             navigate("/")
             return
           }
+          if (patch.locked !== undefined) {
+            setPage((current) => current ? { ...current, locked: patch.locked, lockedByName: (patch as { lockedByName?: string }).lockedByName ?? current.lockedByName } : current)
+            if (patch.locked) dirtyRef.current = false
+          }
           if (patch.title !== undefined && document.activeElement?.getAttribute("data-editor-title") !== "true") {
             setTitle(patch.title)
           }
@@ -696,6 +704,85 @@ export function PageEditor() {
     }
     await persist(stateRef.current)
   }
+
+  useEffect(() => {
+    if (!page) return
+    let alive = true
+    api.workspaces.members(page.workspaceId)
+      .then((value) => { if (alive) setMembers(value) })
+      .catch(() => { if (alive) setMembers([]) })
+    return () => { alive = false }
+  }, [page?.workspaceId])
+
+  useEffect(() => {
+    function onPageLock(event: Event) {
+      const detail = (event as CustomEvent<{ id: string; locked: boolean; lockedByName?: string }>).detail
+      if (!detail || detail.id !== pageId) return
+      setPage((current) => current ? { ...current, locked: detail.locked, lockedByName: detail.lockedByName ?? "" } : current)
+      if (detail.locked) {
+        dirtyRef.current = false
+        toast(tr("This page is locked. Editing is paused."))
+      }
+    }
+    window.addEventListener("motion:page-lock", onPageLock)
+    return () => window.removeEventListener("motion:page-lock", onPageLock)
+  }, [pageId])
+
+  async function unlockPage() {
+    if (!page) return
+    try {
+      await api.pages.unlock(page.id)
+      setPage(await api.pages.get(page.id))
+      toast.success(tr("Page unlocked"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not unlock page"))
+    }
+  }
+
+  async function uploadAttachments(files: FileList | File[]) {
+    if (readOnly || !page) return
+    const list = Array.from(files).filter((file) => file.size > 0).slice(0, 10)
+    if (list.length === 0) return
+    const created: Block[] = []
+    for (const file of list) {
+      try {
+        const uploaded = await api.files.upload(file, page.workspaceId)
+        if (uploaded.contentType.startsWith("image/")) {
+          created.push({ id: uid(), type: "image", text: "", url: uploaded.url, caption: uploaded.name })
+        } else {
+          created.push({
+            id: uid(),
+            type: "file",
+            text: uploaded.name,
+            url: uploaded.url,
+            caption: `${Math.max(1, Math.round(uploaded.size / 1024))} KB`,
+          })
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : tr("Could not upload file"))
+      }
+    }
+    if (created.length === 0) return
+    setBlocks((previous) => [...previous, ...created])
+    scheduleSave()
+    toast.success(tr("{n} attachment(s) uploaded", { n: created.length }))
+  }
+
+  useEffect(() => {
+    function onPaste(event: ClipboardEvent) {
+      if (readOnly) return
+      const target = event.target as HTMLElement | null
+      if (target?.closest("textarea, input") && !target.closest("[data-lexical-input]")) return
+      const files = Array.from(event.clipboardData?.files ?? []).filter((file) => file.type.startsWith("image/"))
+      if (files.length === 0) return
+      event.preventDefault()
+      void uploadAttachments(files)
+    }
+    document.addEventListener("paste", onPaste)
+    return () => document.removeEventListener("paste", onPaste)
+    // uploadAttachments intentionally follows the current page state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, page?.id])
 
   function scheduleSave() {
     if (readOnly) return
@@ -995,8 +1082,8 @@ export function PageEditor() {
             <TooltipContent>{favorite ? tr("Remove from Favorites") : tr("Add to Favorites")}</TooltipContent>
           </Tooltip>}
           <PageActionsMenu
-            readOnly={readOnly}
-            page={{ ...page, title, icon, cover, favorite }}
+            readOnly={page.role === "viewer"}
+            page={{ ...page, title, icon, cover, favorite, locked: page.locked, lockedByName: page.lockedByName }}
             align="end"
             trigger={
               <button
@@ -1029,6 +1116,22 @@ export function PageEditor() {
         </div>
       )}
 
+      {pageLocked && (
+        <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-1.5 text-[11px] text-amber-900 dark:text-amber-100">
+          <LockKeyhole className="size-3.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">
+            {tr("This page is locked{name}. Editing is paused to prevent accidents.", {
+              name: page.lockedByName ? ` by ${page.lockedByName}` : "",
+            })}
+          </span>
+          {page.role !== "viewer" && (
+            <button type="button" onClick={() => void unlockPage()} className="shrink-0 rounded border border-amber-600/30 px-2 py-0.5 font-medium transition hover:bg-amber-500/10">
+              {tr("Unlock")}
+            </button>
+          )}
+        </div>
+      )}
+
       {page.archived && (
         <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-100">
           {tr("This page is in Trash.")}
@@ -1042,7 +1145,16 @@ export function PageEditor() {
         </div>
       )}
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto thin-scrollbar">
+      <div
+        ref={scrollRef}
+        onDragOver={(event) => { if (event.dataTransfer.types.includes("Files")) event.preventDefault() }}
+        onDrop={(event) => {
+          if (event.dataTransfer.files.length === 0) return
+          event.preventDefault()
+          void uploadAttachments(event.dataTransfer.files)
+        }}
+        className="min-h-0 flex-1 overflow-y-auto thin-scrollbar"
+      >
         {cover && (
           <div
             className="group/cover relative h-40 w-full sm:h-52"
@@ -1140,8 +1252,16 @@ export function PageEditor() {
               blockComments={blockComments}
               onOpenComments={() => setCommentsOpen(true)}
               onCommentBlock={openBlockComment}
+              breadcrumb={ancestorChain(pages, page.id).map((item) => ({
+                id: item.id,
+                title: item.title,
+                icon: item.icon,
+              }))}
+              workspaceId={page.workspaceId}
+              members={members}
             />
           </div>
+          <Backlinks pageId={page.id} />
         </div>
       </div>
 

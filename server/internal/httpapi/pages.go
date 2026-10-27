@@ -298,7 +298,8 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 		updates["order"] = order
 	}
 
-	if value, ok := raw["layoutId"]; ok && !strings.EqualFold(string(raw["isLayout"]), "true") {
+	isLayoutRequested := strings.EqualFold(string(raw["isLayout"]), "true")
+	if value, ok := raw["layoutId"]; ok && !page.IsLayout && !isLayoutRequested {
 		var layoutID string
 		_ = json.Unmarshal(value, &layoutID)
 		layoutID = strings.TrimSpace(layoutID)

@@ -2,7 +2,8 @@ import { expect, test } from "../helpers/fixtures"
 import { signIn } from "../helpers/account"
 import { createPage } from "../helpers/api"
 
-test("renders map blocks with Mapbox fallback, Google, Amap and Baidu providers", async ({ page, request }) => {
+test("renders map blocks with Mapbox fallback, Google, Amap and Baidu providers", async ({ page, request, consoleGuard }) => {
+  consoleGuard.allow(/Access is denied for this document/)
   const account = await signIn(page, request)
   const { workspace } = await (await import("../helpers/api")).workspaceAndPages(request, account.token)
   const created = await createPage(request, account.token, workspace.id, {

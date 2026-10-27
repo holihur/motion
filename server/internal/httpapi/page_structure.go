@@ -195,6 +195,10 @@ func (s *Server) mergePages(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	if page.IsLayout {
+		writeErr(w, http.StatusBadRequest, "layout pages cannot receive merged content")
+		return
+	}
 	if len(req.PageIDs) == 0 || len(req.PageIDs) > 100 {
 		writeErr(w, http.StatusBadRequest, "choose between 1 and 100 sub-pages")
 		return

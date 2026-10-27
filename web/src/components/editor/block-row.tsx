@@ -1020,6 +1020,24 @@ function BlockMenu({
             {tr("Select block")}
           </DropdownMenuItem>
         )}
+        {block.type === "callout" && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Palette /> {tr("Callout color")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-48 p-1.5">
+              {Object.keys(CALLOUT_COLORS).map((value) => (
+                <DropdownMenuItem key={value} onSelect={() => onUpdate({ color: value })}>
+                  <span className={cn("flex size-5 items-center justify-center rounded-md border text-[11px]", CALLOUT_COLORS[value])}>
+                    {CALLOUT_EMOJI[value]}
+                  </span>
+                  {tr(value === "neutral" ? "Gray" : value[0].toUpperCase() + value.slice(1))}
+                  {(block.color || "amber") === value && <Check className="ml-auto size-3.5 text-brand" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
         {canColor && (
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>

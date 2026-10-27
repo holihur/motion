@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react"
 import hljs from "highlight.js/lib/common"
-import { Code2, Copy } from "lucide-react"
+import { Code2, Copy, Download } from "lucide-react"
 import { toast } from "sonner"
 import type { Block } from "@/lib/types"
 import { tr } from "@/lib/i18n"
@@ -80,6 +80,23 @@ export function CodeBlock({
           {LANGUAGES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select>
       </label>
+      <div className="flex items-center gap-0.5">
+      <button
+        type="button"
+        onClick={() => {
+          const extension = language === "auto" || language === "plaintext" ? "txt" : language === "xml" ? "html" : language
+          const blob = new Blob([block.text], { type: "text/plain;charset=utf-8" })
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement("a")
+          link.href = url
+          link.download = `snippet.${extension}`
+          link.click()
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+        }}
+        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition hover:bg-background hover:text-foreground"
+      >
+        <Download className="size-3" /> {tr("Download")}
+      </button>
       <button
         type="button"
         onClick={() => {
@@ -92,6 +109,7 @@ export function CodeBlock({
       >
         <Copy className="size-3" /> {tr("Copy")}
       </button>
+      </div>
     </div>
   )
 

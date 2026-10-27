@@ -374,6 +374,8 @@ export function BlockRow(props: BlockRowProps) {
           rows: [["", "", ""], ["", "", ""]],
           header: true,
         }
+        const widths = table.columns.map((_, index) => table.widths?.[index] ?? 160)
+        const aligns = table.columns.map((_, index) => table.align?.[index] ?? "left")
         const updateTable = (next: typeof table) => onUpdate({ table: next })
         const setCell = (rowIndex: number, columnIndex: number, value: string) => {
           const rows = table.rows.map((row, index) =>
@@ -398,6 +400,8 @@ export function BlockRow(props: BlockRowProps) {
             ...table,
             columns: [...table.columns, name],
             rows: table.rows.map((row) => [...row, ""]),
+            widths: [...widths, 160],
+            align: [...aligns, "left"],
           })
         }
         const removeColumn = (index: number) => {
@@ -406,6 +410,8 @@ export function BlockRow(props: BlockRowProps) {
             ...table,
             columns: table.columns.filter((_, columnIndex) => columnIndex !== index),
             rows: table.rows.map((row) => row.filter((_, columnIndex) => columnIndex !== index)),
+            widths: widths.filter((_, columnIndex) => columnIndex !== index),
+            align: aligns.filter((_, columnIndex) => columnIndex !== index),
           })
         }
         const setColumn = (index: number, value: string) => {
@@ -413,6 +419,25 @@ export function BlockRow(props: BlockRowProps) {
             ...table,
             columns: table.columns.map((column, columnIndex) => (columnIndex === index ? value : column)),
           })
+        }
+        const setAlignment = (index: number, value: "left" | "center" | "right") => {
+          updateTable({ ...table, align: aligns.map((item, i) => i === index ? value : item) })
+        }
+        const resizeColumn = (event: React.MouseEvent, index: number) => {
+          event.preventDefault()
+          event.stopPropagation()
+          const startX = event.clientX
+          const startWidth = widths[index]
+          const onMove = (moveEvent: MouseEvent) => {
+            const next = Math.max(60, Math.min(600, startWidth + moveEvent.clientX - startX))
+            updateTable({ ...table, widths: widths.map((value, i) => i === index ? next : value) })
+          }
+          const onUp = () => {
+            window.removeEventListener("mousemove", onMove)
+            window.removeEventListener("mouseup", onUp)
+          }
+          window.addEventListener("mousemove", onMove)
+          window.addEventListener("mouseup", onUp)
         }
         const focusCell = (rowIndex: number, columnIndex: number) => {
           window.setTimeout(() => {
@@ -516,11 +541,12 @@ export function BlockRow(props: BlockRowProps) {
               </div>
             </div>
             <div className="max-h-[65vh] overflow-auto">
-              <table className="w-full border-collapse text-sm">
+              <table className="w-full border-collapse text-sm" style={{ tableLayout: "fixed", minWidth: widths.reduce((sum, width) => sum + width, 0) }}>
+                <colgroup>{widths.map((width, index) => <col key={index} style={{ width }} />)}</colgroup>
                 {table.header !== false && <thead className="sticky top-0 z-10">
                   <tr>
                     {table.columns.map((column, columnIndex) => (
-                      <th key={columnIndex} className="group/head min-w-[110px] border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0">
+                      <th key={columnIndex} className="group/head relative border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0">
                         <div className="flex items-center gap-0.5 px-1">
                           <input
                             id={`table-cell-${block.id}-${-1}-${columnIndex}`}
@@ -531,8 +557,19 @@ export function BlockRow(props: BlockRowProps) {
                             onKeyDown={(event) => handleCellKeyDown(event, -1, columnIndex)}
                             onFocus={() => onFocusBlock?.(block.id)}
                             className="h-8 min-w-0 flex-1 bg-transparent px-1.5 text-xs font-semibold outline-none"
+                            style={{ textAlign: aligns[columnIndex] }}
                             placeholder={`Column ${columnIndex + 1}`}
                           />
+                          {!readOnly && (
+                            <button
+                              type="button"
+                              onClick={() => setAlignment(columnIndex, aligns[columnIndex] === "left" ? "center" : aligns[columnIndex] === "center" ? "right" : "left")}
+                              aria-label={tr("Align column")}
+                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition group-hover/head:text-muted-foreground hover:bg-accent hover:text-foreground"
+                            >
+                              {aligns[columnIndex] === "center" ? <AlignCenter className="size-3" /> : aligns[columnIndex] === "right" ? <AlignRight className="size-3" /> : <AlignLeft className="size-3" />}
+                            </button>
+                          )}
                           {!readOnly && table.columns.length > 1 && (
                             <button
                               type="button"
@@ -543,6 +580,12 @@ export function BlockRow(props: BlockRowProps) {
                               <X className="size-3" />
                             </button>
                           )}
+                          <span
+                            role="separator"
+                            aria-label={tr("Resize column")}
+                            onMouseDown={(event) => resizeColumn(event, columnIndex)}
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize bg-transparent hover:bg-brand/40"
+                          />
                         </div>
                       </th>
                     ))}
@@ -564,6 +607,7 @@ export function BlockRow(props: BlockRowProps) {
                             onPaste={(event) => pasteCells(event, rowIndex, columnIndex)}
                             onFocus={() => onFocusBlock?.(block.id)}
                             className="h-9 w-full bg-transparent px-2 text-[13px] outline-none transition focus:bg-brand-soft/20"
+                            style={{ textAlign: aligns[columnIndex] }}
                             placeholder=" "
                           />
                         </td>

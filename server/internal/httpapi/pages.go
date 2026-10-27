@@ -928,7 +928,21 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 		}
 		cleaned[i] = out
 	}
-	return &model.TableData{Columns: columns, Rows: cleaned, Header: table.Header}
+	widths := make([]int, len(columns))
+	align := make([]string, len(columns))
+	for i := range columns {
+		width := 160
+		if i < len(table.Widths) && table.Widths[i] >= 60 && table.Widths[i] <= 600 {
+			width = table.Widths[i]
+		}
+		widths[i] = width
+		value := "left"
+		if i < len(table.Align) && (table.Align[i] == "left" || table.Align[i] == "center" || table.Align[i] == "right") {
+			value = table.Align[i]
+		}
+		align[i] = value
+	}
+	return &model.TableData{Columns: columns, Rows: cleaned, Header: table.Header, Widths: widths, Align: align}
 }
 
 func (s *Server) setPageLocked(w http.ResponseWriter, r *http.Request, locked bool) {

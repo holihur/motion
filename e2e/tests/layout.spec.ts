@@ -39,4 +39,13 @@ test("a layout page shares its header and footer with another page", async ({ pa
   await page.reload()
   await expect(page.getByText("ACME header", { exact: true })).toBeVisible()
   await expect(page.getByText("Body copy", { exact: true })).toBeVisible()
+
+  const exported = await request.get(`/api/pages/${target.id}/export?format=html`, {
+    headers: authHeaders(account.token),
+  })
+  expect(exported.ok()).toBeTruthy()
+  const html = await exported.text()
+  expect(html).toContain("ACME header")
+  expect(html).toContain("Body copy")
+  expect(html).toContain("ACME footer")
 })

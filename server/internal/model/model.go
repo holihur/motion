@@ -59,6 +59,8 @@ type TableData struct {
 	Columns []string   `bson:"columns" json:"columns"`
 	Rows    [][]string `bson:"rows" json:"rows"`
 	Header  bool       `bson:"header" json:"header"`
+	Widths  []int      `bson:"widths,omitempty" json:"widths,omitempty"`
+	Align   []string   `bson:"align,omitempty" json:"align,omitempty"`
 }
 
 type FormField struct {

@@ -1,11 +1,13 @@
 import { expect, test } from "../helpers/fixtures"
 import { signIn } from "../helpers/account"
+import { getPage } from "../helpers/api"
 
 test.describe("rich blocks", () => {
   test("tables and Mermaid diagrams persist and render", async ({ page, request }) => {
-    await signIn(page, request)
+    const account = await signIn(page, request)
     await page.locator("aside").getByRole("button", { name: "New page" }).first().click()
     await expect(page).toHaveURL(/\/page\//)
+    const pageId = page.url().split("/").pop()!
     await page.locator("[data-editor-title=true]").fill("Blocks Lab")
 
     await page.locator("[data-block-input]").first().click()
@@ -22,6 +24,24 @@ test.describe("rich blocks", () => {
     await cells.nth(4).fill("Live")
     await cells.nth(5).fill("Ada")
     await page.getByRole("button", { name: /Row/ }).click()
+    const firstHeader = page.locator("table th").first()
+    await firstHeader.hover()
+    await firstHeader.getByLabel("Align column").click()
+    await expect(page.locator("table input").first()).toHaveCSS("text-align", "center")
+    const resize = await firstHeader.getByRole("separator", { name: "Resize column" }).boundingBox()
+    if (resize) {
+      await page.mouse.move(resize.x + resize.width / 2, resize.y + resize.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(resize.x + 60, resize.y + resize.height / 2)
+      await page.mouse.up()
+    }
+    await expect
+      .poll(async () => {
+        const saved = await getPage(request, account.token, pageId)
+        const table = saved.blocks.find((block) => block.type === "table")
+        return table?.table?.widths?.[0] ?? 0
+      })
+      .toBeGreaterThan(160)
 
     await page.getByRole("button", { name: "Add a block" }).click()
     await page.waitForTimeout(100)
@@ -42,7 +62,7 @@ test.describe("rich blocks", () => {
   })
 
   test("comments can be attached to a whole block and to a text selection", async ({ page, request }) => {
-    await signIn(page, request)
+    const account = await signIn(page, request)
     await page.locator("aside").getByRole("button", { name: "New page" }).first().click()
     await expect(page).toHaveURL(/\/page\//)
     await page.locator("[data-editor-title=true]").fill("Comment Lab")

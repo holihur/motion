@@ -39,6 +39,8 @@ export interface TableData {
   columns: string[]
   rows: string[][]
   header: boolean
+  widths?: number[]
+  align?: ("left" | "center" | "right")[]
 }
 
 export interface FormField {

@@ -26,6 +26,7 @@ export interface ApiBlock {
   url?: string
   caption?: string
   map?: { lat: number; lng: number; zoom?: number; label?: string; provider?: string }
+  table?: { widths?: number[]; align?: string[] }
 }
 
 export interface ApiPage extends ApiPageSummary {

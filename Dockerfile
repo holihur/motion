@@ -2,7 +2,7 @@
 FROM debian:bookworm-slim AS build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl git \
+    ca-certificates curl git libatomic1 \
     && rm -rf /var/lib/apt/lists/*
 RUN curl -fsSL https://mise.run | sh
 ENV PATH="/root/.local/bin:${PATH}" MISE_YES=1

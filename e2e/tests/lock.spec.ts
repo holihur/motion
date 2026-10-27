@@ -28,6 +28,9 @@ test("page and block locks prevent accidental edits and can be released", async 
 
   const row = page.locator("[data-block-row]").first()
   await row.locator("[data-block-input]").fill("Locked content")
+  await expect
+    .poll(async () => (await getPage(request, account.token, created.id)).blocks[0]?.text)
+    .toBe("Locked content")
   await row.hover()
   await row.getByLabel("Block options").first().click()
   await page.getByRole("menuitem", { name: "Lock block" }).click()

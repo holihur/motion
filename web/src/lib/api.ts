@@ -378,6 +378,11 @@ export const api = {
         method: "POST",
         body: body({ pageId }),
       }),
+    publishS3: (workspaceId: string, pageId: string, includeChildren = true) =>
+      request<PublishResult>(`/workspaces/${workspaceId}/integrations/s3/publish`, {
+        method: "POST",
+        body: body({ pageId, includeChildren }),
+      }),
   },
   files: {
     upload: async (file: File, workspaceId: string) => {

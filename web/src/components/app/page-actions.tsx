@@ -140,6 +140,18 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     }
   }
 
+  async function onPublishS3() {
+    if (!activeId) return
+    try {
+      const result = await api.integrations.publishS3(activeId, page.id, true)
+      toast.success(tr("Published {n} file(s) to object storage", { n: result.fileCount ?? 0 }), {
+        action: result.url ? { label: tr("Open"), onClick: () => window.open(result.url, "_blank", "noopener") } : undefined,
+      })
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not publish page"))
+    }
+  }
+
   async function onPublishGit() {
     if (!activeId) return
     try {
@@ -233,6 +245,9 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           </DropdownMenuItem>}
           {!readOnly && <DropdownMenuItem onSelect={() => void onPublishAtlassian("confluence")}>
             <BookOpen /> {tr("Publish to Confluence")}
+          </DropdownMenuItem>}
+          {!readOnly && <DropdownMenuItem onSelect={() => void onPublishS3()}>
+            <CloudUpload /> {tr("Publish to object storage")}
           </DropdownMenuItem>}
           {!readOnly && <DropdownMenuItem onSelect={() => void onPublishSSH()}>
             <CloudUpload /> {tr("Publish via SSH")}

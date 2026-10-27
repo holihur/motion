@@ -746,6 +746,8 @@ const zh: Record<string, string> = {
   "Secret key": "Secret Key",
   "Save S3": "保存 S3",
   "S3 storage saved": "S3 存储配置已保存",
+  "Publish to object storage": "发布到对象存储",
+  "Published {n} file(s) to object storage": "已发布 {n} 个文件到对象存储",
 }
 
 

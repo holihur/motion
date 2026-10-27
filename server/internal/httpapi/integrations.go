@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"context"
+	"mime"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/motion/server/internal/atlassian"
 	"github.com/motion/server/internal/gitpublish"
 	"github.com/motion/server/internal/model"
+	"github.com/motion/server/internal/objectstore"
 	"github.com/motion/server/internal/secret"
 	"github.com/motion/server/internal/sshpub"
 	"github.com/motion/server/internal/staticpublish"
@@ -540,4 +543,78 @@ func (s *Server) publishAtlassian(w http.ResponseWriter, r *http.Request, provid
 	writeJSON(w, http.StatusOK, map[string]any{
 		"provider": provider, "pageId": page.ID.Hex(), "url": publicURL, "externalId": externalID,
 	})
+}
+
+func (s *Server) publishS3(w http.ResponseWriter, r *http.Request) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	if _, ok := s.requireEditor(w, r, wsID); !ok {
+		return
+	}
+	var req struct {
+		PageID          string `json:"pageId"`
+		IncludeChildren bool   `json:"includeChildren"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	pages, page, ok := s.publishPages(w, r, wsID, req.PageID, req.IncludeChildren)
+	if !ok {
+		return
+	}
+	var integration model.Integration
+	if err := s.store.Integrations.FindOne(r.Context(), bson.M{"workspaceId": wsID, "provider": "s3"}).Decode(&integration); err != nil {
+		writeErr(w, http.StatusBadRequest, "configure object storage in Settings → Integrations first")
+		return
+	}
+	secretValue, err := secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "storage credentials could not be decrypted; save them again")
+		return
+	}
+	parts := strings.SplitN(secretValue, "\n", 2)
+	if len(parts) != 2 {
+		writeErr(w, http.StatusBadRequest, "storage credentials are incomplete")
+		return
+	}
+	store, err := objectstore.NewS3(r.Context(), objectstore.S3Config{
+		Endpoint: integration.Config["endpoint"], AccessKey: parts[0], SecretKey: parts[1],
+		Bucket: integration.Config["bucket"], Region: integration.Config["region"],
+		Prefix: integration.Config["prefix"], PublicBase: integration.Config["publicBaseUrl"],
+		UseSSL: integration.Config["useSSL"] != "false",
+	})
+	if err != nil {
+		writeErr(w, http.StatusBadGateway, "could not connect to object storage: "+err.Error())
+		return
+	}
+	files, err := staticpublish.Render(page.ID, pages, integration.Config["publicBaseUrl"])
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not render page")
+		return
+	}
+	count := 0
+	publicBase := strings.TrimRight(integration.Config["publicBaseUrl"], "/")
+	for name, content := range files {
+		contentType := mime.TypeByExtension(path.Ext(name))
+		if contentType == "" {
+			contentType = "text/html; charset=utf-8"
+		}
+		if _, err := store.Put(r.Context(), name, content, contentType); err != nil {
+			writeErr(w, http.StatusBadGateway, "object storage publish failed: "+err.Error())
+			return
+		}
+		count++
+	}
+	url := publicBase + "/"
+	if publicBase == "" {
+		url = ""
+	}
+	s.webhooks.Emit(r.Context(), wsID, "page.published", map[string]any{
+		"pageId": page.ID.Hex(), "pageTitle": page.Title, "provider": "s3", "url": url, "fileCount": count,
+	})
+	writeJSON(w, http.StatusOK, map[string]any{"provider": "s3", "pageId": page.ID.Hex(), "url": url, "fileCount": count})
 }

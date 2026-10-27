@@ -223,6 +223,7 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/integrations/ssh/publish", s.publishSSH)
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/integrations/git/publish", s.publishGit)
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/integrations/jira/publish", s.publishJira)
+			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/integrations/s3/publish", s.publishS3)
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/integrations/confluence/publish", s.publishConfluence)
 			r.With(s.requireScope("workspace:write")).Delete("/workspaces/{workspaceID}/integrations/{provider}", s.deleteIntegration)
 			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/webhook-deliveries", s.listDeliveries)

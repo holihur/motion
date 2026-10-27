@@ -48,12 +48,14 @@
 - 使用 Atlassian 邮箱 + API Token
 - 页面菜单可直接发布到 Jira / Confluence
 
-## S3 / MinIO / R2 存储
+## S3 / MinIO / R2 / 阿里云 OSS / 七牛 / 腾讯云 COS
 
-- 工作区可选择 S3 兼容存储替代 GridFS
+- 工作区可选择 S3 兼容存储替代 GridFS，并发布静态页面到 Bucket
 - 支持 endpoint、bucket、region、prefix、public base URL
 - Access key / secret key 加密保存
+- 内置阿里云 OSS、七牛 Kodo、腾讯云 COS 的 S3 API 预设
 - Bucket 需允许公开读取，页面内图片才能直接加载
+- 页面菜单 **Publish to object storage** 可发布根页面和子页面
 
 ## 暂不支持
 

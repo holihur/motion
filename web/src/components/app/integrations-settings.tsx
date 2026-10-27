@@ -61,6 +61,7 @@ export function IntegrationsSettings() {
   const [confPage, setConfPage] = useState("")
   const [confParent, setConfParent] = useState("")
   const [confToken, setConfToken] = useState("")
+  const [s3Provider, setS3Provider] = useState("generic")
   const [s3Endpoint, setS3Endpoint] = useState("")
   const [s3Bucket, setS3Bucket] = useState("")
   const [s3Region, setS3Region] = useState("")
@@ -262,6 +263,13 @@ export function IntegrationsSettings() {
         <div className="flex items-center gap-2 text-sm font-medium"><Database className="size-4 text-brand" /> {tr("S3-compatible storage")} {s3 && <CheckCircle2 className="size-3.5 text-emerald-500" />}</div>
         <p className="text-xs text-muted-foreground">{tr("Store uploads in S3, MinIO or Cloudflare R2 instead of GridFS. The bucket should be publicly readable for inline images.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5"><Label>{tr("Provider preset")}</Label><select value={s3Provider} disabled={!owner} onChange={(event) => {
+            const value = event.target.value
+            setS3Provider(value)
+            if (!s3Endpoint) {
+              setS3Endpoint(value === "aliyun" ? "https://s3.oss-cn-hangzhou.aliyuncs.com" : value === "qiniu" ? "https://s3-cn-east-1.qiniucs.com" : value === "tencent" ? "https://cos.ap-guangzhou.myqcloud.com" : "")
+            }
+          }} className="h-9 w-full rounded-md border bg-background px-2 text-sm"><option value="generic">Generic S3</option><option value="aliyun">Aliyun OSS (S3 API)</option><option value="qiniu">Qiniu Kodo (S3 API)</option><option value="tencent">Tencent COS (S3 API)</option></select></div>
           <div className="space-y-1.5"><Label>{tr("Endpoint")}</Label><Input value={s3Endpoint} disabled={!owner} onChange={(event) => setS3Endpoint(event.target.value)} placeholder="https://s3.example.com" /></div>
           <div className="space-y-1.5"><Label>{tr("Bucket")}</Label><Input value={s3Bucket} disabled={!owner} onChange={(event) => setS3Bucket(event.target.value)} placeholder="motion-uploads" /></div>
           <div className="space-y-1.5"><Label>{tr("Region")}</Label><Input value={s3Region} disabled={!owner} onChange={(event) => setS3Region(event.target.value)} placeholder="us-east-1" /></div>

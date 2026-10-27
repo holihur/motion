@@ -17,6 +17,7 @@ import type {
   Backlink,
   Integration,
   WebhookDelivery,
+  PublishGroup,
   PublishResult,
   PageRevision,
   PageSummary,
@@ -358,6 +359,14 @@ export const api = {
     remove: (workspaceId: string, provider: string) =>
       request<void>(`/workspaces/${workspaceId}/integrations/${provider}`, { method: "DELETE" }),
     deliveries: (workspaceId: string) => request<WebhookDelivery[]>(`/workspaces/${workspaceId}/webhook-deliveries`),
+    groups: (workspaceId: string) => request<import("./types").PublishGroup[]>(`/workspaces/${workspaceId}/publish-groups`),
+    saveGroup: (workspaceId: string, input: { name: string; targets: string[]; id?: string }) =>
+      request<import("./types").PublishGroup>(`/workspaces/${workspaceId}/publish-groups${input.id ? `/${input.id}` : ""}`, {
+        method: input.id ? "PUT" : "POST",
+        body: body({ name: input.name, targets: input.targets }),
+      }),
+    removeGroup: (workspaceId: string, id: string) =>
+      request<void>(`/workspaces/${workspaceId}/publish-groups/${id}`, { method: "DELETE" }),
     publishSSH: (workspaceId: string, pageId: string, includeChildren = true) =>
       request<PublishResult>(`/workspaces/${workspaceId}/integrations/ssh/publish`, {
         method: "POST",

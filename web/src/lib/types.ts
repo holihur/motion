@@ -150,6 +150,15 @@ export interface WebhookDelivery {
   deliveredAt?: string
 }
 
+export interface PublishGroup {
+  id: string
+  workspaceId: string
+  name: string
+  targets: string[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface PublishResult {
   provider: string
   pageId: string

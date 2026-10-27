@@ -774,6 +774,19 @@ const zh: Record<string, string> = {
   "SecretId": "SecretId",
   "Save Tencent COS": "保存腾讯云 COS",
   "Tencent COS saved": "腾讯云 COS 配置已保存",
+  "Action groups": "动作分组",
+  "Group several publish targets so one click publishes everywhere.": "把多个发布目标组合起来，一键发布到所有位置。",
+  "Group name, e.g. Release everywhere": "分组名称，例如：全量发布",
+  "Add group": "添加分组",
+  "Git": "Git",
+  "Jira": "Jira",
+  "Confluence": "Confluence",
+  "Object storage": "对象存储",
+  "Action group created": "动作分组已创建",
+  "Could not create action group": "无法创建动作分组",
+  "Could not remove action group": "无法删除动作分组",
+  "None of this group's targets are enabled": "此分组没有已启用的发布目标",
+  "Published to {n} target(s)": "已发布到 {n} 个目标",
 }
 
 

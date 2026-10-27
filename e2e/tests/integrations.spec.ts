@@ -32,6 +32,15 @@ test("workspace webhook receives signed comment events", async ({ page, request 
     await page.getByRole("button", { name: "Save webhook" }).click()
     await expect(page.getByText("Webhook saved")).toBeVisible()
 
+    await page.getByPlaceholder("Group name, e.g. Release everywhere").fill("Publish everywhere")
+    await page.getByRole("button", { name: "Add group" }).click()
+    await expect(page.getByText("Publish everywhere", { exact: true })).toBeVisible()
+    const groups = await request.get(`/api/workspaces/${workspace.id}/publish-groups`, {
+      headers: authHeaders(account.token),
+    })
+    expect(groups.ok()).toBeTruthy()
+    expect((await groups.json())[0].name).toBe("Publish everywhere")
+
     const comment = await request.post(`/api/pages/${created.id}/comments`, {
       headers: authHeaders(account.token),
       data: { blockId: "hook-block", body: "Ping", quote: "", startOffset: 0, endOffset: 0 },

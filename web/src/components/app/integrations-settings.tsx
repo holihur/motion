@@ -5,7 +5,7 @@ import { api } from "@/lib/api"
 import { tr } from "@/lib/i18n"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspaceStore } from "@/stores/workspace"
-import type { Integration, WebhookDelivery } from "@/lib/types"
+import type { Integration, PublishGroup, WebhookDelivery } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,6 +22,9 @@ export function IntegrationsSettings() {
   const owner = Boolean(workspace && user && workspace.ownerId === user.id)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([])
+  const [groups, setGroups] = useState<PublishGroup[]>([])
+  const [groupName, setGroupName] = useState("")
+  const [groupTargets, setGroupTargets] = useState<string[]>(["git", "jira"])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState("")
   const [testing, setTesting] = useState(false)
@@ -99,13 +102,15 @@ export function IntegrationsSettings() {
     if (!workspace) return
     setLoading(true)
     try {
-      const [items, log] = await Promise.all([
+      const [items, log, publishGroups] = await Promise.all([
         api.integrations.list(workspace.id),
         api.integrations.deliveries(workspace.id).catch(() => []),
+        api.integrations.groups(workspace.id).catch(() => []),
       ])
       setIntegrations(items ?? [])
       setEnabled(Object.fromEntries((items ?? []).map((item) => [item.provider, item.enabled])))
       setDeliveries(log ?? [])
+      setGroups(publishGroups ?? [])
       const wh = items.find((item) => item.provider === "webhook")
       const sh = items.find((item) => item.provider === "ssh")
       const gh = items.find((item) => item.provider === "git")
@@ -190,6 +195,27 @@ export function IntegrationsSettings() {
     }
   }
 
+  async function addGroup() {
+    if (!groupName.trim() || groupTargets.length === 0) return
+    try {
+      const group = await api.integrations.saveGroup(workspace!.id, { name: groupName.trim(), targets: groupTargets })
+      setGroups((current) => [...current, group])
+      setGroupName("")
+      toast.success(tr("Action group created"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not create action group"))
+    }
+  }
+
+  async function removeGroup(id: string) {
+    try {
+      await api.integrations.removeGroup(workspace!.id, id)
+      setGroups((current) => current.filter((group) => group.id !== id))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not remove action group"))
+    }
+  }
+
   async function remove(provider: string) {
     try {
       await api.integrations.remove(workspace!.id, provider)
@@ -234,6 +260,29 @@ export function IntegrationsSettings() {
         <p className="mt-1 text-xs leading-5 text-muted-foreground">{tr("Publish pages and send workspace events to other tools. Secrets are encrypted on the server.")}</p>
         <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void testAll()} disabled={testing || integrations.length === 0}>{testing ? tr("Testing…") : tr("Test all integrations")}</Button>
       </div>
+
+      <section className="space-y-3 rounded-xl border p-4">
+        <div className="flex items-center gap-2 text-sm font-medium"><CloudUpload className="size-4 text-brand" /> {tr("Action groups")}</div>
+        <p className="text-xs text-muted-foreground">{tr("Group several publish targets so one click publishes everywhere.")}</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input value={groupName} disabled={!owner} onChange={(event) => setGroupName(event.target.value)} placeholder={tr("Group name, e.g. Release everywhere")} className="h-8 flex-1 text-xs" />
+          <Button type="button" size="sm" onClick={() => void addGroup()} disabled={!owner || !groupName.trim() || groupTargets.length === 0}>{tr("Add group")}</Button>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {[["git", tr("Git")], ["jira", tr("Jira")], ["confluence", tr("Confluence")], ["storage", tr("Object storage")], ["ssh", tr("SSH")]].map(([value, label]) => (
+            <button key={value} type="button" disabled={!owner} onClick={() => setGroupTargets((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value])} className={cn("rounded-full border px-2 py-0.5 text-[10px]", groupTargets.includes(value) ? "border-brand bg-brand-soft text-brand" : "text-muted-foreground")}>{label}</button>
+          ))}
+        </div>
+        {groups.length > 0 && <div className="space-y-1 border-t pt-3">
+          {groups.map((group) => <div key={group.id} className="flex items-center gap-2 text-xs">
+            <span className="font-medium">{group.name}</span>
+            <span className="truncate text-muted-foreground">{group.targets.join(" · ")}</span>
+            {owner && <button type="button" onClick={() => void removeGroup(group.id)} className="ml-auto text-muted-foreground hover:text-destructive"><Trash2 className="size-3" /></button>}
+          </div>)}
+        </div>}
+      </section>
+
+      <Separator />
 
       <section className="space-y-3 rounded-xl border p-4">
         <div className="flex items-center gap-2 text-sm font-medium"><Webhook className="size-4 text-brand" /> {tr("Outgoing webhook")} {webhook && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="webhook" /></div>

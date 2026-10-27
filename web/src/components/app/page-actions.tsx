@@ -23,7 +23,7 @@ import { api } from "@/lib/api"
 import { downloadMarkdown } from "@/lib/markdown"
 import { pageTitle } from "@/lib/tree"
 import { tr } from "@/lib/i18n"
-import type { PageSummary } from "@/lib/types"
+import type { PageSummary, PublishGroup } from "@/lib/types"
 import { useWorkspaceStore } from "@/stores/workspace"
 import {
   DropdownMenu,
@@ -63,6 +63,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const activeId = useWorkspaceStore((state) => state.activeId)
   const [renameOpen, setRenameOpen] = useState(false)
   const [enabledProviders, setEnabledProviders] = useState<Set<string>>(new Set())
+  const [groups, setGroups] = useState<PublishGroup[]>([])
   const importRef = useRef<HTMLInputElement>(null)
   const locked = Boolean(page.locked)
 
@@ -72,10 +73,15 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   async function refreshEnabledIntegrations() {
     if (!activeId) return
     try {
-      const integrations = await api.integrations.list(activeId)
+      const [integrations, publishGroups] = await Promise.all([
+        api.integrations.list(activeId),
+        api.integrations.groups(activeId),
+      ])
       setEnabledProviders(new Set(integrations.filter((item) => item.enabled).map((item) => item.provider)))
+      setGroups(publishGroups ?? [])
     } catch {
       setEnabledProviders(new Set())
+      setGroups([])
     }
   }
 
@@ -161,6 +167,31 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not publish page"))
     }
+  }
+
+  async function publishGroup(group: PublishGroup) {
+    if (!activeId) return
+    const targets = group.targets.filter((target) => target === "storage" ? hasStorage : enabledProviders.has(target))
+    if (targets.length === 0) {
+      toast.error(tr("None of this group's targets are enabled"))
+      return
+    }
+    let ok = 0
+    const failures: string[] = []
+    for (const target of targets) {
+      try {
+        if (target === "ssh") await api.integrations.publishSSH(activeId, page.id, true)
+        else if (target === "git") await api.integrations.publishGit(activeId, page.id, true)
+        else if (target === "jira") await api.integrations.publishJira(activeId, page.id)
+        else if (target === "confluence") await api.integrations.publishConfluence(activeId, page.id)
+        else if (target === "storage") await api.integrations.publishS3(activeId, page.id, true)
+        ok += 1
+      } catch (error) {
+        failures.push(`${target}: ${error instanceof Error ? error.message : "failed"}`)
+      }
+    }
+    if (failures.length > 0) toast.error(`${tr("Published to {n} target(s)", { n: ok })} · ${failures.join(" · ")}`)
+    else toast.success(tr("Published to {n} target(s)", { n: ok }))
   }
 
   async function onPublishS3() {
@@ -278,6 +309,12 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           {!readOnly && enabledProviders.has("ssh") && <DropdownMenuItem onSelect={() => void onPublishSSH()}>
             <CloudUpload /> {tr("Publish via SSH")}
           </DropdownMenuItem>}
+          {!readOnly && groups.length > 0 && <DropdownMenuSeparator />}
+          {!readOnly && groups.map((group) => (
+            <DropdownMenuItem key={group.id} onSelect={() => void publishGroup(group)}>
+              <CloudUpload /> {group.name}
+            </DropdownMenuItem>
+          ))}
           {!readOnly && !locked && <DropdownMenuSeparator />}
           {!readOnly && !locked && <DropdownMenuItem variant="destructive" onSelect={() => void onArchive()}>
             <Trash2 /> {tr("Move to Trash")}

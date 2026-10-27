@@ -187,6 +187,15 @@ type Integration struct {
 	UpdatedAt    time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
+type PublishGroup struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	WorkspaceID primitive.ObjectID `bson:"workspaceId" json:"workspaceId"`
+	Name        string             `bson:"name" json:"name"`
+	Targets     []string           `bson:"targets" json:"targets"`
+	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
+}
+
 type WebhookDelivery struct {
 	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	WorkspaceID   primitive.ObjectID `bson:"workspaceId" json:"workspaceId"`

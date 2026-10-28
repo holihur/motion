@@ -708,6 +708,11 @@ func (s *Server) deletePages(ctx context.Context, _ *mcp.CallToolRequest, args D
 		if _, err := s.store.Pages.DeleteMany(ctx, bson.M{"_id": bson.M{"$in": list}}); err != nil {
 			return toolError("could not delete pages: " + err.Error())
 		}
+		related := bson.M{"pageId": bson.M{"$in": list}}
+		_, _ = s.store.Revisions.DeleteMany(ctx, related)
+		_, _ = s.store.Comments.DeleteMany(ctx, related)
+		_, _ = s.store.FormSubmissions.DeleteMany(ctx, related)
+		_, _ = s.store.Proposals.DeleteMany(ctx, related)
 		for _, root := range roots {
 			s.hub.Broadcast(root.ID.Hex(), map[string]any{
 				"type": "deleted", "pageId": root.ID.Hex(),

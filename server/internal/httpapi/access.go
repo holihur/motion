@@ -93,6 +93,10 @@ func (s *Server) editablePage(w http.ResponseWriter, r *http.Request, pageID pri
 		writeErr(w, http.StatusForbidden, "you do not have permission to edit this page")
 		return model.Page{}, false
 	}
+	if page.Archived {
+		writeErr(w, http.StatusForbidden, "page is in Trash; restore it before editing")
+		return model.Page{}, false
+	}
 	if page.Locked {
 		writeErr(w, http.StatusForbidden, "page is locked; unlock it before editing")
 		return model.Page{}, false

@@ -29,6 +29,9 @@ type TencentCOS struct {
 }
 
 func NewTencentCOS(cfg TencentCOSConfig) (*TencentCOS, error) {
+	if err := validatePublicBase(cfg.PublicBase); err != nil {
+		return nil, err
+	}
 	if strings.TrimSpace(cfg.Bucket) == "" || strings.TrimSpace(cfg.Region) == "" {
 		return nil, fmt.Errorf("Tencent COS bucket and region are required")
 	}

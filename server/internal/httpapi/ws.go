@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -41,52 +42,82 @@ func (s *Server) websocketOriginAllowed(r *http.Request) bool {
 	return false
 }
 
-func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
-	token := strings.TrimSpace(r.URL.Query().Get("token"))
-	if token == "" {
-		writeErr(w, http.StatusUnauthorized, "missing token")
-		return
-	}
-	pageID, err := primitive.ObjectIDFromHex(r.URL.Query().Get("pageId"))
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, "invalid page id")
-		return
-	}
+type realtimeAuthMessage struct {
+	Type     string `json:"type"`
+	Token    string `json:"token"`
+	PageID   string `json:"pageId"`
+	ClientID string `json:"clientId"`
+}
 
-	var userID primitive.ObjectID
-	var method string
+func (s *Server) realtimeUser(r *http.Request, token string) (primitive.ObjectID, error) {
 	if isPersonalToken(token) {
 		info, err := s.authenticatePAT(r, token)
 		if err != nil {
-			writeErr(w, http.StatusUnauthorized, err.Error())
-			return
+			return primitive.NilObjectID, err
 		}
 		if !hasScope(info, "pages:read") {
-			writeErr(w, http.StatusForbidden, "this token is missing the required scope: pages:read")
+			return primitive.NilObjectID, errors.New("missing pages:read scope")
+		}
+		return info.UserID, nil
+	}
+	return s.tokens.Parse(token)
+}
+
+func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if !s.websocketOriginAllowed(r) {
+		writeErr(w, http.StatusForbidden, "websocket origin is not allowed")
+		return
+	}
+
+	// Current clients authenticate in the first frame so bearer tokens never
+	// appear in access logs or browser history. The query-token path remains
+	// for older clients during upgrades.
+	queryPageID := strings.TrimSpace(r.URL.Query().Get("pageId"))
+	if token != "" {
+		pageID, err := primitive.ObjectIDFromHex(queryPageID)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid page id")
 			return
 		}
-		userID, method = info.UserID, info.Method
-	} else {
-		parsed, err := s.tokens.Parse(token)
+		userID, err := s.realtimeUser(r, token)
 		if err != nil {
 			writeErr(w, http.StatusUnauthorized, "invalid or expired token")
 			return
 		}
-		userID, method = parsed, "jwt"
+		s.serveRealtime(w, r, pageID, userID, strings.TrimSpace(r.URL.Query().Get("clientId")))
+		return
 	}
-	_ = method
 
-	page, _, err := s.accessiblePageFor(r.Context(), pageID, userID)
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		writeErr(w, http.StatusNotFound, "page not found")
+		slog.Warn("websocket upgrade failed", "error", err)
 		return
 	}
-	var user model.User
-	if err := s.store.Users.FindOne(r.Context(), bson.M{"_id": userID}).Decode(&user); err != nil {
-		writeErr(w, http.StatusUnauthorized, "account no longer exists")
+	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	var auth realtimeAuthMessage
+	if err := conn.ReadJSON(&auth); err != nil || auth.Type != "auth" {
+		_ = conn.WriteJSON(map[string]string{"type": "error", "error": "authentication required"})
+		_ = conn.Close()
 		return
 	}
+	_ = conn.SetReadDeadline(time.Time{})
+	pageID, err := primitive.ObjectIDFromHex(strings.TrimSpace(auth.PageID))
+	if err != nil {
+		_ = conn.WriteJSON(map[string]string{"type": "error", "error": "invalid page id"})
+		_ = conn.Close()
+		return
+	}
+	userID, err := s.realtimeUser(r, strings.TrimSpace(auth.Token))
+	if err != nil {
+		_ = conn.WriteJSON(map[string]string{"type": "error", "error": "invalid or expired token"})
+		_ = conn.Close()
+		return
+	}
+	s.serveRealtimeConn(w, r, conn, pageID, userID, strings.TrimSpace(auth.ClientID))
+}
 
+func (s *Server) serveRealtime(w http.ResponseWriter, r *http.Request, pageID, userID primitive.ObjectID, clientID string) {
 	if !s.websocketOriginAllowed(r) {
 		writeErr(w, http.StatusForbidden, "websocket origin is not allowed")
 		return
@@ -96,8 +127,23 @@ func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("websocket upgrade failed", "error", err)
 		return
 	}
+	s.serveRealtimeConn(w, r, conn, pageID, userID, clientID)
+}
 
-	clientID := strings.TrimSpace(r.URL.Query().Get("clientId"))
+func (s *Server) serveRealtimeConn(w http.ResponseWriter, r *http.Request, conn *websocket.Conn, pageID, userID primitive.ObjectID, clientID string) {
+	_ = w
+	page, _, err := s.accessiblePageFor(r.Context(), pageID, userID)
+	if err != nil {
+		_ = conn.WriteJSON(map[string]string{"type": "error", "error": "page not found"})
+		_ = conn.Close()
+		return
+	}
+	var user model.User
+	if err := s.store.Users.FindOne(r.Context(), bson.M{"_id": userID}).Decode(&user); err != nil {
+		_ = conn.WriteJSON(map[string]string{"type": "error", "error": "account no longer exists"})
+		_ = conn.Close()
+		return
+	}
 	if clientID == "" {
 		clientID = primitive.NewObjectID().Hex()
 	}

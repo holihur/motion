@@ -32,15 +32,24 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	if len([]rune(query)) > 100 {
 		query = string([]rune(query)[:100])
 	}
-	pattern := primitive.Regex{Pattern: regexp.QuoteMeta(query), Options: "i"}
+	terms := strings.Fields(query)
+	if len(terms) > 8 {
+		terms = terms[:8]
+	}
+	conditions := make([]bson.M, 0, len(terms))
+	for _, term := range terms {
+		pattern := primitive.Regex{Pattern: regexp.QuoteMeta(term), Options: "i"}
+		conditions = append(conditions, bson.M{"$or": []bson.M{
+			{"title": pattern},
+			{"text": pattern},
+		}})
+	}
 
 	cur, err := s.store.Pages.Find(r.Context(), bson.M{
 		"workspaceId": wsID,
 		"archived":    false,
-		"$or": []bson.M{
-			{"title": pattern},
-			{"text": pattern},
-		},
+		"isLayout":    bson.M{"$ne": true},
+		"$and":        conditions,
 	}, options.Find().
 		SetProjection(bson.M{"blocks": 0}).
 		SetSort(bson.D{{Key: "updatedAt", Value: -1}}).

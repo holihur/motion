@@ -28,6 +28,7 @@ type opsUpdateView struct {
 }
 
 type opsSettingsView struct {
+	Version     int64         `json:"version"`
 	AppName     string        `json:"appName"`
 	AllowSignup bool          `json:"allowSignup"`
 	MCPEnabled  bool          `json:"mcpEnabled"`
@@ -40,6 +41,7 @@ type opsSettingsView struct {
 
 func opsView(settings site.Settings) opsSettingsView {
 	return opsSettingsView{
+		Version: settings.UpdatedAt.UnixMilli(),
 		AppName: settings.AppName, AllowSignup: settings.AllowSignup,
 		MCPEnabled: settings.MCPEnabled, AIModel: settings.AIModel,
 		AdminEmails: append([]string{}, settings.AdminEmails...),
@@ -82,6 +84,7 @@ type opsUpdateRequest struct {
 }
 
 type opsSettingsRequest struct {
+	Version     *int64            `json:"version"`
 	AppName     *string           `json:"appName"`
 	AllowSignup *bool             `json:"allowSignup"`
 	MCPEnabled  *bool             `json:"mcpEnabled"`
@@ -99,6 +102,10 @@ func (s *Server) saveOpsSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	settings := s.siteSnapshot()
+	if req.Version != nil && *req.Version != settings.UpdatedAt.UnixMilli() {
+		writeErr(w, http.StatusConflict, "these settings were changed elsewhere; reload before saving")
+		return
+	}
 
 	if req.AppName != nil {
 		name := strings.TrimSpace(*req.AppName)

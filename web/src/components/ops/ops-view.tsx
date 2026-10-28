@@ -163,6 +163,7 @@ export function OpsView() {
     try {
       if (!token) return
       const saved = await api.ops.saveSettings(token, {
+        version: settings.version,
         appName: settings.appName,
         allowSignup: settings.allowSignup,
         mcpEnabled: settings.mcpEnabled,

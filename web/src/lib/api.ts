@@ -285,6 +285,7 @@ export const api = {
   ops: {
     settings: (opsToken: string) => request<OpsSettings>("/ops/settings", {}, opsToken),
     saveSettings: (opsToken: string, input: {
+      version?: number
       appName?: string
       allowSignup?: boolean
       mcpEnabled?: boolean
@@ -469,9 +470,11 @@ export const api = {
         archived?: boolean
         parentId?: string | null
       },
-    ) => request<Page>(`/pages/${id}`, { method: "PATCH", body: body(patch) }),
-    saveBlocks: (id: string, blocks: Block[], base?: Block[]) =>
+      init: RequestInit = {},
+    ) => request<Page>(`/pages/${id}`, { ...init, method: "PATCH", body: body(patch) }),
+    saveBlocks: (id: string, blocks: Block[], base?: Block[], init: RequestInit = {}) =>
       request<{ blocks: Block[]; blocksRev?: number; updatedAt: string }>(`/pages/${id}/blocks`, {
+        ...init,
         method: "PUT",
         body: body(base ? { blocks, base } : { blocks }),
       }),

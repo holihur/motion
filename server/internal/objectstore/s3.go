@@ -28,6 +28,9 @@ type S3 struct {
 }
 
 func NewS3(ctx context.Context, cfg S3Config) (*S3, error) {
+	if err := validatePublicBase(cfg.PublicBase); err != nil {
+		return nil, err
+	}
 	endpoint := strings.TrimSpace(cfg.Endpoint)
 	endpoint = strings.TrimPrefix(strings.TrimPrefix(endpoint, "https://"), "http://")
 	if endpoint == "" || cfg.Bucket == "" {

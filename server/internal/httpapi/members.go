@@ -122,7 +122,10 @@ func (s *Server) inviteMember(w http.ResponseWriter, r *http.Request) {
 		Role: req.Role, JoinedAt: time.Now().UTC(),
 	}
 	result, err := s.store.Workspaces.UpdateOne(r.Context(),
-		bson.M{"_id": wsID, "members.userId": bson.M{"$ne": user.ID}},
+		bson.M{
+			"_id": wsID, "members.userId": bson.M{"$ne": user.ID},
+			"$expr": bson.M{"$lt": bson.A{bson.M{"$size": "$members"}, 100}},
+		},
 		bson.M{
 			"$push": bson.M{"members": member},
 			"$set":  bson.M{"updatedAt": time.Now().UTC()},
@@ -133,6 +136,11 @@ func (s *Server) inviteMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if result.ModifiedCount == 0 {
+		var current model.Workspace
+		if err := s.store.Workspaces.FindOne(r.Context(), bson.M{"_id": wsID}).Decode(&current); err == nil && len(current.Members) >= 100 {
+			writeErr(w, http.StatusBadRequest, "this workspace has reached the member limit")
+			return
+		}
 		writeErr(w, http.StatusConflict, "that person is already a member")
 		return
 	}

@@ -26,6 +26,9 @@ type AliyunOSS struct {
 }
 
 func NewAliyunOSS(cfg AliyunOSSConfig) (*AliyunOSS, error) {
+	if err := validatePublicBase(cfg.PublicBase); err != nil {
+		return nil, err
+	}
 	if strings.TrimSpace(cfg.Endpoint) == "" || strings.TrimSpace(cfg.Bucket) == "" {
 		return nil, fmt.Errorf("Aliyun OSS endpoint and bucket are required")
 	}

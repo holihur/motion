@@ -23,6 +23,9 @@ import (
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
 	cfg := config.Load()
+	if os.Getenv("JWT_SECRET") == "" || os.Getenv("ENCRYPTION_KEY") == "" {
+		slog.Warn("using built-in development secrets; set JWT_SECRET and ENCRYPTION_KEY before exposing this instance")
+	}
 
 	for _, arg := range os.Args[1:] {
 		if arg == "-version" || arg == "--version" || arg == "version" {

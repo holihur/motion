@@ -29,6 +29,9 @@ type Qiniu struct {
 }
 
 func NewQiniu(cfg QiniuConfig) (*Qiniu, error) {
+	if err := validatePublicBase(cfg.PublicBase); err != nil {
+		return nil, err
+	}
 	if strings.TrimSpace(cfg.Bucket) == "" || cfg.AccessKey == "" || cfg.SecretKey == "" {
 		return nil, fmt.Errorf("Qiniu bucket, access key and secret key are required")
 	}

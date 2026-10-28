@@ -615,8 +615,31 @@ export function PageEditor() {
       event.preventDefault()
       event.returnValue = ""
     }
+    function onPageHide() {
+      if (!dirtyRef.current) return
+      const snapshot = stateRef.current
+      if (!snapshot.pageId) return
+      const init: RequestInit = { keepalive: true }
+      // Best-effort last write while the tab is being torn down. The next load
+      // still reconciles with the server, so a lost race is recoverable.
+      void api.pages.update(
+        snapshot.pageId,
+        { title: snapshot.title, icon: snapshot.icon, cover: snapshot.cover },
+        init,
+      ).catch(() => undefined)
+      void api.pages.saveBlocks(
+        snapshot.pageId,
+        snapshot.blocks,
+        baseBlocksRef.current,
+        init,
+      ).catch(() => undefined)
+    }
     window.addEventListener("beforeunload", onBeforeUnload)
-    return () => window.removeEventListener("beforeunload", onBeforeUnload)
+    window.addEventListener("pagehide", onPageHide)
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload)
+      window.removeEventListener("pagehide", onPageHide)
+    }
   }, [])
 
   async function refreshFromServer() {

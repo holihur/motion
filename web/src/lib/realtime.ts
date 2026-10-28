@@ -27,16 +27,19 @@ export class RealtimeClient {
     if (!token) return
     this.handlers.onStatus?.("connecting")
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-    const params = new URLSearchParams({
-      token,
-      pageId: this.pageId,
-      clientId: getClientId(),
-    })
-    const socket = new WebSocket(`${protocol}//${window.location.host}/api/ws?${params}`)
+    const socket = new WebSocket(`${protocol}//${window.location.host}/api/ws`)
     this.socket = socket
 
     socket.onopen = () => {
       this.retry = 0
+      // Send credentials in the first frame instead of the URL so token
+      // material cannot leak through proxy/access logs or browser history.
+      socket.send(JSON.stringify({
+        type: "auth",
+        token,
+        pageId: this.pageId,
+        clientId: getClientId(),
+      }))
       this.handlers.onStatus?.("connected")
       this.handlers.onOpen?.()
     }

@@ -147,6 +147,13 @@ export function BlockEditor({
     // DOM focus can be stolen by the click that triggered the insertion.
     // Re-apply it after React has mounted the new block.
     window.setTimeout(() => {
+      const active = document.activeElement as HTMLElement | null
+      if (active && (
+        active.matches("input, textarea, [contenteditable='true']") ||
+        active.closest("[data-block-row], [role='dialog']")
+      )) {
+        return
+      }
       const element = document.getElementById(`block-input-${id}`) as HTMLElement | null
       element?.focus()
       focusBlockById(id, where, offset)

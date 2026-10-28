@@ -367,6 +367,7 @@ export interface OpsOIDCSettings {
 }
 
 export interface OpsSettings {
+  version: number
   appName: string
   allowSignup: boolean
   mcpEnabled: boolean

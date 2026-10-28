@@ -76,6 +76,7 @@ export function VirtualBlockList({
 }) {
   const listRef = useRef<HTMLDivElement>(null)
   const [scrollMargin, setScrollMargin] = useState(0)
+  const anchorRef = useRef<{ id: string; offset: number } | null>(null)
 
   useLayoutEffect(() => {
     const next = listRef.current?.offsetTop ?? 0
@@ -90,6 +91,37 @@ export function VirtualBlockList({
     scrollMargin,
     getItemKey: (index) => items[index].block.id,
   })
+
+  const itemSignature = items.map((item) => item.block.id).join("|")
+
+  useEffect(() => {
+    const parent = scrollParentRef.current
+    if (!parent) return
+    function rememberAnchor() {
+      const first = virtualizer.getVirtualItems()[0]
+      if (!first) return
+      const block = items[first.index]?.block
+      if (!block) return
+      anchorRef.current = { id: block.id, offset: first.start - parent!.scrollTop }
+    }
+    parent.addEventListener("scroll", rememberAnchor, { passive: true })
+    return () => parent.removeEventListener("scroll", rememberAnchor)
+  }, [items, scrollParentRef, virtualizer])
+
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current
+    if (!anchor) return
+    const index = items.findIndex((item) => item.block.id === anchor.id)
+    if (index < 0) {
+      anchorRef.current = null
+      return
+    }
+    const offset = virtualizer.getOffsetForIndex(index, "start")
+    if (offset) virtualizer.scrollToOffset(offset[0] - anchor.offset)
+    anchorRef.current = null
+    // Only re-anchor when blocks are inserted/removed/reordered.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemSignature])
 
   useEffect(() => {
     function scrollTo(event: Event) {

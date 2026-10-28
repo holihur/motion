@@ -2,12 +2,18 @@ import type { Block, TableData } from "@/lib/types"
 import { uid } from "@/lib/utils"
 
 function block(type: Block["type"], text: string, extra: Partial<Block> = {}): Block {
-  return { id: uid(), type, text, ...extra }
+  return { id: uid(), type, text: clampText(text), ...extra }
 }
 
 function indentOf(line: string) {
-  const spaces = line.match(/^\s*/)?.[0].length ?? 0
+  const leading = line.match(/^[\t ]*/)?.[0] ?? ""
+  const spaces = [...leading].reduce((sum, char) => sum + (char === "\t" ? 2 : 1), 0)
   return Math.min(8, Math.floor(spaces / 2))
+}
+
+function clampText(value: string, limit = 50_000) {
+  const runes = [...value]
+  return runes.length > limit ? runes.slice(0, limit).join("") : value
 }
 
 function isTableSeparator(line: string) {
@@ -52,11 +58,11 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
 
     // Table
     if (line.includes("|") && index + 1 < lines.length && isTableSeparator(lines[index + 1])) {
-      const columns = cells(line)
+      const columns = cells(line).slice(0, 20).map((cell) => clampText(cell, 1000))
       const rows: string[][] = []
       index += 2
-      while (index < lines.length && lines[index].includes("|") && lines[index].trim()) {
-        rows.push(columns.map((_, cellIndex) => cells(lines[index])[cellIndex] ?? ""))
+      while (index < lines.length && rows.length < 200 && lines[index].includes("|") && lines[index].trim()) {
+        rows.push(columns.map((_, cellIndex) => clampText(cells(lines[index])[cellIndex] ?? "", 1000)))
         index += 1
       }
       const table: TableData = { columns, rows, header: true }

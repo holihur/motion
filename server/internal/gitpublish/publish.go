@@ -102,8 +102,25 @@ func (c *Client) apiPath(suffix string) string {
 	}
 }
 
+func safePublishPath(name string) (string, bool) {
+	name = strings.TrimSpace(strings.ReplaceAll(name, "\\", "/"))
+	clean := path.Clean("/" + name)
+	if clean == "/" || strings.Contains(clean, "/../") || strings.HasSuffix(clean, "/..") || strings.Contains(name, "..") {
+		return "", false
+	}
+	return strings.TrimPrefix(clean, "/"), true
+}
+
 func (c *Client) PutFile(ctx context.Context, file string, content []byte) error {
-	remote := path.Join(strings.Trim(c.cfg.Path, "/"), file)
+	relative, ok := safePublishPath(file)
+	if !ok {
+		return fmt.Errorf("invalid publish file name")
+	}
+	base := strings.Trim(path.Clean("/"+c.cfg.Path), "/")
+	remote := path.Join(base, relative)
+	if base != "" && remote != base && !strings.HasPrefix(remote, base+"/") {
+		return fmt.Errorf("publish path escapes the configured directory")
+	}
 	encoded := base64.StdEncoding.EncodeToString(content)
 	switch strings.ToLower(c.cfg.Kind) {
 	case "gitlab":

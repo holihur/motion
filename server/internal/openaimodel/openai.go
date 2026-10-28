@@ -9,6 +9,7 @@ import (
 	"io"
 	"iter"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -164,7 +165,7 @@ func schemaMap(schema *genai.Schema) any {
 	return out
 }
 
-func (m *Model) buildMessages(request *model.LLMRequest, toolIDs map[string]string) []openAIMessage {
+func (m *Model) buildMessages(request *model.LLMRequest, toolIDs map[string][]string) []openAIMessage {
 	messages := make([]openAIMessage, 0, len(request.Contents)+2)
 	if request.Config != nil {
 		if system := contentText(request.Config.SystemInstruction); strings.TrimSpace(system) != "" {
@@ -193,7 +194,7 @@ func (m *Model) buildMessages(request *model.LLMRequest, toolIDs map[string]stri
 						toolCounter++
 						id = fmt.Sprintf("call_%d", toolCounter)
 					}
-					toolIDs[part.FunctionCall.Name] = id
+					toolIDs[part.FunctionCall.Name] = append(toolIDs[part.FunctionCall.Name], id)
 					arguments, _ := json.Marshal(part.FunctionCall.Args)
 					calls = append(calls, openAIToolCall{
 						ID: id, Type: "function",
@@ -226,8 +227,9 @@ func (m *Model) buildMessages(request *model.LLMRequest, toolIDs map[string]stri
 				response := part.FunctionResponse
 				id := response.ID
 				if id == "" {
-					if mapped, ok := toolIDs[response.Name]; ok {
-						id = mapped
+					if ids := toolIDs[response.Name]; len(ids) > 0 {
+						id = ids[0]
+						toolIDs[response.Name] = ids[1:]
 					}
 				}
 				payload, _ := json.Marshal(response.Response)
@@ -272,7 +274,7 @@ func (m *Model) buildTools(request *model.LLMRequest) []openAITool {
 }
 
 func (m *Model) generate(ctx context.Context, request *model.LLMRequest) (*model.LLMResponse, error) {
-	toolIDs := map[string]string{}
+	toolIDs := map[string][]string{}
 	payload := chatRequest{
 		Model:    m.config.Model,
 		Messages: m.buildMessages(request, toolIDs),
@@ -377,7 +379,7 @@ func (m *Model) generateStream(
 	request *model.LLMRequest,
 	yield func(*model.LLMResponse, error) bool,
 ) {
-	toolIDs := map[string]string{}
+	toolIDs := map[string][]string{}
 	payload := chatRequest{
 		Model:    m.config.Model,
 		Messages: m.buildMessages(request, toolIDs),
@@ -453,7 +455,7 @@ func (m *Model) generateStream(
 		TotalTokens      int32 `json:"total_tokens"`
 	}
 	scanner := bufio.NewScanner(resp.Body)
-	scanner.Buffer(make([]byte, 64*1024), 2*1024*1024)
+	scanner.Buffer(make([]byte, 64*1024), 10*1024*1024)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if !strings.HasPrefix(line, "data:") {
@@ -510,7 +512,12 @@ func (m *Model) generateStream(
 	if text.Len() > 0 {
 		parts = append(parts, &genai.Part{Text: text.String()})
 	}
-	for index := 0; index < len(tools); index++ {
+	indexes := make([]int, 0, len(tools))
+	for index := range tools {
+		indexes = append(indexes, index)
+	}
+	sort.Ints(indexes)
+	for _, index := range indexes {
 		entry := tools[index]
 		if entry == nil || entry.Name == "" {
 			continue

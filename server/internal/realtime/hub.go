@@ -2,6 +2,7 @@ package realtime
 
 import (
 	"encoding/json"
+	"log/slog"
 	"sort"
 	"sync"
 	"time"
@@ -155,6 +156,8 @@ func (h *Hub) Broadcast(pageID string, payload any, excludeClientID string) {
 		select {
 		case client.Send <- data:
 		default:
+			slog.Warn("dropping slow realtime client", "pageId", pageID, "clientId", client.ClientID)
+			go h.Remove(client)
 		}
 	}
 }
@@ -177,6 +180,8 @@ func (h *Hub) BroadcastWorkspace(workspaceID string, payload any, excludeClientI
 		select {
 		case client.Send <- data:
 		default:
+			slog.Warn("dropping slow workspace realtime client", "workspaceId", workspaceID, "clientId", client.ClientID)
+			go h.Remove(client)
 		}
 	}
 }

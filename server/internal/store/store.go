@@ -79,13 +79,16 @@ func (s *Store) EnsureIndexes(ctx context.Context) error {
 		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "archived", Value: 1}, {Key: "order", Value: 1}}},
 		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "parentId", Value: 1}}},
 		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "updatedAt", Value: -1}}},
+		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "isLayout", Value: 1}, {Key: "archived", Value: 1}}},
+		{Keys: bson.D{{Key: "layoutId", Value: 1}}},
 	})
 	if err != nil {
 		return err
 	}
 
-	_, err = s.Workspaces.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: "ownerId", Value: 1}},
+	_, err = s.Workspaces.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "ownerId", Value: 1}}},
+		{Keys: bson.D{{Key: "members.userId", Value: 1}}},
 	})
 	if err != nil {
 		return err
@@ -106,8 +109,9 @@ func (s *Store) EnsureIndexes(ctx context.Context) error {
 		return err
 	}
 
-	_, err = s.Comments.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: "pageId", Value: 1}, {Key: "createdAt", Value: 1}},
+	_, err = s.Comments.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "pageId", Value: 1}, {Key: "createdAt", Value: 1}}},
+		{Keys: bson.D{{Key: "pageId", Value: 1}, {Key: "parentId", Value: 1}, {Key: "createdAt", Value: -1}}},
 	})
 	if err != nil {
 		return err
@@ -139,8 +143,9 @@ func (s *Store) EnsureIndexes(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.FormSubmissions.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: "pageId", Value: 1}, {Key: "blockId", Value: 1}, {Key: "submittedAt", Value: -1}},
+	_, err = s.FormSubmissions.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "pageId", Value: 1}, {Key: "blockId", Value: 1}, {Key: "submittedAt", Value: -1}}},
+		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "submittedAt", Value: -1}}},
 	})
 	if err != nil {
 		return err
@@ -159,8 +164,9 @@ func (s *Store) EnsureIndexes(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.Audit.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "createdAt", Value: -1}},
+	_, err = s.Audit.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "createdAt", Value: -1}}},
+		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "actorId", Value: 1}, {Key: "createdAt", Value: -1}}},
 	})
 	return err
 }

@@ -88,6 +88,10 @@ func env(key, fallback string) string {
 }
 
 func atoi(value string, fallback int) int {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
 	var out int
 	for _, char := range value {
 		if char < '0' || char > '9' {
@@ -102,7 +106,8 @@ func atoi(value string, fallback int) int {
 }
 
 func split(v string) []string {
-	parts := strings.Split(v, ",")
+	replacer := strings.NewReplacer("，", ",", ";", ",", "\n", ",")
+	parts := strings.Split(replacer.Replace(v), ",")
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
 		if p = strings.TrimSpace(p); p != "" {

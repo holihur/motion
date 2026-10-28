@@ -9,24 +9,10 @@ import (
 // Key returns a stable representation of a block's content, ignoring its
 // position. It is used for three-way merges during collaborative editing.
 func Key(block model.Block) string {
-	data, _ := json.Marshal(struct {
-		Type       string           `json:"t"`
-		Text       string           `json:"x"`
-		Rich       string           `json:"r,omitempty"`
-		Checked    bool             `json:"c"`
-		Language   string           `json:"l"`
-		Color      string           `json:"o"`
-		URL        string           `json:"u"`
-		Caption    string           `json:"p"`
-		Ciphertext string           `json:"e,omitempty"`
-		Salt       string           `json:"s,omitempty"`
-		IV         string           `json:"i,omitempty"`
-		Table      *model.TableData `json:"tb,omitempty"`
-		Form       *model.FormData  `json:"fm,omitempty"`
-		Indent     int              `json:"in,omitempty"`
-		Collapsed  bool             `json:"co,omitempty"`
-		Locked     bool             `json:"lk,omitempty"`
-	}{block.Type, block.Text, block.Rich, block.Checked, block.Language, block.Color, block.URL, block.Caption, block.Ciphertext, block.Salt, block.IV, block.Table, block.Form, block.Indent, block.Collapsed, block.Locked})
+	// Include every persisted field so new block options participate in
+	// three-way merges automatically.
+	block.ID = ""
+	data, _ := json.Marshal(block)
 	return string(data)
 }
 

@@ -79,7 +79,7 @@ func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
 	client := &realtime.Client{
 		Hub:         s.hub,
 		Conn:        conn,
-		Send:        make(chan []byte, 32),
+		Send:        make(chan []byte, 256),
 		Done:        make(chan struct{}),
 		PageID:      page.ID.Hex(),
 		WorkspaceID: page.WorkspaceID.Hex(),

@@ -156,8 +156,16 @@ func (s *Server) deleteWorkspace(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "could not delete pages")
 		return
 	}
-	_, _ = s.store.Revisions.DeleteMany(r.Context(), bson.M{"workspaceId": wsID})
-	_, _ = s.store.Comments.DeleteMany(r.Context(), bson.M{"workspaceId": wsID})
+	workspaceFilter := bson.M{"workspaceId": wsID}
+	_, _ = s.store.Revisions.DeleteMany(r.Context(), workspaceFilter)
+	_, _ = s.store.Comments.DeleteMany(r.Context(), workspaceFilter)
+	_, _ = s.store.FormSubmissions.DeleteMany(r.Context(), workspaceFilter)
+	_, _ = s.store.Agents.DeleteMany(r.Context(), workspaceFilter)
+	_, _ = s.store.Proposals.DeleteMany(r.Context(), workspaceFilter)
+	_, _ = s.store.Audit.DeleteMany(r.Context(), workspaceFilter)
+	_, _ = s.store.Integrations.DeleteMany(r.Context(), workspaceFilter)
+	_, _ = s.store.Deliveries.DeleteMany(r.Context(), workspaceFilter)
+	_, _ = s.store.PublishGroups.DeleteMany(r.Context(), workspaceFilter)
 	if _, err := s.store.Workspaces.DeleteOne(r.Context(), bson.M{"_id": wsID}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not delete workspace")
 		return

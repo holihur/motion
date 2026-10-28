@@ -13,7 +13,7 @@ import (
 	"github.com/motion/server/internal/model"
 )
 
-var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)
+var slugPattern = regexp.MustCompile(`[^\p{L}\p{N}]+`)
 
 // Slug makes a stable, readable file name from a page title.
 func Slug(title string, id primitive.ObjectID) string {
@@ -23,8 +23,8 @@ func Slug(title string, id primitive.ObjectID) string {
 	if value == "" {
 		value = "page-" + id.Hex()[:8]
 	}
-	if len(value) > 60 {
-		value = strings.Trim(value[:60], "-")
+	if runes := []rune(value); len(runes) > 60 {
+		value = strings.Trim(string(runes[:60]), "-")
 	}
 	return value
 }

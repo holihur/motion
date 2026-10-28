@@ -298,7 +298,10 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 		updates["order"] = order
 	}
 
-	isLayoutRequested := strings.EqualFold(string(raw["isLayout"]), "true")
+	isLayoutRequested := false
+	if value, ok := raw["isLayout"]; ok {
+		_ = json.Unmarshal(value, &isLayoutRequested)
+	}
 	if value, ok := raw["layoutId"]; ok && !page.IsLayout && !isLayoutRequested {
 		var layoutID string
 		_ = json.Unmarshal(value, &layoutID)
@@ -485,6 +488,10 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if page.Archived {
+		writeErr(w, http.StatusForbidden, "page is in Trash; restore it before editing")
+		return
+	}
 
 	var req saveBlocksRequest
 	if err := decodeJSON(r, &req); err != nil {
@@ -623,6 +630,10 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 	}
 	page, ok := s.editablePage(w, r, pageID)
 	if !ok {
+		return
+	}
+	if page.Archived {
+		writeErr(w, http.StatusForbidden, "page is in Trash; restore it before editing")
 		return
 	}
 	var req blockSyncRequest
@@ -790,9 +801,7 @@ func (s *Server) duplicatePage(w http.ResponseWriter, r *http.Request) {
 		title = "Untitled"
 	}
 	title += " (copy)"
-	if utf8.RuneCountInString(title) > 200 {
-		title = title[:200]
-	}
+	title = truncateRunes(title, 200)
 	copyPage := model.Page{
 		ID:          primitive.NewObjectID(),
 		WorkspaceID: original.WorkspaceID,
@@ -849,10 +858,16 @@ func (s *Server) deletePage(w http.ResponseWriter, r *http.Request) {
 	for id := range descendants {
 		ids[id] = true
 	}
-	if _, err := s.store.Pages.DeleteMany(r.Context(), bson.M{"_id": bson.M{"$in": keysOf(ids)}}); err != nil {
+	pageIDsToDelete := keysOf(ids)
+	if _, err := s.store.Pages.DeleteMany(r.Context(), bson.M{"_id": bson.M{"$in": pageIDsToDelete}}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not delete page")
 		return
 	}
+	related := bson.M{"pageId": bson.M{"$in": pageIDsToDelete}}
+	_, _ = s.store.Revisions.DeleteMany(r.Context(), related)
+	_, _ = s.store.Comments.DeleteMany(r.Context(), related)
+	_, _ = s.store.FormSubmissions.DeleteMany(r.Context(), related)
+	_, _ = s.store.Proposals.DeleteMany(r.Context(), related)
 	s.hub.Broadcast(page.ID.Hex(), map[string]any{
 		"type": "deleted", "pageId": page.ID.Hex(), "clientId": clientID(r),
 	}, clientID(r))

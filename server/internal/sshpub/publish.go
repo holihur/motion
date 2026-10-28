@@ -65,15 +65,22 @@ func Publish(ctx context.Context, cfg Config, files map[string][]byte) error {
 		return fmt.Errorf("SFTP connection failed: %w", err)
 	}
 	defer sftpClient.Close()
+	if strings.Contains(cfg.RemotePath, "..") {
+		return fmt.Errorf("invalid remote path")
+	}
 	remote := path.Clean("/" + cfg.RemotePath)
 	if err := sftpClient.MkdirAll(remote); err != nil {
 		return fmt.Errorf("could not create remote directory: %w", err)
 	}
 	for name, content := range files {
-		if strings.Contains(name, "..") || strings.Contains(name, "/") {
-			continue
+		relative := strings.TrimPrefix(path.Clean("/"+strings.ReplaceAll(name, "\\", "/")), "/")
+		if relative == "" || strings.Contains(relative, "..") || strings.HasPrefix(relative, "/") {
+			return fmt.Errorf("invalid publish file name: %s", name)
 		}
-		target := path.Join(remote, name)
+		target := path.Join(remote, relative)
+		if target != remote && !strings.HasPrefix(target, remote+"/") {
+			return fmt.Errorf("publish path escapes the configured directory")
+		}
 		if err := sftpClient.MkdirAll(path.Dir(target)); err != nil {
 			return err
 		}

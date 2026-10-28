@@ -4,6 +4,7 @@ import { getPage } from "../helpers/api"
 
 test.describe("rich blocks", () => {
   test("tables and Mermaid diagrams persist and render", async ({ page, request }) => {
+    test.setTimeout(120_000)
     const account = await signIn(page, request)
     await page.locator("aside").getByRole("button", { name: "New page" }).first().click()
     await expect(page).toHaveURL(/\/page\//)

@@ -144,6 +144,13 @@ export function BlockEditor({
 
   function focusNew(id: string, where: "start" | "end" = "end", offset?: number) {
     setAutoFocus({ id, where, offset })
+    // DOM focus can be stolen by the click that triggered the insertion.
+    // Re-apply it after React has mounted the new block.
+    window.setTimeout(() => {
+      const element = document.getElementById(`block-input-${id}`) as HTMLElement | null
+      element?.focus()
+      focusBlockById(id, where, offset)
+    }, 120)
   }
   const [slash, setSlash] = useState<SlashState | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)

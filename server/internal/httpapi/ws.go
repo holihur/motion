@@ -3,6 +3,7 @@ package httpapi
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -18,6 +19,26 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
 	WriteBufferSize: 4096,
 	CheckOrigin:     func(_ *http.Request) bool { return true },
+}
+
+func (s *Server) websocketOriginAllowed(r *http.Request) bool {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return true
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	if strings.EqualFold(parsed.Host, r.Host) {
+		return true
+	}
+	for _, allowed := range s.cfg.CORSOrigins {
+		if strings.EqualFold(strings.TrimRight(allowed, "/"), strings.TrimRight(origin, "/")) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
@@ -66,6 +87,10 @@ func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !s.websocketOriginAllowed(r) {
+		writeErr(w, http.StatusForbidden, "websocket origin is not allowed")
+		return
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		slog.Warn("websocket upgrade failed", "error", err)

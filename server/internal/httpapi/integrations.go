@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"mime"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -43,7 +44,10 @@ type saveIntegrationRequest struct {
 }
 
 func integrationViewOf(item model.Integration) integrationView {
-	config := item.Config
+	config := make(map[string]string, len(item.Config))
+	for key, value := range item.Config {
+		config[key] = value
+	}
 	if config == nil {
 		config = map[string]string{}
 	}
@@ -84,6 +88,33 @@ func (s *Server) listIntegrations(w http.ResponseWriter, r *http.Request) {
 		out = append(out, integrationViewOf(item))
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+func validatePublicWebhookURL(raw string) error {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Hostname() == "" {
+		return errors.New("webhook URL must be an http(s) URL")
+	}
+	if host := parsed.Hostname(); net.ParseIP(host) == nil {
+		ips, err := net.LookupIP(host)
+		if err != nil {
+			return nil
+		}
+		for _, ip := range ips {
+			if ip.IsLoopback() {
+				continue
+			}
+			if ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+				return errors.New("webhook URL points to a private network")
+			}
+		}
+		return nil
+	}
+	ip := net.ParseIP(parsed.Hostname())
+	if ip != nil && !ip.IsLoopback() && (ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()) {
+		return errors.New("webhook URL points to a private network")
+	}
+	return nil
 }
 
 func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {

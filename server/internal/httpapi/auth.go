@@ -18,6 +18,8 @@ import (
 
 var emailPattern = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
 
+var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("motion-timing-equalizer"), bcrypt.DefaultCost)
+
 type authRequest struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
@@ -119,7 +121,12 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 
 	var user model.User
 	if err := s.store.Users.FindOne(r.Context(), bson.M{"email": email}).Decode(&user); err != nil {
+		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(req.Password))
 		writeErr(w, http.StatusUnauthorized, "email or password is incorrect")
+		return
+	}
+	if user.Password == "!oidc" {
+		writeErr(w, http.StatusUnauthorized, "this account uses single sign-on")
 		return
 	}
 	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) != nil {

@@ -15,7 +15,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 
 	"github.com/motion/server/internal/model"
@@ -238,6 +237,9 @@ func (s *Server) findOrCreateOIDCUser(r *http.Request, email, name, issuer, subj
 	err := s.store.Users.FindOne(r.Context(), bson.M{"email": email}).Decode(&user)
 	if err == nil {
 		updates := bson.M{}
+		if user.OIDCIssuer != "" && user.Password != "!oidc" {
+			updates["password"] = "!oidc"
+		}
 		if user.OIDCIssuer == "" {
 			updates["oidcIssuer"] = issuer
 			updates["oidcSubject"] = subject
@@ -257,18 +259,10 @@ func (s *Server) findOrCreateOIDCUser(r *http.Request, email, name, issuer, subj
 	if !autoCreate {
 		return model.User{}, errOIDCNoAccount
 	}
-	randomPassword, err := randomToken(32)
-	if err != nil {
-		return model.User{}, err
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(randomPassword), bcrypt.DefaultCost)
-	if err != nil {
-		return model.User{}, err
-	}
 	now := time.Now().UTC()
 	count, _ := s.store.Users.CountDocuments(r.Context(), bson.M{})
 	user = model.User{
-		ID: primitive.NewObjectID(), Name: name, Email: email, Password: string(hash),
+		ID: primitive.NewObjectID(), Name: name, Email: email, Password: "!oidc",
 		OIDCIssuer: issuer, OIDCSubject: subject,
 		IsAdmin:   len(s.siteSnapshot().AdminEmails) == 0 && count == 0,
 		CreatedAt: now, UpdatedAt: now,

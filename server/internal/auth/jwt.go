@@ -27,8 +27,11 @@ func (m *Manager) Issue(userID primitive.ObjectID) (string, error) {
 	claims := Claims{
 		UserID: userID.Hex(),
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "motion",
 			Subject:   userID.Hex(),
+			Audience:  jwt.ClaimStrings{"motion"},
 			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now.Add(-60 * time.Second)),
 			ExpiresAt: jwt.NewNumericDate(now.Add(m.ttl)),
 		},
 	}
@@ -41,7 +44,7 @@ func (m *Manager) Parse(token string) (primitive.ObjectID, error) {
 			return nil, errors.New("unexpected signing method")
 		}
 		return m.secret, nil
-	})
+	}, jwt.WithIssuer("motion"), jwt.WithAudience("motion"), jwt.WithLeeway(60*time.Second))
 	if err != nil {
 		return primitive.NilObjectID, err
 	}

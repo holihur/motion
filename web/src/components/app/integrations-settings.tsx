@@ -179,6 +179,17 @@ export function IntegrationsSettings() {
   if (!workspace) return <p className="pt-4 text-sm text-muted-foreground">{tr("No workspace selected.")}</p>
   if (loading) return <div className="h-32 animate-pulse rounded-lg bg-muted/60" />
 
+  async function replayDelivery(delivery: WebhookDelivery) {
+    if (!workspace) return
+    try {
+      await api.integrations.replayDelivery(workspace.id, delivery.id)
+      toast.success(tr("Webhook replay queued"))
+      setDeliveries(await api.integrations.deliveries(workspace.id).catch(() => []))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not replay webhook"))
+    }
+  }
+
   async function save(provider: "webhook" | "ssh" | "git" | "jira" | "confluence" | "s3" | "aliyun_oss" | "qiniu" | "tencent_cos", config: Record<string, string>, secret: string, events?: string[]) {
     if (saving) return
     setSaving(provider)
@@ -310,6 +321,7 @@ export function IntegrationsSettings() {
                 <span className="text-muted-foreground">{delivery.status}</span>
                 {(delivery.responseCode ?? 0) > 0 && <span className="text-muted-foreground">HTTP {delivery.responseCode}</span>}
                 {delivery.error && <span className="truncate text-destructive">{delivery.error}</span>}
+                <button type="button" onClick={() => void replayDelivery(delivery)} disabled={!owner} className="ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] text-brand hover:bg-brand-soft disabled:opacity-50">{tr("Replay")}</button>
               </div>
             ))}
           </div>

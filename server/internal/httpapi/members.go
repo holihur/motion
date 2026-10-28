@@ -124,7 +124,7 @@ func (s *Server) inviteMember(w http.ResponseWriter, r *http.Request) {
 	result, err := s.store.Workspaces.UpdateOne(r.Context(),
 		bson.M{
 			"_id": wsID, "members.userId": bson.M{"$ne": user.ID},
-			"$expr": bson.M{"$lt": bson.A{bson.M{"$size": "$members"}, 100}},
+			"$expr": bson.M{"$lt": bson.A{bson.M{"$size": bson.M{"$ifNull": bson.A{"$members", bson.A{}}}}, 100}},
 		},
 		bson.M{
 			"$push": bson.M{"members": member},

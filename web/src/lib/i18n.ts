@@ -954,6 +954,9 @@ const zh: Record<string, string> = {
   "Red": "红色",
   "Image caption": "图片说明",
   "Add a caption…": "添加图片说明…",
+  "Webhook replay queued": "Webhook 重放已排队",
+  "Could not replay webhook": "无法重放 Webhook",
+  "Replay": "重放",
 }
 const API_ERROR_ZH: Record<string, string> = {
   "page not found": "页面不存在",

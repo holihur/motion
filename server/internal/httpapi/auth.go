@@ -2,9 +2,11 @@ package httpapi
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -19,6 +21,60 @@ import (
 var emailPattern = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
 
 var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("motion-timing-equalizer"), bcrypt.DefaultCost)
+
+type loginAttempt struct {
+	count int
+	first time.Time
+}
+
+var loginAttempts = struct {
+	sync.Mutex
+	byKey map[string]loginAttempt
+}{byKey: map[string]loginAttempt{}}
+
+func loginAttemptKey(r *http.Request, email string) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	return host + "|" + strings.ToLower(email)
+}
+
+func loginBlocked(key string) bool {
+	loginAttempts.Lock()
+	defer loginAttempts.Unlock()
+	attempt, ok := loginAttempts.byKey[key]
+	if !ok || time.Since(attempt.first) > 15*time.Minute {
+		delete(loginAttempts.byKey, key)
+		return false
+	}
+	return attempt.count >= 10
+}
+
+func recordLoginFailure(key string) {
+	loginAttempts.Lock()
+	defer loginAttempts.Unlock()
+	attempt, ok := loginAttempts.byKey[key]
+	if !ok || time.Since(attempt.first) > 15*time.Minute {
+		loginAttempts.byKey[key] = loginAttempt{count: 1, first: time.Now()}
+		return
+	}
+	attempt.count++
+	loginAttempts.byKey[key] = attempt
+	if len(loginAttempts.byKey) > 10000 {
+		for candidate, item := range loginAttempts.byKey {
+			if time.Since(item.first) > 15*time.Minute {
+				delete(loginAttempts.byKey, candidate)
+			}
+		}
+	}
+}
+
+func clearLoginFailures(key string) {
+	loginAttempts.Lock()
+	delete(loginAttempts.byKey, key)
+	loginAttempts.Unlock()
+}
 
 type authRequest struct {
 	Name     string `json:"name"`
@@ -118,21 +174,30 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	email := strings.ToLower(strings.TrimSpace(req.Email))
+	attemptKey := loginAttemptKey(r, email)
+	if loginBlocked(attemptKey) {
+		writeErr(w, http.StatusTooManyRequests, "too many sign-in attempts; try again later")
+		return
+	}
 
 	var user model.User
 	if err := s.store.Users.FindOne(r.Context(), bson.M{"email": email}).Decode(&user); err != nil {
 		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(req.Password))
+		recordLoginFailure(attemptKey)
 		writeErr(w, http.StatusUnauthorized, "email or password is incorrect")
 		return
 	}
 	if user.Password == "!oidc" {
+		recordLoginFailure(attemptKey)
 		writeErr(w, http.StatusUnauthorized, "this account uses single sign-on")
 		return
 	}
 	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)) != nil {
+		recordLoginFailure(attemptKey)
 		writeErr(w, http.StatusUnauthorized, "email or password is incorrect")
 		return
 	}
+	clearLoginFailures(attemptKey)
 
 	token, err := s.tokens.Issue(user.ID)
 	if err != nil {

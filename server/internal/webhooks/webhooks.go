@@ -62,12 +62,38 @@ func (s *Service) Emit(ctx context.Context, workspaceID primitive.ObjectID, even
 	}
 	delivery := model.WebhookDelivery{
 		ID: primitive.NewObjectID(), WorkspaceID: workspaceID, IntegrationID: integration.ID,
-		Event: event, URL: integration.Config["url"], Status: "pending", CreatedAt: time.Now().UTC(),
+		Event: event, URL: integration.Config["url"], Payload: payload, Status: "pending", CreatedAt: time.Now().UTC(),
 	}
 	if _, err := s.store.Deliveries.InsertOne(ctx, delivery); err != nil {
 		return
 	}
 	go s.deliver(delivery, integration, payload)
+}
+
+// Replay re-sends a persisted delivery using the current integration config.
+func (s *Service) Replay(ctx context.Context, workspaceID, deliveryID primitive.ObjectID) error {
+	var delivery model.WebhookDelivery
+	if err := s.store.Deliveries.FindOne(ctx, bson.M{"_id": deliveryID, "workspaceId": workspaceID}).Decode(&delivery); err != nil {
+		return err
+	}
+	if len(delivery.Payload) == 0 {
+		return fmt.Errorf("this delivery was created before payload retention was enabled")
+	}
+	var integration model.Integration
+	if err := s.store.Integrations.FindOne(ctx, bson.M{"_id": delivery.IntegrationID, "workspaceId": workspaceID, "disabled": bson.M{"$ne": true}}).Decode(&integration); err != nil {
+		return fmt.Errorf("webhook is no longer configured")
+	}
+	now := time.Now().UTC()
+	if _, err := s.store.Deliveries.UpdateByID(ctx, delivery.ID, bson.M{"$set": bson.M{
+		"status": "pending", "attempts": 0, "responseCode": 0, "error": "", "deliveredAt": nil, "createdAt": now,
+	}}); err != nil {
+		return err
+	}
+	delivery.Status = "pending"
+	delivery.Attempts = 0
+	delivery.CreatedAt = now
+	go s.deliver(delivery, integration, delivery.Payload)
+	return nil
 }
 
 func wantsEvent(events []string, event string) bool {

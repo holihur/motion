@@ -293,6 +293,33 @@ func (s *Server) deleteIntegration(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (s *Server) replayDelivery(w http.ResponseWriter, r *http.Request) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	_, role, err := s.accessibleWorkspace(r, wsID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "workspace not found")
+		return
+	}
+	if role != roleOwner {
+		writeErr(w, http.StatusForbidden, "only the workspace owner can replay webhooks")
+		return
+	}
+	deliveryID, err := primitive.ObjectIDFromHex(chiURLParam(r, "deliveryID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid delivery id")
+		return
+	}
+	if err := s.webhooks.Replay(r.Context(), wsID, deliveryID); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (s *Server) listDeliveries(w http.ResponseWriter, r *http.Request) {
 	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
 	if err != nil {

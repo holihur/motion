@@ -162,9 +162,10 @@ func (s *Server) Router() http.Handler {
 	}))
 	r.Use(s.logRequests)
 
-	r.Get("/api/health", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	})
+	r.Get("/api/health", s.livez)
+	r.Get("/api/livez", s.livez)
+	r.Get("/api/readyz", s.readyz)
+	r.Get("/api/healthz", s.healthz)
 	r.HandleFunc("/mcp", s.mcpEndpoint)
 
 	r.Route("/api", func(r chi.Router) {
@@ -228,6 +229,7 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/integrations/confluence/publish", s.publishConfluence)
 			r.With(s.requireScope("workspace:write")).Delete("/workspaces/{workspaceID}/integrations/{provider}", s.deleteIntegration)
 			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/webhook-deliveries", s.listDeliveries)
+			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/webhook-deliveries/{deliveryID}/replay", s.replayDelivery)
 			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/publish-groups", s.listPublishGroups)
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/publish-groups", s.savePublishGroup)
 			r.With(s.requireScope("workspace:write")).Put("/workspaces/{workspaceID}/publish-groups/{groupID}", s.savePublishGroup)

@@ -259,6 +259,7 @@ type WebhookDelivery struct {
 	IntegrationID primitive.ObjectID `bson:"integrationId" json:"integrationId"`
 	Event         string             `bson:"event" json:"event"`
 	URL           string             `bson:"url" json:"url"`
+	Payload       []byte             `bson:"payload,omitempty" json:"-"`
 	Status        string             `bson:"status" json:"status"`
 	Attempts      int                `bson:"attempts" json:"attempts"`
 	ResponseCode  int                `bson:"responseCode,omitempty" json:"responseCode,omitempty"`

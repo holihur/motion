@@ -46,6 +46,9 @@ func (s *Server) exportPage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "could not export page")
 		return
 	}
+	_, actorName := s.editorFor(r)
+	s.writeAudit(r.Context(), page.WorkspaceID, currentUserID(r), actorName, primitive.NilObjectID, "",
+		"page.export", "page", page.ID.Hex(), "Exported "+page.Title+" as "+format)
 	filename := name + extension
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"; filename*=UTF-8''"+url.PathEscape(filename))

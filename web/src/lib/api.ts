@@ -365,6 +365,8 @@ export const api = {
     remove: (workspaceId: string, provider: string) =>
       request<void>(`/workspaces/${workspaceId}/integrations/${provider}`, { method: "DELETE" }),
     deliveries: (workspaceId: string) => request<WebhookDelivery[]>(`/workspaces/${workspaceId}/webhook-deliveries`),
+    replayDelivery: (workspaceId: string, deliveryId: string) =>
+      request<void>(`/workspaces/${workspaceId}/webhook-deliveries/${deliveryId}/replay`, { method: "POST" }),
     groups: (workspaceId: string) => request<import("./types").PublishGroup[]>(`/workspaces/${workspaceId}/publish-groups`),
     saveGroup: (workspaceId: string, input: { name: string; targets: string[]; id?: string }) =>
       request<import("./types").PublishGroup>(`/workspaces/${workspaceId}/publish-groups${input.id ? `/${input.id}` : ""}`, {

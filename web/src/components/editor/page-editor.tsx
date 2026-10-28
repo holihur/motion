@@ -639,6 +639,8 @@ export function PageEditor() {
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload)
       window.removeEventListener("pagehide", onPageHide)
+      // SPA navigation unmounts the editor without firing pagehide.
+      onPageHide()
     }
   }, [])
 

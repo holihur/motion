@@ -43,6 +43,14 @@ function safeHttpUrl(value: string): URL | null {
   }
 }
 
+function faviconFor(value: string) {
+  try {
+    return new URL("/favicon.ico", value).toString()
+  } catch {
+    return ""
+  }
+}
+
 function hostFor(value: string) {
   const url = safeHttpUrl(value)
   return url?.hostname.replace(/^www\./, "") ?? value
@@ -190,7 +198,9 @@ export function BookmarkBlock({
   block: Block; readOnly: boolean; autoFocus?: boolean; onUpdate: (patch: Partial<Block>) => void
 }) {
   const [editing, setEditing] = useState(!block.url)
+  const [iconState, setIconState] = useState<"loading" | "ok" | "error">("loading")
   useEffect(() => { if (!block.url) setEditing(true) }, [block.url])
+  useEffect(() => { setIconState("loading") }, [block.url])
   if (editing) {
     return <LinkPrompt block={block} kind="bookmark" readOnly={readOnly} autoFocus={autoFocus} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
   }
@@ -204,8 +214,20 @@ export function BookmarkBlock({
         rel="noreferrer noopener"
         className="flex items-center gap-3 rounded-xl border border-border/80 bg-card px-3.5 py-3 transition hover:border-brand/40 hover:bg-accent/25"
       >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
-          <Bookmark className="size-4" />
+        <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-brand-soft text-brand">
+          {iconState === "loading" && <span className="absolute inset-1 animate-pulse rounded bg-brand/15" />}
+          {iconState !== "error" && faviconFor(block.url ?? "") && (
+            <img
+              src={faviconFor(block.url ?? "")}
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className={cn("size-5 rounded-sm", iconState === "ok" ? "opacity-100" : "opacity-0")}
+              onLoad={() => setIconState("ok")}
+              onError={() => setIconState("error")}
+            />
+          )}
+          {iconState === "error" && <Bookmark className="size-4" />}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-medium">{title}</span>

@@ -159,6 +159,10 @@ export function OpsView() {
 
   async function save() {
     if (!settings || pending) return
+    if (!canSave) {
+      toast.error(issuerError || "Fix the highlighted administrator emails before saving.")
+      return
+    }
     setPending(true)
     try {
       if (!token) return
@@ -231,6 +235,19 @@ export function OpsView() {
     }
   }
 
+  const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+  const invalidAdminEmails = adminEmails
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => !emailPattern.test(item))
+  const issuerError = settings?.oidc.enabled
+    ? !/^https?:\/\//i.test(settings.oidc.issuer.trim())
+      ? "Enter the OIDC issuer URL, starting with https://."
+      : ""
+    : ""
+  const canSave = Boolean(settings) && !issuerError && invalidAdminEmails.length === 0
+
   return (
     <div className="flex h-svh flex-col bg-background">
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-3">
@@ -248,7 +265,7 @@ export function OpsView() {
           <Button variant="outline" size="sm" className="gap-1.5" onClick={lock}>
             <LockKeyhole className="size-3.5" /> Lock Ops
           </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => void save()} disabled={pending || !settings}>
+          <Button size="sm" className="gap-1.5" onClick={() => void save()} disabled={pending || !canSave}>
             {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
             Save changes
           </Button>
@@ -358,10 +375,16 @@ export function OpsView() {
                     value={adminEmails}
                     onChange={(event) => setAdminEmails(event.target.value)}
                     placeholder="you@example.com, teammate@example.com"
+                    aria-invalid={invalidAdminEmails.length > 0}
+                    className={invalidAdminEmails.length > 0 ? "border-destructive focus-visible:ring-destructive/30" : undefined}
                   />
-                  <p className="text-[11px] text-muted-foreground">
-                    Comma separated. Your own email must remain in this list to avoid lockout.
-                  </p>
+                  {invalidAdminEmails.length > 0 ? (
+                    <p className="text-[11px] text-destructive">Check: {invalidAdminEmails.join(", ")}</p>
+                  ) : (
+                    <p className="text-[11px] text-muted-foreground">
+                      Comma separated. Your own email must remain in this list to avoid lockout.
+                    </p>
+                  )}
                 </div>
               </section>
 
@@ -423,7 +446,10 @@ export function OpsView() {
                       value={settings.oidc.issuer}
                       onChange={(event) => patchOIDC({ issuer: event.target.value })}
                       placeholder="https://accounts.google.com"
+                      aria-invalid={Boolean(issuerError)}
+                      className={issuerError ? "border-destructive focus-visible:ring-destructive/30" : undefined}
                     />
+                    {issuerError && <p className="mt-1 text-[11px] text-destructive">{issuerError}</p>}
                   </Field>
                   <Field label="Client ID" htmlFor="ops-oidc-client">
                     <Input

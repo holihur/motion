@@ -567,6 +567,10 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 	if req.Base != nil {
 		merged = blocks.Merge(*req.Base, page.Blocks, req.Blocks)
 	}
+	if lockedBlocksChanged(page.Blocks, merged) {
+		writeErr(w, http.StatusForbidden, "unlock the block before editing or deleting it")
+		return
+	}
 	now := time.Now().UTC()
 	rev := page.BlocksRev + 1
 	if rev < 1 {
@@ -722,6 +726,10 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 			next = append(next, b)
 			used[b.ID] = true
 		}
+	}
+	if lockedBlocksChanged(page.Blocks, next) {
+		writeErr(w, http.StatusForbidden, "unlock the block before editing or deleting it")
+		return
 	}
 	now := time.Now().UTC()
 	rev := page.BlocksRev + 1
@@ -894,6 +902,29 @@ func (s *Server) pageBacklinks(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+func lockedBlocksChanged(before, after []model.Block) bool {
+	next := make(map[string]model.Block, len(after))
+	for _, block := range after {
+		next[block.ID] = block
+	}
+	for _, old := range before {
+		if !old.Locked {
+			continue
+		}
+		updated, ok := next[old.ID]
+		if !ok {
+			return true
+		}
+		a, b := old, updated
+		a.Locked = false
+		b.Locked = false
+		if !blocksEqual(a, b) {
+			return true
+		}
+	}
+	return false
 }
 
 func sanitizeTable(table *model.TableData) *model.TableData {

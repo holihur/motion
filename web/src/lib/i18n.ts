@@ -963,6 +963,7 @@ const API_ERROR_ZH: Record<string, string> = {
   "you do not have permission to edit this page": "你没有编辑此页面的权限",
   "you do not have permission to comment": "你没有评论权限",
   "you only have view access": "你只有查看权限",
+  "unlock the block before editing or deleting it": "请先解锁该块再编辑或删除",
   "invalid request body": "请求内容无效",
   "invalid page id": "页面 ID 无效",
   "invalid workspace id": "工作区 ID 无效",

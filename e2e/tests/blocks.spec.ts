@@ -44,9 +44,9 @@ test.describe("rich blocks", () => {
       .toBeGreaterThan(160)
 
     await page.getByRole("button", { name: "Add a block" }).click()
-    await page.waitForTimeout(100)
+    await page.waitForTimeout(300)
     await page.keyboard.type("/")
-    await page.waitForTimeout(250)
+    await page.waitForTimeout(300)
     await page.keyboard.type("dia")
     await page.getByRole("button", { name: /Diagram/ }).click()
     await page.waitForTimeout(700)

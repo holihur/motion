@@ -518,6 +518,8 @@ export const api = {
         method: "POST",
         body: body({ level }),
       }),
+    detachLayout: (id: string) =>
+      request<Page>(`/pages/${id}/detach-layout`, { method: "POST" }),
     merge: (id: string, pageIds: string[], addTitles = true) =>
       request<{ page: Page; merged: number }>(`/pages/${id}/merge`, {
         method: "POST",

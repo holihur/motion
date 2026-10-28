@@ -101,6 +101,7 @@ export function PageEditor() {
   const [blocks, setBlocks] = useState<Block[]>([emptyBlock()])
   const [members, setMembers] = useState<Member[]>([])
   const [layoutPage, setLayoutPage] = useState<Page | null>(null)
+  const [layoutVersion, setLayoutVersion] = useState(0)
   const [title, setTitle] = useState("")
   const [icon, setIcon] = useState("")
   const [cover, setCover] = useState("")
@@ -306,6 +307,19 @@ export function PageEditor() {
     }
     window.addEventListener("motion:page-meta", onMeta)
     return () => window.removeEventListener("motion:page-meta", onMeta)
+  }, [pageId])
+
+  useEffect(() => {
+    function onReplaceBlocks(event: Event) {
+      const detail = (event as CustomEvent<{ id?: string; blocks?: Block[]; blocksRev?: number }>).detail
+      if (!detail?.id || detail.id !== pageId || !detail.blocks) return
+      baseBlocksRef.current = detail.blocks
+      if (detail.blocksRev) blocksRevRef.current = detail.blocksRev
+      applyRemoteBlocks(detail.blocks, detail.blocksRev)
+    }
+    window.addEventListener("motion:page-blocks", onReplaceBlocks)
+    return () => window.removeEventListener("motion:page-blocks", onReplaceBlocks)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageId])
 
   // Paint persistent highlights for commented ranges using the CSS Custom
@@ -545,6 +559,10 @@ export function PageEditor() {
           navigate("/")
           return
         }
+        if (event.type === "layout") {
+          setLayoutVersion((value) => value + 1)
+          return
+        }
         if (event.type === "comments") {
           setCommentVersion((value) => value + 1)
           return
@@ -748,7 +766,7 @@ export function PageEditor() {
       .then((value) => { if (alive) setLayoutPage(value) })
       .catch(() => { if (alive) setLayoutPage(null) })
     return () => { alive = false }
-  }, [page?.layoutId])
+  }, [page?.layoutId, layoutVersion])
 
   useEffect(() => {
     if (!page) return

@@ -258,6 +258,7 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/duplicate", s.duplicatePage)
 			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/split", s.splitPage)
 			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/merge", s.mergePages)
+			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/detach-layout", s.detachLayout)
 			r.With(s.requireScope("pages:write")).Delete("/pages/{pageID}", s.deletePage)
 			r.With(s.requireScope("pages:read"), middleware.Compress(5, "application/json")).Get("/pages/{pageID}/revisions", s.listRevisions)
 			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/revisions", s.createSnapshot)

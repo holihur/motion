@@ -59,7 +59,9 @@ export function PageTree({
   readOnly?: boolean
 }) {
   const visiblePages = useMemo(() => includeAncestors(pages, query), [pages, query])
-  const roots = useMemo(() => buildTree(visiblePages), [visiblePages])
+  const layoutPages = useMemo(() => visiblePages.filter((page) => page.isLayout), [visiblePages])
+  const contentPages = useMemo(() => visiblePages.filter((page) => !page.isLayout), [visiblePages])
+  const roots = useMemo(() => buildTree(contentPages), [contentPages])
   const [expanded, setExpanded] = useState<Set<string>>(() => readExpanded() ?? new Set())
   const initialized = useRef(false)
   const lastActiveRef = useRef<string | null>(null)
@@ -196,7 +198,7 @@ export function PageTree({
     }
   }
 
-  if (roots.length === 0) {
+  if (roots.length === 0 && layoutPages.length === 0) {
     if (query.trim()) {
       return <div className="px-3 py-3 text-xs text-muted-foreground">{tr("No pages match “{query}”.", { query })}</div>
     }
@@ -234,6 +236,31 @@ export function PageTree({
           onDragEnd={() => { setDraggedId(null); setDropTarget(null) }}
         />
       ))}
+      {layoutPages.length > 0 && (
+        <div className="pt-3">
+          <div className="px-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            {tr("Layouts")}
+          </div>
+          {layoutPages.map((page) => (
+            <TreeItem
+              key={page.id}
+              node={{ ...page, children: [] }}
+              depth={0}
+              expanded={expanded}
+              toggle={toggle}
+              activeId={activeId}
+              readOnly={readOnly}
+              draggedId={draggedId}
+              dropTarget={dropTarget}
+              onDragStart={setDraggedId}
+              onDragOver={(id, position) => setDropTarget({ id, position })}
+              onDragLeave={(id) => setDropTarget((current) => current?.id === id ? null : current)}
+              onDrop={(id, position) => void movePage(draggedId ?? "", id, position)}
+              onDragEnd={() => { setDraggedId(null); setDropTarget(null) }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

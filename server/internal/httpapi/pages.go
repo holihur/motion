@@ -597,6 +597,7 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 	snapshot := page
 	snapshot.Blocks = merged
 	s.maybeSnapshot(r, snapshot, name)
+	s.broadcastLayoutChange(r.Context(), page)
 	writeJSON(w, http.StatusOK, map[string]any{"blocks": merged, "blocksRev": rev, "updatedAt": now})
 }
 
@@ -748,6 +749,7 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 	snapshot := page
 	snapshot.Blocks = next
 	s.maybeSnapshot(r, snapshot, name)
+	s.broadcastLayoutChange(r.Context(), page)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"blocksRev": rev, "order": order, "upserts": req.Upserts, "deletes": req.Deletes, "updatedAt": now,
 	})

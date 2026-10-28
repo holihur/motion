@@ -17,28 +17,44 @@ function contentBlock(): Block {
 export function PageLayoutDialog({ page, open, onOpenChange }: { page: PageSummary; open: boolean; onOpenChange: (open: boolean) => void }) {
   const navigate = useNavigate()
   const activeId = useWorkspaceStore((state) => state.activeId)
-  const pages = useWorkspaceStore((state) => state.pages)
   const refreshPages = useWorkspaceStore((state) => state.refreshPages)
   const [full, setFull] = useState<Page | null>(null)
+  const [layoutPages, setLayoutPages] = useState<PageSummary[]>([])
   const [selected, setSelected] = useState("")
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const layouts = pages.filter((item) => item.isLayout && !item.archived && item.id !== page.id)
+  const layouts = layoutPages.filter((item) => item.isLayout && !item.archived && item.id !== page.id)
 
   useEffect(() => {
     if (!open) return
     setLoading(true)
     setSelected(page.layoutId ?? "")
     void refreshPages()
-    api.pages.get(page.id).then(setFull).catch((error) => toast.error(error instanceof Error ? error.message : tr("Could not load page"))).finally(() => setLoading(false))
+    api.pages.get(page.id)
+      .then((value) => {
+        setFull(value)
+        return api.pages.list(value.workspaceId).then(setLayoutPages)
+      })
+      .catch((error) => {
+        setLayoutPages([])
+        toast.error(error instanceof Error ? error.message : tr("Could not load page"))
+      })
+      .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, page.id, page.layoutId])
+  }, [open, page.id, page.layoutId, activeId])
 
   async function apply() {
     if (saving) return
     setSaving(true)
     try {
-      await api.pages.update(page.id, { layoutId: selected })
+      if (!selected && page.layoutId) {
+        const detached = await api.pages.detachLayout(page.id)
+        window.dispatchEvent(new CustomEvent("motion:page-blocks", {
+          detail: { id: page.id, blocks: detached.blocks, blocksRev: detached.blocksRev },
+        }))
+      } else {
+        await api.pages.update(page.id, { layoutId: selected })
+      }
       useWorkspaceStore.getState().patchSummary(page.id, { layoutId: selected })
       window.dispatchEvent(new CustomEvent("motion:page-meta", { detail: { id: page.id, patch: { layoutId: selected } } }))
       onOpenChange(false)
@@ -76,6 +92,7 @@ export function PageLayoutDialog({ page, open, onOpenChange }: { page: PageSumma
       await api.pages.update(created.id, { isLayout: true })
       await api.pages.saveBlocks(created.id, [contentBlock()])
       await refreshPages()
+      if (activeId) setLayoutPages(await api.pages.list(activeId))
       navigate(`/page/${created.id}`)
       onOpenChange(false)
       toast.success(tr("Layout page created. Add the shared header above the placeholder."))

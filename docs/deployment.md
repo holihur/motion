@@ -57,6 +57,19 @@ location / {
 }
 ```
 
+## 健康探针
+
+- `GET /api/livez`：进程存活，不访问 MongoDB，用于 liveness。
+- `GET /api/readyz`：MongoDB 可连接时返回 200，用于 readiness。
+- `GET /api/healthz`：返回版本与 MongoDB 状态，便于人工排查。
+
+```yaml
+livenessProbe:
+  httpGet: { path: /api/livez, port: 8787 }
+readinessProbe:
+  httpGet: { path: /api/readyz, port: 8787 }
+```
+
 ## 备份
 
 ```bash

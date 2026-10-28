@@ -325,6 +325,11 @@ Token 只在创建时显示一次，可随时撤销；MCP 和 API 都使用同�
 | `GET` | `/api/ops/settings` | Ops 配置（需 `X-Ops-Token`） |
 | `POST` | `/api/ops/check-update` | 检查更新（需 `X-Ops-Token`） |
 | `GET` | `/mcp` | MCP Streamable HTTP |
+| `GET` | `/api/livez` | 存活探针（不访问数据库） |
+| `GET` | `/api/readyz` | 就绪探针（检查 MongoDB） |
+| `GET` | `/api/healthz` | 深度健康检查（版本 + MongoDB 状态） |
+
+Kubernetes 可使用 `/api/livez` 作为 liveness、`/api/readyz` 作为 readiness。
 
 ## 测试
 

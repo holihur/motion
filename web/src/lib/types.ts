@@ -408,13 +408,6 @@ export interface SystemInfo {
   version: string
   commit: string
   buildDate: string
-  repo: string
-  maps?: {
-    mapboxToken: string
-    googleMapsKey: string
-    amapKey: string
-    baiduMapAK: string
-  }
   checkedAt?: string
   latest?: string
   available?: boolean

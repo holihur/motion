@@ -94,6 +94,7 @@ func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("websocket upgrade failed", "error", err)
 		return
 	}
+	conn.SetReadLimit(8 << 10)
 	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	var auth realtimeAuthMessage
 	if err := conn.ReadJSON(&auth); err != nil || auth.Type != "auth" {

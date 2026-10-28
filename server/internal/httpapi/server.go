@@ -192,6 +192,7 @@ func (s *Server) Router() http.Handler {
 			r.Use(s.authenticate)
 			r.Get("/me", s.me)
 			r.Patch("/me", s.updateMe)
+			r.Get("/maps/config", s.mapConfig)
 
 			r.Get("/tokens", s.listTokens)
 			r.Post("/tokens", s.createToken)

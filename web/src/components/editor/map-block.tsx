@@ -46,7 +46,7 @@ function gcj02ToBd09(lat: number, lng: number) {
 
 let mapsPromise: Promise<{ mapboxToken?: string; googleMapsKey?: string; amapKey?: string; baiduMapAK?: string }> | null = null
 function loadMapKeys() {
-  mapsPromise ??= api.system.info().then((info) => info.maps ?? {}).catch(() => ({}))
+  mapsPromise ??= api.system.maps().then((info) => info.maps ?? {}).catch(() => ({}))
   return mapsPromise
 }
 

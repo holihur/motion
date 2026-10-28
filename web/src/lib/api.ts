@@ -260,6 +260,7 @@ export const api = {
   },
   system: {
     info: () => request<SystemInfo>("/system/info"),
+    maps: () => request<{ maps?: { mapboxToken?: string; googleMapsKey?: string; amapKey?: string; baiduMapAK?: string } }>("/maps/config"),
   },
   agents: {
     list: (workspaceId: string) => request<Agent[]>(`/workspaces/${workspaceId}/agents`),

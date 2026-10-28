@@ -30,14 +30,17 @@ func (s *Server) systemInfo(w http.ResponseWriter, _ *http.Request) {
 		"commit":      version.Commit,
 		"buildDate":   version.Date,
 		"appName":     settings.AppName,
-		"maps":        settings.Maps,
-		"repo":        settings.Update.Repo,
 		"checkedAt":   checked,
 		"latest":      last.Latest,
 		"available":   last.Available,
 		"releaseUrl":  last.ReleaseURL,
 		"publishedAt": last.PublishedAt,
 	})
+}
+
+func (s *Server) mapConfig(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-store")
+	writeJSON(w, http.StatusOK, map[string]any{"maps": s.siteSnapshot().Maps})
 }
 
 func (s *Server) updateCheck(ctx context.Context, settings site.Settings) update.Check {

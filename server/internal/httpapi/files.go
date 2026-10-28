@@ -29,9 +29,20 @@ type uploadResponse struct {
 // capability URL without a bearer token, so <img>/<a> work naturally.
 func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes+1<<20)
-	if err := r.ParseMultipartForm(maxUploadBytes + 1<<20); err != nil {
+	if err := r.ParseMultipartForm(1 << 20); err != nil {
 		writeErr(w, http.StatusBadRequest, "file is too large (maximum 25 MB)")
 		return
+	}
+	if r.MultipartForm != nil {
+		defer r.MultipartForm.RemoveAll()
+		total := 0
+		for _, files := range r.MultipartForm.File {
+			total += len(files)
+		}
+		if total != 1 {
+			writeErr(w, http.StatusBadRequest, "upload exactly one file at a time")
+			return
+		}
 	}
 	workspaceID, err := primitive.ObjectIDFromHex(strings.TrimSpace(r.FormValue("workspaceId")))
 	if err != nil {
@@ -56,16 +67,19 @@ func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "file is too large (maximum 25 MB)")
 		return
 	}
-	name := filepath.Base(strings.TrimSpace(header.Filename))
-	if name == "" || name == "." {
-		name = "attachment"
-	}
+	name := safeAttachmentName(header.Filename)
 	contentType := header.Header.Get("Content-Type")
 	if contentType == "" || contentType == "application/octet-stream" {
 		contentType = mime.TypeByExtension(filepath.Ext(name))
 	}
 	if contentType == "" {
 		contentType = "application/octet-stream"
+	}
+	baseType := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
+	switch baseType {
+	case "text/html", "application/xhtml+xml", "application/javascript", "text/javascript", "application/x-javascript":
+		writeErr(w, http.StatusBadRequest, "this file type is not allowed")
+		return
 	}
 	storage, provider, _, err := s.storageFor(r.Context(), workspaceID)
 	if err != nil {
@@ -92,16 +106,46 @@ func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := primitive.NewObjectID()
-	err = bucket.UploadFromStreamWithID(id, name, io.LimitReader(file, maxUploadBytes+1), options.GridFSUpload().
+	limited := &io.LimitedReader{R: file, N: maxUploadBytes + 1}
+	err = bucket.UploadFromStreamWithID(id, name, limited, options.GridFSUpload().
 		SetMetadata(bson.M{"contentType": contentType, "uploaderId": currentUserID(r), "workspaceId": workspaceID}))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not store file")
+		return
+	}
+	if limited.N == 0 {
+		_ = bucket.Delete(id)
+		writeErr(w, http.StatusBadRequest, "file is too large (maximum 25 MB)")
 		return
 	}
 	writeJSON(w, http.StatusCreated, uploadResponse{
 		ID: id.Hex(), URL: "/api/files/" + id.Hex(), Name: name,
 		Size: header.Size, ContentType: contentType,
 	})
+}
+
+func safeAttachmentName(raw string) string {
+	name := filepath.Base(strings.TrimSpace(raw))
+	name = strings.Map(func(char rune) rune {
+		if char < 32 || char == 127 || char == '\\' || char == '/' {
+			return -1
+		}
+		return char
+	}, name)
+	name = strings.Trim(name, " .")
+	ext := filepath.Ext(name)
+	base := strings.TrimSuffix(name, ext)
+	if len([]rune(ext)) > 16 {
+		ext = ""
+	}
+	if len([]rune(base)) > 100 {
+		base = string([]rune(base)[:100])
+	}
+	name = strings.Trim(base, " .") + ext
+	if name == "" || name == "." {
+		return "attachment"
+	}
+	return name
 }
 
 func (s *Server) downloadFile(w http.ResponseWriter, r *http.Request) {

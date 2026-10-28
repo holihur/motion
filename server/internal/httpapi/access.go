@@ -84,6 +84,10 @@ func (s *Server) accessiblePage(r *http.Request, pageID primitive.ObjectID) (mod
 }
 
 func (s *Server) editablePage(w http.ResponseWriter, r *http.Request, pageID primitive.ObjectID) (model.Page, bool) {
+	return s.editablePageWithArchived(w, r, pageID, false)
+}
+
+func (s *Server) editablePageWithArchived(w http.ResponseWriter, r *http.Request, pageID primitive.ObjectID, allowArchived bool) (model.Page, bool) {
 	page, role, err := s.accessiblePage(r, pageID)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "page not found")
@@ -93,7 +97,7 @@ func (s *Server) editablePage(w http.ResponseWriter, r *http.Request, pageID pri
 		writeErr(w, http.StatusForbidden, "you do not have permission to edit this page")
 		return model.Page{}, false
 	}
-	if page.Archived {
+	if page.Archived && !allowArchived {
 		writeErr(w, http.StatusForbidden, "page is in Trash; restore it before editing")
 		return model.Page{}, false
 	}

@@ -178,7 +178,7 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid page id")
 		return
 	}
-	page, ok := s.editablePage(w, r, pageID)
+	page, ok := s.editablePageWithArchived(w, r, pageID, true)
 	if !ok {
 		return
 	}
@@ -187,6 +187,14 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 	if err := decodeJSON(r, &raw); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid request body")
 		return
+	}
+	if page.Archived {
+		var restore bool
+		value, hasRestore := raw["archived"]
+		if !hasRestore || json.Unmarshal(value, &restore) != nil || restore {
+			writeErr(w, http.StatusForbidden, "page is in Trash; restore it before editing")
+			return
+		}
 	}
 
 	updates := bson.M{}
@@ -841,7 +849,7 @@ func (s *Server) deletePage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid page id")
 		return
 	}
-	page, ok := s.editablePage(w, r, pageID)
+	page, ok := s.editablePageWithArchived(w, r, pageID, true)
 	if !ok {
 		return
 	}

@@ -32,6 +32,16 @@ var loginAttempts = struct {
 	byKey map[string]loginAttempt
 }{byKey: map[string]loginAttempt{}}
 
+var registerLimiter = newWindowLimiter()
+
+func clientHost(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
 func loginAttemptKey(r *http.Request, email string) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -91,6 +101,11 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	var req authRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if !registerLimiter.allow(clientHost(r), 120, time.Hour) {
+		w.Header().Set("Retry-After", "3600")
+		writeErr(w, http.StatusTooManyRequests, "too many accounts created from this address; try again later")
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)

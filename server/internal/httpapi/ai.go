@@ -577,6 +577,10 @@ func (s *Server) aiChatStream(w http.ResponseWriter, r *http.Request) {
 		writeEvent("error", map[string]string{"error": "no workspace found"})
 		return
 	}
+	if !aiRunLimiter.allow(currentUserID(r).Hex(), 20, time.Minute) {
+		writeEvent("error", map[string]string{"error": "too many AI requests; try again in a minute"})
+		return
+	}
 	agentConfig, err := s.agentForRun(r.Context(), workspaceID, currentUserID(r), req.AgentID)
 	if err != nil {
 		writeEvent("error", map[string]string{"error": "agent not found or disabled"})

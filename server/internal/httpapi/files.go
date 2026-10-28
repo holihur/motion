@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -38,6 +39,11 @@ func (s *Server) uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := s.requireEditor(w, r, workspaceID); !ok {
+		return
+	}
+	if !uploadRateLimiter.allow(currentUserID(r).Hex(), 30, time.Minute) {
+		w.Header().Set("Retry-After", "60")
+		writeErr(w, http.StatusTooManyRequests, "too many uploads; try again in a minute")
 		return
 	}
 	file, header, err := r.FormFile("file")

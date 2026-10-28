@@ -1,7 +1,9 @@
 import type { Block, Page } from "./types"
+import { inlineMarkdown } from "./richtext"
 
 function blockToMarkdown(block: Block, number: number): string {
-  const text = block.text.trim()
+  const inline = inlineMarkdown(block.rich, block.text).trim()
+  const text = inline
   switch (block.type) {
     case "heading1":
       return `# ${text}`

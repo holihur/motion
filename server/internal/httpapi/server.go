@@ -233,6 +233,7 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/agent-config", s.getWorkspaceAgentConfig)
 			r.With(s.requireScope("workspace:write")).Put("/workspaces/{workspaceID}/agent-config", s.saveWorkspaceAgentConfig)
 			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/members", s.listMembers)
+			r.With(s.requireScope("workspace:write")).Get("/workspaces/{workspaceID}/invite-suggestions", s.inviteSuggestions)
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/members", s.inviteMember)
 			r.With(s.requireScope("workspace:write")).Patch("/workspaces/{workspaceID}/members/{userID}", s.updateMember)
 			r.With(s.requireScope("workspace:write")).Delete("/workspaces/{workspaceID}/members/{userID}", s.removeMember)

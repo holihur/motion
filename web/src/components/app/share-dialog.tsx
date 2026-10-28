@@ -31,27 +31,38 @@ export function ShareDialog({
   const workspaces = useWorkspaceStore((state) => state.workspaces)
   const workspace = workspaces.find((item) => item.id === page.workspaceId)
   const [members, setMembers] = useState<Member[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<"editor" | "viewer">("editor")
   const [pending, setPending] = useState(false)
 
   const isOwner = workspace?.ownerId === user?.id
+  const duplicateEmail = members.some((member) => member.email.toLowerCase() === email.trim().toLowerCase())
 
   useEffect(() => {
     if (!open || !workspace) return
     setLoading(true)
-    api.workspaces
-      .members(workspace.id)
-      .then(setMembers)
+    Promise.all([
+      api.workspaces.members(workspace.id),
+      api.workspaces.inviteSuggestions(workspace.id).catch(() => []),
+    ])
+      .then(([nextMembers, nextSuggestions]) => {
+        setMembers(nextMembers)
+        setSuggestions(nextSuggestions)
+      })
       .catch((error) => toast.error(error instanceof Error ? error.message : "Could not load members"))
       .finally(() => setLoading(false))
   }, [open, workspace?.id])
 
   async function refresh() {
     if (!workspace) return
-    const next = await api.workspaces.members(workspace.id)
+    const [next, nextSuggestions] = await Promise.all([
+      api.workspaces.members(workspace.id),
+      api.workspaces.inviteSuggestions(workspace.id).catch(() => []),
+    ])
     setMembers(next)
+    setSuggestions(nextSuggestions)
   }
 
   async function invite(event: React.FormEvent) {
@@ -122,7 +133,11 @@ export function ShareDialog({
                 placeholder="teammate@example.com"
                 className="h-8 pl-8 text-xs"
                 type="email"
+                list="workspace-invite-suggestions"
               />
+              <datalist id="workspace-invite-suggestions">
+                {suggestions.map((suggestion) => <option key={suggestion} value={suggestion} />)}
+              </datalist>
             </div>
             <select
               value={role}
@@ -137,6 +152,9 @@ export function ShareDialog({
               {tr("Invite")}
             </Button>
           </form>
+        )}
+        {isOwner && duplicateEmail && (
+          <p className="-mt-1 px-1 text-[11px] text-destructive">{tr("This person already has access.")}</p>
         )}
 
         <div className="space-y-1">

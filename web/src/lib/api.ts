@@ -238,6 +238,7 @@ export const api = {
         method: "PUT",
         body: body(input),
       }),
+    inviteSuggestions: (id: string) => request<string[]>(`/workspaces/${id}/invite-suggestions`),
     invite: (id: string, email: string, role: "editor" | "viewer") =>
       request<Member>(`/workspaces/${id}/members`, {
         method: "POST",

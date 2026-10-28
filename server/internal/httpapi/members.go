@@ -127,8 +127,11 @@ func (s *Server) inviteMember(w http.ResponseWriter, r *http.Request) {
 			"$expr": bson.M{"$lt": bson.A{bson.M{"$size": bson.M{"$ifNull": bson.A{"$members", bson.A{}}}}, 100}},
 		},
 		bson.M{
-			"$push": bson.M{"members": member},
-			"$set":  bson.M{"updatedAt": time.Now().UTC()},
+			"$push": bson.M{
+				"members":       member,
+				"inviteHistory": bson.M{"$each": bson.A{email}, "$slice": -100},
+			},
+			"$set": bson.M{"updatedAt": time.Now().UTC()},
 		},
 	)
 	if err != nil {
@@ -151,6 +154,37 @@ func (s *Server) inviteMember(w http.ResponseWriter, r *http.Request) {
 		UserID: member.UserID, Name: member.Name, Email: member.Email,
 		Role: member.Role, JoinedAt: member.JoinedAt,
 	})
+}
+
+func (s *Server) inviteSuggestions(w http.ResponseWriter, r *http.Request) {
+	wsID := objectIDFromParam(r, "workspaceID")
+	ws, role, err := s.accessibleWorkspace(r, wsID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "workspace not found")
+		return
+	}
+	if role != roleOwner {
+		writeErr(w, http.StatusForbidden, "only the workspace owner can manage invitations")
+		return
+	}
+	current := make(map[string]bool, len(ws.Members))
+	for _, member := range ws.Members {
+		current[strings.ToLower(member.Email)] = true
+	}
+	seen := make(map[string]bool)
+	out := make([]string, 0, len(ws.InviteHistory))
+	for i := len(ws.InviteHistory) - 1; i >= 0; i-- {
+		email := strings.ToLower(strings.TrimSpace(ws.InviteHistory[i]))
+		if email == "" || current[email] || seen[email] {
+			continue
+		}
+		seen[email] = true
+		out = append(out, email)
+		if len(out) >= 20 {
+			break
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 type updateMemberRequest struct {

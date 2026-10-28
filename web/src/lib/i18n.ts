@@ -254,6 +254,7 @@ const zh: Record<string, string> = {
   "Invite people by the email they use for Motion.": "使用对方注册 Motion 的邮箱邀请。",
   "Page link copied": "页面链接已复制",
   "Invitation added": "邀请已添加",
+  "This person already has access.": "此人已有访问权限。",
   "They will see this workspace in their workspace menu.": "对方会在工作区菜单中看到它。",
   "No members yet.": "还没有成员。",
 

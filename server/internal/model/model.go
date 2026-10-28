@@ -42,15 +42,16 @@ type WorkspaceMCP struct {
 }
 
 type Workspace struct {
-	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Name       string             `bson:"name" json:"name"`
-	Icon       string             `bson:"icon" json:"icon"`
-	OwnerID    primitive.ObjectID `bson:"ownerId" json:"ownerId"`
-	Members    []Member           `bson:"members,omitempty" json:"members,omitempty"`
-	Skills     []WorkspaceSkill   `bson:"skills,omitempty" json:"skills,omitempty"`
-	MCPServers []WorkspaceMCP     `bson:"mcpServers,omitempty" json:"mcpServers,omitempty"`
-	CreatedAt  time.Time          `bson:"createdAt" json:"createdAt"`
-	UpdatedAt  time.Time          `bson:"updatedAt" json:"updatedAt"`
+	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Name          string             `bson:"name" json:"name"`
+	Icon          string             `bson:"icon" json:"icon"`
+	OwnerID       primitive.ObjectID `bson:"ownerId" json:"ownerId"`
+	Members       []Member           `bson:"members,omitempty" json:"members,omitempty"`
+	InviteHistory []string           `bson:"inviteHistory,omitempty" json:"-"`
+	Skills        []WorkspaceSkill   `bson:"skills,omitempty" json:"skills,omitempty"`
+	MCPServers    []WorkspaceMCP     `bson:"mcpServers,omitempty" json:"mcpServers,omitempty"`
+	CreatedAt     time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt     time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
 // Block is a single unit of page content. Content is stored as plain text;

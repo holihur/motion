@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/motion/server/internal/model"
+	"github.com/motion/server/internal/richtext"
 )
 
 var slugPattern = regexp.MustCompile(`[^\p{L}\p{N}]+`)
@@ -195,29 +196,30 @@ func pageHref(id string, files map[string]string, base string) string {
 
 func renderBlock(block model.Block, files map[string]string, base string) string {
 	text := escapeLines(block.Text)
+	inline := richtext.HTML(block.Rich, block.Text, base)
 	switch block.Type {
 	case "heading1":
-		return `<h1>` + text + `</h1>`
+		return `<h1>` + inline + `</h1>`
 	case "heading2", "toggleHeading2":
-		return `<h2>` + text + `</h2>`
+		return `<h2>` + inline + `</h2>`
 	case "heading3", "toggleHeading3":
-		return `<h3>` + text + `</h3>`
+		return `<h3>` + inline + `</h3>`
 	case "toggleHeading1":
-		return `<h1>` + text + `</h1>`
+		return `<h1>` + inline + `</h1>`
 	case "bulleted":
-		return `<ul><li>` + text + `</li></ul>`
+		return `<ul><li>` + inline + `</li></ul>`
 	case "numbered":
-		return `<ol><li>` + text + `</li></ol>`
+		return `<ol><li>` + inline + `</li></ol>`
 	case "todo":
 		check := ""
 		if block.Checked {
 			check = " checked"
 		}
-		return `<div class="todo"><input type="checkbox" disabled` + check + `> <span>` + text + `</span></div>`
+		return `<div class="todo"><input type="checkbox" disabled` + check + `> <span>` + inline + `</span></div>`
 	case "quote":
-		return `<blockquote>` + text + `</blockquote>`
+		return `<blockquote>` + inline + `</blockquote>`
 	case "callout":
-		return `<div class="callout">💡 <div>` + text + `</div></div>`
+		return `<div class="callout">💡 <div>` + inline + `</div></div>`
 	case "code":
 		lang := html.EscapeString(block.Language)
 		return `<pre><code class="language-` + lang + `">` + html.EscapeString(block.Text) + `</code></pre>`
@@ -237,15 +239,15 @@ func renderBlock(block model.Block, files map[string]string, base string) string
 	case "gantt", "chart", "columns":
 		return renderTable(block.Table, base)
 	case "pageLink":
-		return `<p><a class="page-link" href="` + html.EscapeString(pageHref(block.URL, files, base)) + `">🔗 ` + text + `</a></p>`
+		return `<p><a class="page-link" href="` + html.EscapeString(pageHref(block.URL, files, base)) + `">🔗 ` + inline + `</a></p>`
 	case "bookmark", "video", "embed", "file":
-		return `<p><a class="embed-link" href="` + html.EscapeString(safeURL(block.URL, base)) + `">` + text + `</a></p>`
+		return `<p><a class="embed-link" href="` + html.EscapeString(safeURL(block.URL, base)) + `">` + inline + `</a></p>`
 	case "password":
-		return `<div class="locked">🔒 ` + text + ` <small>(encrypted in Motion)</small></div>`
+		return `<div class="locked">🔒 ` + inline + ` <small>(encrypted in Motion)</small></div>`
 	case "breadcrumb":
-		return `<p class="breadcrumb">📍 ` + text + `</p>`
+		return `<p class="breadcrumb">📍 ` + inline + `</p>`
 	case "toggle":
-		return `<details class="toggle"><summary>` + text + `</summary><div class="toggle-body">Collapsed content is available in Motion.</div></details>`
+		return `<details class="toggle"><summary>` + inline + `</summary><div class="toggle-body">Collapsed content is available in Motion.</div></details>`
 	case "form":
 		return renderForm(block.Form)
 	case "qrcode", "barcode":
@@ -258,9 +260,9 @@ func renderBlock(block model.Block, files map[string]string, base string) string
 		}
 		return `<div class="code-image"><strong>` + label + `</strong> <code>` + text + `</code>` + caption(block.Caption) + `</div>`
 	case "paragraph", "":
-		return `<p>` + text + `</p>`
+		return `<p>` + inline + `</p>`
 	default:
-		return `<p>` + text + `</p>`
+		return `<p>` + inline + `</p>`
 	}
 }
 

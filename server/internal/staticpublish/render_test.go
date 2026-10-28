@@ -29,6 +29,23 @@ func TestRenderIncludesChildrenAndEscapesContent(t *testing.T) {
 	}
 }
 
+func TestRenderPreservesInlineCodeAndLinks(t *testing.T) {
+	rich := `{"root":{"children":[{"type":"paragraph","children":[{"type":"text","text":"Run ","format":0},{"type":"text","text":"go test","format":16},{"type":"link","url":"https://example.com/docs?a=1&b=2","children":[{"type":"text","text":"docs","format":1}]}]}]}}`
+	root := model.Page{ID: primitive.NewObjectID(), Title: "Inline", Blocks: []model.Block{
+		{ID: "1", Type: "paragraph", Text: "Run go testdocs", Rich: rich},
+	}}
+	files, err := Render(root.ID, []model.Page{root}, "https://example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	index := string(files["index.html"])
+	for _, want := range []string{"<code>go test</code>", `<a href="https://example.com/docs?a=1&amp;b=2"><strong>docs</strong></a>`} {
+		if !strings.Contains(index, want) {
+			t.Fatalf("missing %q in %s", want, index)
+		}
+	}
+}
+
 func TestRenderFormShowsFieldsWithoutSubmitting(t *testing.T) {
 	root := model.Page{ID: primitive.NewObjectID(), Title: "Survey", Blocks: []model.Block{
 		{ID: "form", Type: "form", Form: &model.FormData{

@@ -24,6 +24,7 @@ import (
 	"github.com/motion/server/internal/model"
 	"github.com/motion/server/internal/openaimodel"
 	"github.com/motion/server/internal/realtime"
+	"github.com/motion/server/internal/richtext"
 	"github.com/motion/server/internal/store"
 )
 
@@ -235,27 +236,28 @@ func markdownFor(page model.Page) string {
 	var builder strings.Builder
 	builder.WriteString("# " + strings.TrimSpace(page.Title) + "\n\n")
 	for _, block := range page.Blocks {
+		inline := richtext.Markdown(block.Rich, block.Text)
 		switch block.Type {
 		case "heading1":
-			builder.WriteString("# " + block.Text + "\n\n")
+			builder.WriteString("# " + inline + "\n\n")
 		case "heading2":
-			builder.WriteString("## " + block.Text + "\n\n")
+			builder.WriteString("## " + inline + "\n\n")
 		case "heading3":
-			builder.WriteString("### " + block.Text + "\n\n")
+			builder.WriteString("### " + inline + "\n\n")
 		case "bulleted":
-			builder.WriteString("- " + block.Text + "\n")
+			builder.WriteString("- " + inline + "\n")
 		case "numbered":
-			builder.WriteString("1. " + block.Text + "\n")
+			builder.WriteString("1. " + inline + "\n")
 		case "todo":
 			check := " "
 			if block.Checked {
 				check = "x"
 			}
-			builder.WriteString("- [" + check + "] " + block.Text + "\n")
+			builder.WriteString("- [" + check + "] " + inline + "\n")
 		case "quote":
-			builder.WriteString("> " + block.Text + "\n\n")
+			builder.WriteString("> " + inline + "\n\n")
 		case "callout":
-			builder.WriteString("> 💡 " + block.Text + "\n\n")
+			builder.WriteString("> 💡 " + inline + "\n\n")
 		case "code":
 			builder.WriteString("```" + block.Language + "\n" + block.Text + "\n```\n\n")
 		case "diagram":
@@ -306,7 +308,7 @@ func markdownFor(page model.Page) string {
 				builder.WriteString("\n")
 			}
 		case "pageLink":
-			builder.WriteString("[" + block.Text + "](/page/" + block.URL + ")\n\n")
+			builder.WriteString("[" + inline + "](/page/" + block.URL + ")\n\n")
 		case "toggle", "toggleHeading1", "toggleHeading2", "toggleHeading3":
 			prefix := "> "
 			if block.Type == "toggleHeading1" {

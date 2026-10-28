@@ -144,6 +144,9 @@ func (s *Server) inviteMember(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "that person is already a member")
 		return
 	}
+	_, actorName := s.editorFor(r)
+	s.writeAudit(r.Context(), wsID, currentUserID(r), actorName, primitive.NilObjectID, "",
+		"member.invite", "user", member.UserID.Hex(), "Invited "+member.Email+" as "+member.Role)
 	writeJSON(w, http.StatusCreated, memberView{
 		UserID: member.UserID, Name: member.Name, Email: member.Email,
 		Role: member.Role, JoinedAt: member.JoinedAt,
@@ -193,6 +196,9 @@ func (s *Server) updateMember(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "member not found")
 		return
 	}
+	_, actorName := s.editorFor(r)
+	s.writeAudit(r.Context(), wsID, currentUserID(r), actorName, primitive.NilObjectID, "",
+		"member.role", "user", memberID.Hex(), "Changed role to "+req.Role)
 	writeJSON(w, http.StatusOK, map[string]string{"role": req.Role})
 }
 
@@ -228,6 +234,9 @@ func (s *Server) removeMember(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "member not found")
 		return
 	}
+	_, actorName := s.editorFor(r)
+	s.writeAudit(r.Context(), wsID, currentUserID(r), actorName, primitive.NilObjectID, "",
+		"member.remove", "user", memberID.Hex(), "Removed workspace member")
 	w.WriteHeader(http.StatusNoContent)
 }
 

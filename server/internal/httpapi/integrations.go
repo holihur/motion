@@ -93,7 +93,7 @@ func (s *Server) listIntegrations(w http.ResponseWriter, r *http.Request) {
 func validatePublicWebhookURL(raw string) error {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Hostname() == "" {
-		return errors.New("webhook URL must be an http(s) URL")
+		return errors.New("URL must be an http(s) URL")
 	}
 	if host := parsed.Hostname(); net.ParseIP(host) == nil {
 		ips, err := net.LookupIP(host)
@@ -105,14 +105,14 @@ func validatePublicWebhookURL(raw string) error {
 				continue
 			}
 			if ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
-				return errors.New("webhook URL points to a private network")
+				return errors.New("URL points to a private network")
 			}
 		}
 		return nil
 	}
 	ip := net.ParseIP(parsed.Hostname())
 	if ip != nil && !ip.IsLoopback() && (ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()) {
-		return errors.New("webhook URL points to a private network")
+		return errors.New("URL points to a private network")
 	}
 	return nil
 }
@@ -140,16 +140,18 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		req.Config = map[string]string{}
 	}
 	if provider == "webhook" {
-		raw := strings.TrimSpace(req.Config["url"])
-		parsed, err := url.Parse(raw)
-		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-			writeErr(w, http.StatusBadRequest, "webhook URL must be an http(s) URL")
+		if err := validatePublicWebhookURL(req.Config["url"]); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		if len(req.Events) == 0 {
 			req.Events = []string{"*"}
 		}
 	} else if provider == "jira" {
+		if err := validatePublicWebhookURL(req.Config["siteUrl"]); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		for _, key := range []string{"siteUrl", "email", "projectKey"} {
 			if strings.TrimSpace(req.Config[key]) == "" {
 				writeErr(w, http.StatusBadRequest, key+" is required")
@@ -160,6 +162,10 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 			req.Config["issueType"] = "Task"
 		}
 	} else if provider == "confluence" {
+		if err := validatePublicWebhookURL(req.Config["siteUrl"]); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		for _, key := range []string{"siteUrl", "email", "spaceId"} {
 			if strings.TrimSpace(req.Config[key]) == "" {
 				writeErr(w, http.StatusBadRequest, key+" is required")
@@ -273,6 +279,9 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "could not load integration")
 		return
 	}
+	_, actorName := s.editorFor(r)
+	s.writeAudit(r.Context(), wsID, currentUserID(r), actorName, primitive.NilObjectID, "",
+		"integration.save", "integration", saved.ID.Hex(), "Saved "+provider+" integration")
 	writeJSON(w, http.StatusOK, integrationViewOf(saved))
 }
 
@@ -290,6 +299,9 @@ func (s *Server) deleteIntegration(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "could not remove integration")
 		return
 	}
+	_, actorName := s.editorFor(r)
+	s.writeAudit(r.Context(), wsID, currentUserID(r), actorName, primitive.NilObjectID, "",
+		"integration.delete", "integration", provider, "Removed "+provider+" integration")
 	w.WriteHeader(http.StatusNoContent)
 }
 

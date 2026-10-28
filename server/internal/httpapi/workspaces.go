@@ -331,6 +331,10 @@ func (s *Server) saveWorkspaceAgentConfig(w http.ResponseWriter, r *http.Request
 			writeErr(w, http.StatusBadRequest, "MCP URL must be an http(s) URL")
 			return
 		}
+		if err := validatePublicWebhookURL(item.URL); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		if item.Headers == nil {
 			item.Headers = map[string]string{}
 		}

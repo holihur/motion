@@ -132,7 +132,7 @@ func (s *Server) saveOpsSettings(w http.ResponseWriter, r *http.Request) {
 	if req.AdminEmails != nil {
 		emails := site.NormalizeEmails(*req.AdminEmails)
 		for _, email := range emails {
-			if !strings.Contains(email, "@") {
+			if !emailPattern.MatchString(email) || len(email) > 160 {
 				writeErr(w, http.StatusBadRequest, "invalid administrator email: "+email)
 				return
 			}

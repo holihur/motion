@@ -440,6 +440,31 @@ func (s *Server) listAudit(w http.ResponseWriter, r *http.Request) {
 	}
 	page, pageSize := paginationParams(r)
 	filter := bson.M{"workspaceId": wsID}
+	if actor := strings.TrimSpace(r.URL.Query().Get("actor")); actor != "" {
+		if actorID, err := primitive.ObjectIDFromHex(actor); err == nil {
+			filter["actorId"] = actorID
+		}
+	}
+	if action := strings.TrimSpace(r.URL.Query().Get("action")); action != "" {
+		filter["action"] = action
+	}
+	if target := strings.TrimSpace(r.URL.Query().Get("target")); target != "" {
+		filter["targetId"] = target
+	}
+	if from := strings.TrimSpace(r.URL.Query().Get("from")); from != "" {
+		if parsed, err := time.Parse(time.RFC3339, from); err == nil {
+			filter["createdAt"] = bson.M{"$gte": parsed}
+		}
+	}
+	if to := strings.TrimSpace(r.URL.Query().Get("to")); to != "" {
+		if parsed, err := time.Parse(time.RFC3339, to); err == nil {
+			if existing, ok := filter["createdAt"].(bson.M); ok {
+				existing["$lte"] = parsed
+			} else {
+				filter["createdAt"] = bson.M{"$lte": parsed}
+			}
+		}
+	}
 	total, err := s.store.Audit.CountDocuments(r.Context(), filter)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not load activity")

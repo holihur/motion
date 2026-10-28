@@ -129,6 +129,9 @@ func (s *Server) createPage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "could not create page")
 		return
 	}
+	_, actorName := s.editorFor(r)
+	s.writeAudit(r.Context(), wsID, currentUserID(r), actorName, primitive.NilObjectID, "",
+		"page.create", "page", page.ID.Hex(), "Created "+page.Title)
 	s.broadcastTree(wsID, clientID(r))
 	writeJSON(w, http.StatusCreated, page)
 }
@@ -872,6 +875,9 @@ func (s *Server) deletePage(w http.ResponseWriter, r *http.Request) {
 	_, _ = s.store.Comments.DeleteMany(r.Context(), related)
 	_, _ = s.store.FormSubmissions.DeleteMany(r.Context(), related)
 	_, _ = s.store.Proposals.DeleteMany(r.Context(), related)
+	_, actorName := s.editorFor(r)
+	s.writeAudit(r.Context(), page.WorkspaceID, currentUserID(r), actorName, primitive.NilObjectID, "",
+		"page.delete", "page", page.ID.Hex(), "Permanently deleted "+page.Title)
 	s.hub.Broadcast(page.ID.Hex(), map[string]any{
 		"type": "deleted", "pageId": page.ID.Hex(), "clientId": clientID(r),
 	}, clientID(r))

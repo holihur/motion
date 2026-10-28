@@ -37,12 +37,22 @@ export function applyBlockSync(
       used.add(id)
     }
   }
-  // Preserve blocks that arrived from another source but are not in this order yet.
-  for (const block of blocks) {
-    if (!used.has(block.id) && byId.has(block.id)) {
-      next.push(byId.get(block.id)!)
-      used.add(block.id)
+  // Preserve blocks that arrived from another source but are not in this
+  // order yet. Insert them next to their previous local neighbour instead of
+  // always appending, so concurrent inserts at the top keep their order.
+  for (let index = 0; index < blocks.length; index++) {
+    const block = blocks[index]
+    if (used.has(block.id) || !byId.has(block.id)) continue
+    let insertAt = next.length
+    for (let lookahead = index + 1; lookahead < blocks.length; lookahead++) {
+      const position = next.findIndex((item) => item.id === blocks[lookahead].id)
+      if (position >= 0) {
+        insertAt = position
+        break
+      }
     }
+    next.splice(insertAt, 0, byId.get(block.id)!)
+    used.add(block.id)
   }
   for (const block of upserts) {
     if (!used.has(block.id)) {

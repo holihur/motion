@@ -119,6 +119,7 @@ func renderPage(page model.Page, childPages []model.Page, files map[string]strin
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>` + html.EscapeString(title) + `</title>
 <meta name="generator" content="Motion">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' https: http: data:; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'">
 <style>` + siteCSS + `</style>
 </head>
 <body>
@@ -168,9 +169,17 @@ func safeURL(value, base string) string {
 		return value
 	}
 	parsed, err := url.Parse(value)
-	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https" && parsed.Scheme != "mailto") {
+	if err != nil {
 		return "#"
 	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" && scheme != "mailto" {
+		return "#"
+	}
+	if strings.ContainsAny(value, "\r\n\t") {
+		return "#"
+	}
+	parsed.Scheme = scheme
 	return parsed.String()
 }
 

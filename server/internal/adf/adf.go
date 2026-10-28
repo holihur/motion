@@ -6,6 +6,17 @@ import (
 	"github.com/motion/server/internal/model"
 )
 
+var adfLanguages = map[string]bool{
+	"plain": true, "bash": true, "c": true, "cpp": true, "csharp": true,
+	"css": true, "diff": true, "dockerfile": true, "go": true, "graphql": true,
+	"html": true, "java": true, "javascript": true, "json": true, "jsx": true,
+	"kotlin": true, "less": true, "lua": true, "makefile": true, "markdown": true,
+	"objectivec": true, "perl": true, "php": true, "powershell": true, "python": true,
+	"r": true, "ruby": true, "rust": true, "sass": true, "scala": true, "scss": true,
+	"shell": true, "sql": true, "swift": true, "typescript": true, "tsx": true,
+	"xml": true, "yaml": true,
+}
+
 func text(value string, marks ...string) map[string]any {
 	node := map[string]any{"type": "text", "text": value}
 	if len(marks) > 0 {
@@ -74,7 +85,7 @@ func blockNode(block model.Block) []any {
 		return []any{map[string]any{"type": "panel", "attrs": map[string]any{"panelType": "info"}, "content": []any{paragraph("💡 " + block.Text)}}}
 	case "code":
 		language := strings.ToLower(strings.TrimSpace(block.Language))
-		if language == "" || language == "auto" || language == "plain text" {
+		if !adfLanguages[language] {
 			language = "plain"
 		}
 		return []any{map[string]any{"type": "codeBlock", "attrs": map[string]any{"language": language}, "content": []any{text(block.Text)}}}

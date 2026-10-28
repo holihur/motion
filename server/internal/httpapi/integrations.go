@@ -139,6 +139,12 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 	if req.Config == nil {
 		req.Config = map[string]string{}
 	}
+	if publicBase := strings.TrimSpace(req.Config["publicBaseUrl"]); publicBase != "" {
+		if err := validatePublicWebhookURL(publicBase); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
 	if provider == "webhook" {
 		if err := validatePublicWebhookURL(req.Config["url"]); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())

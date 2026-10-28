@@ -11,8 +11,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -69,9 +71,13 @@ func (c *Client) request(ctx context.Context, url string) (*http.Response, error
 	return c.HTTP.Do(req)
 }
 
+var repoPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+
+const maxUpdateArchiveBytes = 200 << 20
+
 func (c *Client) Latest(ctx context.Context) (Release, error) {
-	if c.Repo == "" || !strings.Contains(c.Repo, "/") {
-		return Release{}, errors.New("update repository is not configured")
+	if c.Repo == "" || !repoPattern.MatchString(c.Repo) {
+		return Release{}, errors.New("update repository must look like owner/repository")
 	}
 	resp, err := c.request(ctx, "https://api.github.com/repos/"+c.Repo+"/releases/latest")
 	if err != nil {
@@ -83,7 +89,7 @@ func (c *Client) Latest(ctx context.Context) (Release, error) {
 		return Release{}, fmt.Errorf("GitHub release request failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	var release Release
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&release); err != nil {
 		return Release{}, err
 	}
 	return release, nil
@@ -108,6 +114,19 @@ func (c *Client) Check(ctx context.Context) Check {
 func assetName(versionTag string) string {
 	versionValue := strings.TrimPrefix(versionTag, "v")
 	return fmt.Sprintf("motion_%s_%s_%s.tar.gz", versionValue, runtime.GOOS, runtime.GOARCH)
+}
+
+func validReleaseURL(raw string) bool {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+		return false
+	}
+	switch strings.ToLower(parsed.Hostname()) {
+	case "github.com", "api.github.com", "objects.githubusercontent.com", "github-releases.githubusercontent.com":
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *Client) Apply(ctx context.Context) (string, error) {
@@ -137,6 +156,9 @@ func (c *Client) Apply(ctx context.Context) (string, error) {
 	}
 	if checksums == nil {
 		return "", errors.New("release is missing checksums.txt")
+	}
+	if !validReleaseURL(asset.URL) || !validReleaseURL(checksums.URL) {
+		return "", errors.New("release contains an untrusted download URL")
 	}
 	expected, err := c.checksum(ctx, checksums.URL, name)
 	if err != nil {
@@ -200,14 +222,21 @@ func (c *Client) download(ctx context.Context, url, dest, expected string) error
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("download failed: %d", resp.StatusCode)
 	}
+	if resp.ContentLength > maxUpdateArchiveBytes {
+		return errors.New("update archive is too large")
+	}
 	file, err := os.Create(dest)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 	hash := sha256.New()
-	if _, err := io.Copy(io.MultiWriter(file, hash), resp.Body); err != nil {
+	written, err := io.Copy(io.MultiWriter(file, hash), io.LimitReader(resp.Body, maxUpdateArchiveBytes+1))
+	if err != nil {
 		return err
+	}
+	if written > maxUpdateArchiveBytes {
+		return errors.New("update archive is too large")
 	}
 	actual := hex.EncodeToString(hash.Sum(nil))
 	if !strings.EqualFold(actual, expected) {
@@ -236,7 +265,7 @@ func extractBinary(archive, dest string) error {
 		if err != nil {
 			return err
 		}
-		if header.Typeflag != tar.TypeReg {
+		if header.Typeflag != tar.TypeReg || header.Size < 0 || header.Size > maxUpdateArchiveBytes {
 			continue
 		}
 		name := filepath.Base(header.Name)

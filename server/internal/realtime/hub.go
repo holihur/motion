@@ -120,6 +120,17 @@ func (h *Hub) Remove(client *Client) {
 	}
 }
 
+func (h *Hub) Stats() (clients, pages, workspaces int) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, group := range h.pages {
+		pages++
+		clients += len(group)
+	}
+	workspaces = len(h.workspaces)
+	return
+}
+
 func (h *Hub) Presence(pageID string) []PresenceUser {
 	h.mu.RLock()
 	defer h.mu.RUnlock()

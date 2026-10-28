@@ -249,16 +249,19 @@ func splitList(values []string) []string {
 }
 
 type opsStats struct {
-	Users        int64 `json:"users"`
-	Workspaces   int64 `json:"workspaces"`
-	Pages        int64 `json:"pages"`
-	Archived     int64 `json:"archived"`
-	Comments     int64 `json:"comments"`
-	Revisions    int64 `json:"revisions"`
-	Tokens       int64 `json:"tokens"`
-	AIConfigured int64 `json:"aiConfigured"`
-	DataSize     int64 `json:"dataSize"`
-	StorageSize  int64 `json:"storageSize"`
+	Users           int64 `json:"users"`
+	Workspaces      int64 `json:"workspaces"`
+	Pages           int64 `json:"pages"`
+	Archived        int64 `json:"archived"`
+	Comments        int64 `json:"comments"`
+	Revisions       int64 `json:"revisions"`
+	Tokens          int64 `json:"tokens"`
+	AIConfigured    int64 `json:"aiConfigured"`
+	DataSize        int64 `json:"dataSize"`
+	StorageSize     int64 `json:"storageSize"`
+	RealtimeClients int   `json:"realtimeClients"`
+	RealtimePages   int   `json:"realtimePages"`
+	WebhookFailed   int64 `json:"webhookFailed"`
 }
 
 func (s *Server) getOpsStats(w http.ResponseWriter, r *http.Request) {
@@ -279,5 +282,7 @@ func (s *Server) getOpsStats(w http.ResponseWriter, r *http.Request) {
 	_ = s.store.DB.RunCommand(ctx, bson.D{{Key: "dbStats", Value: 1}}).Decode(&dbStats)
 	stats.DataSize = dbStats.DataSize
 	stats.StorageSize = dbStats.StorageSize
+	stats.RealtimeClients, stats.RealtimePages, _ = s.hub.Stats()
+	stats.WebhookFailed, _ = s.store.Deliveries.CountDocuments(ctx, bson.M{"status": "failed"})
 	writeJSON(w, http.StatusOK, stats)
 }

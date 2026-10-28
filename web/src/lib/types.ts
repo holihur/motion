@@ -402,6 +402,9 @@ export interface OpsStats {
   aiConfigured: number
   dataSize: number
   storageSize: number
+  realtimeClients: number
+  realtimePages: number
+  webhookFailed: number
 }
 
 export interface SystemInfo {

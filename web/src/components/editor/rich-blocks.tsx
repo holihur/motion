@@ -200,7 +200,7 @@ export function BookmarkBlock({
   const [editing, setEditing] = useState(!block.url)
   const [iconState, setIconState] = useState<"loading" | "ok" | "error">("loading")
   useEffect(() => { if (!block.url) setEditing(true) }, [block.url])
-  useEffect(() => { setIconState("loading") }, [block.url])
+  useEffect(() => { setIconState(faviconFor(block.url ?? "") ? "loading" : "error") }, [block.url])
   if (editing) {
     return <LinkPrompt block={block} kind="bookmark" readOnly={readOnly} autoFocus={autoFocus} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
   }

@@ -407,22 +407,41 @@ export const api = {
       request<{ ok: boolean; message: string; latencyMs: number }>(`/workspaces/${workspaceId}/integrations/${provider}/test`, { method: "POST" }),
   },
   files: {
-    upload: async (file: File, workspaceId: string) => {
+    upload: (file: File, workspaceId: string, onProgress?: (percent: number) => void) => {
       const form = new FormData()
       form.append("file", file)
       form.append("workspaceId", workspaceId)
-      const headers = new Headers()
       const token = getToken()
-      if (token) headers.set("Authorization", `Bearer ${token}`)
-      headers.set("X-Motion-Client", getClientId())
-      const response = await fetch("/api/files", { method: "POST", headers, body: form })
-      const payload = await response.json().catch(() => null) as
-        | { id: string; url: string; name: string; size: number; contentType: string; error?: string }
-        | null
-      if (!response.ok) {
-        throw new ApiError(localizeApiError(payload?.error || `请求失败（${response.status}）`), response.status)
-      }
-      return payload as { id: string; url: string; name: string; size: number; contentType: string }
+      return new Promise<{ id: string; url: string; name: string; size: number; contentType: string }>((resolve, reject) => {
+        const request = new XMLHttpRequest()
+        request.open("POST", "/api/files")
+        if (token) request.setRequestHeader("Authorization", `Bearer ${token}`)
+        request.setRequestHeader("X-Motion-Client", getClientId())
+        request.upload.onprogress = (event) => {
+          if (event.lengthComputable && event.total > 0) {
+            onProgress?.(Math.min(99, Math.round((event.loaded / event.total) * 100)))
+          }
+        }
+        request.onerror = () => reject(new ApiError("无法连接服务器，请稍后再试", 0))
+        request.onload = () => {
+          let payload: { id?: string; url?: string; name?: string; size?: number; contentType?: string; error?: string } | null = null
+          try {
+            payload = JSON.parse(request.responseText)
+          } catch {
+            payload = null
+          }
+          if (request.status === 401 && token) {
+            window.dispatchEvent(new CustomEvent("motion:unauthorized"))
+          }
+          if (request.status < 200 || request.status >= 300) {
+            reject(new ApiError(localizeApiError(payload?.error || `请求失败（${request.status}）`), request.status))
+            return
+          }
+          onProgress?.(100)
+          resolve(payload as { id: string; url: string; name: string; size: number; contentType: string })
+        }
+        request.send(form)
+      })
     },
   },
   pages: {

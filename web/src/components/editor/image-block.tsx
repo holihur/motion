@@ -74,6 +74,7 @@ export function ImageBlock({
 }) {
   const [urlDraft, setUrlDraft] = useState("")
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [imageError, setImageError] = useState(false)
   const [lightbox, setLightbox] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -112,14 +113,16 @@ export function ImageBlock({
   async function uploadImage(file: File) {
     if (!workspaceId || uploading) return
     setUploading(true)
+    setUploadProgress(0)
     try {
-      const uploaded = await api.files.upload(file, workspaceId)
+      const uploaded = await api.files.upload(file, workspaceId, setUploadProgress)
       onUpdate({ url: uploaded.url, caption: block.caption || uploaded.name, rich: "" })
       toast.success(tr("Image uploaded"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not upload image"))
     } finally {
       setUploading(false)
+      setUploadProgress(0)
     }
   }
 
@@ -338,7 +341,7 @@ export function ImageBlock({
             {tr("Embed")}
           </button>
           <label className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md border px-2 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground">
-            <Upload className="size-3" /> {uploading ? tr("Uploading…") : tr("Upload")}
+            <Upload className="size-3" /> {uploading ? `${tr("Uploading…")} ${uploadProgress}%` : tr("Upload")}
             <input
               type="file"
               accept="image/*"
@@ -404,6 +407,17 @@ export function ImageBlock({
                 className="max-h-[440px] w-full bg-muted/30 object-contain"
               />
             </button>
+          )}
+
+          {uploading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/55 backdrop-blur-[1px]">
+              <div className="w-40 rounded-full bg-muted p-1">
+                <div className="h-1.5 rounded-full bg-brand transition-[width] duration-200" style={{ width: `${uploadProgress}%` }} />
+              </div>
+              <span className="absolute bottom-2 right-2 rounded bg-background/90 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                {uploadProgress}%
+              </span>
+            </div>
           )}
 
           {!annotating && annotations.length > 0 && (
@@ -563,7 +577,7 @@ export function ImageBlock({
               <Link2 className="size-3.5 shrink-0" />
               <span className="min-w-0 flex-1 truncate">{block.url}</span>
               <label className="shrink-0 cursor-pointer rounded border px-2 py-1 text-[11px] hover:bg-accent">
-                {uploading ? tr("Uploading…") : tr("Replace")}
+                {uploading ? `${tr("Uploading…")} ${uploadProgress}%` : tr("Replace")}
                 <input
                   type="file"
                   accept="image/*"

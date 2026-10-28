@@ -1,8 +1,16 @@
 import type { Block, TableData } from "@/lib/types"
 import { uid } from "@/lib/utils"
+import { inlineMarkdownToRich } from "@/lib/inline-markdown"
 
 function block(type: Block["type"], text: string, extra: Partial<Block> = {}): Block {
-  return { id: uid(), type, text: clampText(text), ...extra }
+  const parsed = type === "code" ? { plain: text } : inlineMarkdownToRich(text)
+  return {
+    id: uid(),
+    type,
+    text: clampText(parsed.plain),
+    ...(parsed.rich ? { rich: parsed.rich } : {}),
+    ...extra,
+  }
 }
 
 function indentOf(line: string) {
@@ -25,7 +33,8 @@ function cells(line: string) {
 }
 
 export function hasMarkdownSyntax(text: string) {
-  return /(^|\n)(#{1,6}\s|```|>\s?|[-*+]\s|\d+[.)]\s|\|.+\||!\[[^\]]*\]\([^)]+\)|---+\s*$)/m.test(text)
+  return /(^|\n)(#{1,6}\s|```|>\s?|[-*+]\s|\d+[.)]\s|\|.+\||!\[[^\]]*\]\([^)]+\)|---+\s*$)/m.test(text) ||
+    /(`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|\*[^*\n]+\*|_[^_\n]+_)/.test(text)
 }
 
 /** Parses the Markdown subset used by Motion's importer and paste handler. */

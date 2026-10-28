@@ -22,19 +22,51 @@ func (s *Server) listComments(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "page not found")
 		return
 	}
-	cur, err := s.store.Comments.Find(r.Context(), bson.M{"pageId": pageID},
-		options.Find().SetSort(bson.D{{Key: "createdAt", Value: 1}}).SetLimit(1000))
+	page, pageSize := paginationParams(r)
+	rootFilter := bson.M{"pageId": pageID, "parentId": nil}
+	total, err := s.store.Comments.CountDocuments(r.Context(), rootFilter)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not load comments")
 		return
 	}
-	defer cur.Close(r.Context())
-	comments := make([]model.Comment, 0)
-	if err := cur.All(r.Context(), &comments); err != nil {
+	cur, err := s.store.Comments.Find(r.Context(), rootFilter,
+		options.Find().
+			SetSort(bson.D{{Key: "createdAt", Value: -1}}).
+			SetSkip((page-1)*pageSize).
+			SetLimit(pageSize))
+	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not load comments")
 		return
 	}
-	writeJSON(w, http.StatusOK, comments)
+	roots := make([]model.Comment, 0)
+	if err := cur.All(r.Context(), &roots); err != nil {
+		cur.Close(r.Context())
+		writeErr(w, http.StatusInternalServerError, "could not load comments")
+		return
+	}
+	cur.Close(r.Context())
+	rootIDs := make([]primitive.ObjectID, len(roots))
+	for i, root := range roots {
+		rootIDs[i] = root.ID
+	}
+	comments := append(make([]model.Comment, 0, len(roots)), roots...)
+	if len(rootIDs) > 0 {
+		replies, err := s.store.Comments.Find(r.Context(), bson.M{"pageId": pageID, "parentId": bson.M{"$in": rootIDs}},
+			options.Find().SetSort(bson.D{{Key: "createdAt", Value: 1}}))
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "could not load comments")
+			return
+		}
+		var replyList []model.Comment
+		if err := replies.All(r.Context(), &replyList); err != nil {
+			replies.Close(r.Context())
+			writeErr(w, http.StatusInternalServerError, "could not load comments")
+			return
+		}
+		replies.Close(r.Context())
+		comments = append(comments, replyList...)
+	}
+	writeJSON(w, http.StatusOK, paginate(comments, page, pageSize, total))
 }
 
 type createCommentRequest struct {

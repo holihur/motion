@@ -486,7 +486,8 @@ export const api = {
         deletes: string[]
         updatedAt: string
       }>(`/pages/${id}/ops`, { method: "POST", body: body(input) }),
-    comments: (id: string) => request<Comment[]>(`/pages/${id}/comments`),
+    comments: (id: string, page = 1, pageSize = 50) =>
+      request<Paginated<Comment>>(`/pages/${id}/comments?page=${page}&pageSize=${pageSize}`),
     createComment: (
       id: string,
       input: {

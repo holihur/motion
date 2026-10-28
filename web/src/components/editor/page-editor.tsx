@@ -118,6 +118,10 @@ export function PageEditor() {
   const [composerOpen, setComposerOpen] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
   const [commentsLoading, setCommentsLoading] = useState(false)
+  const [commentsPage, setCommentsPage] = useState(1)
+  const [commentsHasMore, setCommentsHasMore] = useState(false)
+  const [commentsTotal, setCommentsTotal] = useState(0)
+  const [commentsLoadingMore, setCommentsLoadingMore] = useState(false)
   const [commentVersion, setCommentVersion] = useState(0)
   const [selection, setSelection] = useState<(CommentSelection & { x: number; y: number }) | null>(null)
 
@@ -363,9 +367,13 @@ export function PageEditor() {
     let alive = true
     setCommentsLoading(true)
     api.pages
-      .comments(pageId)
-      .then((items) => {
-        if (alive) setComments(items)
+      .comments(pageId, 1, 50)
+      .then((result) => {
+        if (!alive) return
+        setComments(result.items)
+        setCommentsPage(result.page)
+        setCommentsHasMore(result.hasMore)
+        setCommentsTotal(result.total)
       })
       .catch(() => undefined)
       .finally(() => {
@@ -1014,6 +1022,22 @@ export function PageEditor() {
     realtimeRef.current?.focus(blockId)
   }
 
+  async function loadMoreComments() {
+    if (!page || commentsLoadingMore || !commentsHasMore) return
+    setCommentsLoadingMore(true)
+    try {
+      const result = await api.pages.comments(page.id, commentsPage + 1, 50)
+      setComments((current) => [...current, ...result.items])
+      setCommentsPage(result.page)
+      setCommentsHasMore(result.hasMore)
+      setCommentsTotal(result.total)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not load comments"))
+    } finally {
+      setCommentsLoadingMore(false)
+    }
+  }
+
   const commentCounts: Record<string, number> = {}
   const blockComments: Record<string, Comment[]> = {}
   let unresolvedComments = 0
@@ -1491,6 +1515,10 @@ export function PageEditor() {
             comments={comments}
             loading={commentsLoading}
             readOnly={readOnly}
+            hasMore={commentsHasMore}
+            total={commentsTotal}
+            loadingMore={commentsLoadingMore}
+            onLoadMore={() => void loadMoreComments()}
             onReload={() => setCommentVersion((value) => value + 1)}
           />
         </Suspense>

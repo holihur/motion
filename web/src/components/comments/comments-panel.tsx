@@ -25,6 +25,10 @@ export function CommentsPanel({
   comments,
   loading,
   readOnly = false,
+  hasMore = false,
+  total = 0,
+  loadingMore = false,
+  onLoadMore,
   onReload,
 }: {
   open: boolean
@@ -33,6 +37,10 @@ export function CommentsPanel({
   comments: Comment[]
   loading: boolean
   readOnly?: boolean
+  hasMore?: boolean
+  total?: number
+  loadingMore?: boolean
+  onLoadMore?: () => void
   onReload: () => void
 }) {
   const user = useAuthStore((state) => state.user)
@@ -217,6 +225,17 @@ export function CommentsPanel({
               </div>
             )}
           </div>
+        )}
+
+        {hasMore && onLoadMore && (
+          <button
+            type="button"
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            className="mt-4 w-full rounded-lg border border-border/70 px-2 py-2 text-[11px] font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
+          >
+            {loadingMore ? tr("Loading…") : tr("Load more ({n} of {total})", { n: threads.length + resolved.length, total })}
+          </button>
         )}
       </div>
 

@@ -51,6 +51,7 @@ type Settings struct {
 	AllowSignup        bool      `bson:"allowSignup" json:"allowSignup"`
 	MCPEnabled         bool      `bson:"mcpEnabled" json:"mcpEnabled"`
 	AIModel            string    `bson:"aiModel" json:"aiModel"`
+	AIDailyTokenBudget int       `bson:"aiDailyTokenBudget" json:"aiDailyTokenBudget"`
 	AdminEmails        []string  `bson:"adminEmails" json:"adminEmails"`
 	TrashRetentionDays int       `bson:"trashRetentionDays" json:"trashRetentionDays"`
 	OIDC               OIDC      `bson:"oidc" json:"oidc"`
@@ -71,6 +72,7 @@ func Defaults(cfg config.Config) Settings {
 		AllowSignup:        cfg.AllowSignup,
 		MCPEnabled:         cfg.MCPEnabled,
 		AIModel:            cfg.AIModel,
+		AIDailyTokenBudget: cfg.AIDailyTokenBudget,
 		AdminEmails:        normalizeEmails(cfg.AdminEmails),
 		TrashRetentionDays: cfg.TrashRetentionDays,
 		OIDC: OIDC{

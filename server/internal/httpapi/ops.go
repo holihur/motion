@@ -34,6 +34,7 @@ type opsSettingsView struct {
 	AllowSignup        bool          `json:"allowSignup"`
 	MCPEnabled         bool          `json:"mcpEnabled"`
 	AIModel            string        `json:"aiModel"`
+	AIDailyTokenBudget int           `json:"aiDailyTokenBudget"`
 	AdminEmails        []string      `json:"adminEmails"`
 	TrashRetentionDays int           `json:"trashRetentionDays"`
 	OIDC               opsOIDCView   `json:"oidc"`
@@ -46,6 +47,7 @@ func opsView(settings site.Settings) opsSettingsView {
 		Version: settings.UpdatedAt.UnixMilli(),
 		AppName: settings.AppName, AllowSignup: settings.AllowSignup,
 		MCPEnabled: settings.MCPEnabled, AIModel: settings.AIModel,
+		AIDailyTokenBudget: settings.AIDailyTokenBudget,
 		AdminEmails:        append([]string{}, settings.AdminEmails...),
 		TrashRetentionDays: settings.TrashRetentionDays,
 		OIDC: opsOIDCView{
@@ -92,6 +94,7 @@ type opsSettingsRequest struct {
 	AllowSignup        *bool             `json:"allowSignup"`
 	MCPEnabled         *bool             `json:"mcpEnabled"`
 	AIModel            *string           `json:"aiModel"`
+	AIDailyTokenBudget *int              `json:"aiDailyTokenBudget"`
 	AdminEmails        *[]string         `json:"adminEmails"`
 	TrashRetentionDays *int              `json:"trashRetentionDays"`
 	OIDC               *opsOIDCRequest   `json:"oidc"`
@@ -132,6 +135,14 @@ func (s *Server) saveOpsSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		settings.AIModel = model
+	}
+	if req.AIDailyTokenBudget != nil {
+		budget := *req.AIDailyTokenBudget
+		if budget < 0 || budget > 100_000_000 {
+			writeErr(w, http.StatusBadRequest, "AI daily token budget must be between 0 and 100000000")
+			return
+		}
+		settings.AIDailyTokenBudget = budget
 	}
 	if req.AdminEmails != nil {
 		emails := site.NormalizeEmails(*req.AdminEmails)

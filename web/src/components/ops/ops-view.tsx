@@ -168,6 +168,7 @@ export function OpsView() {
         allowSignup: settings.allowSignup,
         mcpEnabled: settings.mcpEnabled,
         aiModel: settings.aiModel,
+        aiDailyTokenBudget: settings.aiDailyTokenBudget,
         adminEmails: adminEmails.split(",").map((item) => item.trim()).filter(Boolean),
         trashRetentionDays: settings.trashRetentionDays,
         oidc: {

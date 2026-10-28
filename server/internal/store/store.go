@@ -27,6 +27,7 @@ type Store struct {
 	Deliveries      *mongo.Collection
 	PublishGroups   *mongo.Collection
 	FormSubmissions *mongo.Collection
+	AIUsage         *mongo.Collection
 }
 
 func Connect(ctx context.Context, uri, dbName string) (*Store, error) {
@@ -60,6 +61,7 @@ func Connect(ctx context.Context, uri, dbName string) (*Store, error) {
 		Deliveries:      db.Collection("webhook_deliveries"),
 		PublishGroups:   db.Collection("publish_groups"),
 		FormSubmissions: db.Collection("form_submissions"),
+		AIUsage:         db.Collection("ai_usage"),
 	}, nil
 }
 
@@ -144,6 +146,14 @@ func (s *Store) EnsureIndexes(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	_, err = s.AIUsage.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "userId", Value: 1}, {Key: "day", Value: 1}}},
+		{Keys: bson.D{{Key: "updatedAt", Value: 1}}, Options: options.Index().SetExpireAfterSeconds(90 * 24 * 60 * 60)},
+	})
+	if err != nil {
+		return err
+	}
+
 	_, err = s.FormSubmissions.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{Keys: bson.D{{Key: "pageId", Value: 1}, {Key: "blockId", Value: 1}, {Key: "submittedAt", Value: -1}}},
 		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "submittedAt", Value: -1}}},

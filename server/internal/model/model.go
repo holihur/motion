@@ -314,3 +314,13 @@ type AuditLog struct {
 	Summary     string             `bson:"summary" json:"summary"`
 	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
 }
+
+type AIUsage struct {
+	ID               string             `bson:"_id" json:"-"`
+	UserID           primitive.ObjectID `bson:"userId" json:"userId"`
+	Day              string             `bson:"day" json:"day"`
+	PromptTokens     int64              `bson:"promptTokens" json:"promptTokens"`
+	CompletionTokens int64              `bson:"completionTokens" json:"completionTokens"`
+	TotalTokens      int64              `bson:"totalTokens" json:"totalTokens"`
+	UpdatedAt        time.Time          `bson:"updatedAt" json:"updatedAt"`
+}

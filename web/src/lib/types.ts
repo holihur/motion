@@ -278,6 +278,7 @@ export interface AISettings {
 
 export interface AIChatResponse {
   reply: string
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number }
   actions?: string[]
   model: string
   revisionId?: string
@@ -372,6 +373,7 @@ export interface OpsSettings {
   allowSignup: boolean
   mcpEnabled: boolean
   aiModel: string
+  aiDailyTokenBudget: number
   adminEmails: string[]
   trashRetentionDays: number
   oidc: OpsOIDCSettings

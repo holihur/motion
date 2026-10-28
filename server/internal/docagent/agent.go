@@ -38,6 +38,12 @@ type TouchedPage struct {
 	Created bool
 }
 
+type Usage struct {
+	PromptTokens     int64 `json:"promptTokens"`
+	CompletionTokens int64 `json:"completionTokens"`
+	TotalTokens      int64 `json:"totalTokens"`
+}
+
 type Runner struct {
 	Store        *store.Store
 	Hub          *realtime.Hub
@@ -50,6 +56,7 @@ type Runner struct {
 	Actions      []string
 	TrackChanges bool
 	Touched      map[string]*TouchedPage
+	LastUsage    Usage
 }
 
 func copyPage(page model.Page) model.Page {
@@ -1005,6 +1012,7 @@ func (r *Runner) run(
 	stream bool,
 	onText func(string) bool,
 ) (string, []string, error) {
+	r.LastUsage = Usage{}
 	if strings.TrimSpace(r.Key) == "" {
 		return "", nil, fmt.Errorf("no API key configured")
 	}
@@ -1127,7 +1135,15 @@ func (r *Runner) run(
 		if runErr != nil {
 			return "", r.Actions, runErr
 		}
-		if event == nil || event.Content == nil {
+		if event == nil {
+			continue
+		}
+		if !event.Partial && event.UsageMetadata != nil {
+			r.LastUsage.PromptTokens += int64(event.UsageMetadata.PromptTokenCount)
+			r.LastUsage.CompletionTokens += int64(event.UsageMetadata.CandidatesTokenCount)
+			r.LastUsage.TotalTokens += int64(event.UsageMetadata.TotalTokenCount)
+		}
+		if event.Content == nil {
 			continue
 		}
 		var text strings.Builder

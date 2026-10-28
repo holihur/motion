@@ -297,6 +297,7 @@ Token 只在创建时显示一次，可随时撤销；MCP 和 API 都使用同�
 | `ALLOW_SIGNUP` | `true` | 初始注册开关 |
 | `MCP_ENABLED` | `true` | 初始 MCP 开关 |
 | `AI_MODEL` | `gemini-flash-lite-latest` | Gemini 默认模型 |
+| `AI_DAILY_TOKEN_BUDGET` | `0` | 每用户每日 AI token 预算；0 表示不限制 |
 | `UPDATE_REPO` | `holihur/motion` | Release 仓库 |
 | `AUTO_UPDATE` | `off` | `off` / `check` / `apply` |
 | `TRASH_RETENTION_DAYS` | `0` | 回收站保留天数；0 表示永久保留 |

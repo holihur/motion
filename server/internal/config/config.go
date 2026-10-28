@@ -17,6 +17,7 @@ type Config struct {
 	SeedDemo            bool
 	WebDir              string
 	AIModel             string
+	AIDailyTokenBudget  int
 	AppName             string
 	AllowSignup         bool
 	MCPEnabled          bool
@@ -53,6 +54,7 @@ func Load() Config {
 		SeedDemo:            env("SEED_DEMO", "true") == "true",
 		WebDir:              env("WEB_DIR", ""),
 		AIModel:             env("AI_MODEL", "gemini-flash-lite-latest"),
+		AIDailyTokenBudget:  atoi(env("AI_DAILY_TOKEN_BUDGET", "0"), 0),
 		AppName:             env("APP_NAME", "Motion"),
 		AllowSignup:         env("ALLOW_SIGNUP", "true") == "true",
 		MCPEnabled:          env("MCP_ENABLED", "true") == "true",

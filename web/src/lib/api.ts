@@ -291,6 +291,7 @@ export const api = {
       allowSignup?: boolean
       mcpEnabled?: boolean
       aiModel?: string
+      aiDailyTokenBudget?: number
       adminEmails?: string[]
       trashRetentionDays?: number
       maps?: OpsSettings["maps"]

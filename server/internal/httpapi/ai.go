@@ -385,6 +385,7 @@ type aiChatRequest struct {
 
 type aiChatResponse struct {
 	Reply      string             `json:"reply"`
+	Usage      docagent.Usage     `json:"usage"`
 	Actions    []string           `json:"actions,omitempty"`
 	Model      string             `json:"model"`
 	Provider   string             `json:"provider"`
@@ -435,6 +436,11 @@ func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, "account no longer exists")
 		return
 	}
+	if s.aiBudgetExceeded(r.Context(), user.ID) {
+		w.Header().Set("Retry-After", "3600")
+		writeErr(w, http.StatusTooManyRequests, "daily AI token budget exceeded; try again tomorrow")
+		return
+	}
 	timeout, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
 	modelName := setting.Model
@@ -475,6 +481,7 @@ func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadGateway, "AI request failed: "+err.Error())
 		return
 	}
+	s.recordAIUsage(r.Context(), user.ID, agent.LastUsage, req.Message, reply)
 	proposals := []model.AIProposal{}
 	if agentConfig.Mode == "approval" {
 		proposals = s.finalizeApproval(r.Context(), agentConfig, agent, user)
@@ -485,7 +492,7 @@ func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
 	s.writeAudit(r.Context(), workspaceID, user.ID, user.Name, agentConfig.ID, agentConfig.Name,
 		"agent.run", "agent", agentConfig.ID.Hex(), "Ran "+agentConfig.Name+" with "+fmt.Sprint(len(actions))+" action(s)")
 	writeJSON(w, http.StatusOK, aiChatResponse{
-		Reply: reply, Actions: actions, Model: modelName, Provider: setting.Provider,
+		Reply: reply, Usage: agent.LastUsage, Actions: actions, Model: modelName, Provider: setting.Provider,
 		RevisionID: revisionID, AgentID: agentConfig.ID.Hex(), AgentName: agentConfig.Name,
 		Mode: agentConfig.Mode, Proposals: proposals,
 	})
@@ -529,6 +536,11 @@ func (s *Server) aiChatStream(w http.ResponseWriter, r *http.Request) {
 	var user model.User
 	if err := s.store.Users.FindOne(r.Context(), bson.M{"_id": currentUserID(r)}).Decode(&user); err != nil {
 		writeErr(w, http.StatusUnauthorized, "account no longer exists")
+		return
+	}
+	if s.aiBudgetExceeded(r.Context(), user.ID) {
+		w.Header().Set("Retry-After", "3600")
+		writeErr(w, http.StatusTooManyRequests, "daily AI token budget exceeded; try again tomorrow")
 		return
 	}
 	flusher, ok := w.(http.Flusher)
@@ -607,6 +619,7 @@ func (s *Server) aiChatStream(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	s.recordAIUsage(r.Context(), user.ID, agent.LastUsage, req.Message, reply)
 	proposals := []model.AIProposal{}
 	if agentConfig.Mode == "approval" {
 		proposals = s.finalizeApproval(r.Context(), agentConfig, agent, user)
@@ -617,7 +630,7 @@ func (s *Server) aiChatStream(w http.ResponseWriter, r *http.Request) {
 	s.writeAudit(r.Context(), workspaceID, user.ID, user.Name, agentConfig.ID, agentConfig.Name,
 		"agent.run", "agent", agentConfig.ID.Hex(), "Ran "+agentConfig.Name+" with "+fmt.Sprint(len(actions))+" action(s)")
 	writeEvent("done", aiChatResponse{
-		Reply: reply, Actions: actions, Model: modelName, Provider: setting.Provider,
+		Reply: reply, Usage: agent.LastUsage, Actions: actions, Model: modelName, Provider: setting.Provider,
 		RevisionID: revisionID, AgentID: agentConfig.ID.Hex(), AgentName: agentConfig.Name,
 		Mode: agentConfig.Mode, Proposals: proposals,
 	})

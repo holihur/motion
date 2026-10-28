@@ -21,6 +21,21 @@ export const COVERS: CoverOption[] = [
   { id: "aurora", name: "Aurora", css: "linear-gradient(120deg, #c2f0ff 0%, #a6ffcb 34%, #c4b5fd 68%, #ffb3c8 100%)" },
 ]
 
+export type CoverPosition = "top" | "center" | "bottom"
+
+const COVER_POSITION_PREFIX = "#motion-cover="
+
+export function coverPosition(value: string): CoverPosition {
+  const position = value.split(COVER_POSITION_PREFIX)[1]
+  return position === "top" || position === "bottom" ? position : "center"
+}
+
+export function withCoverPosition(value: string, position: CoverPosition): string {
+  if (!value.startsWith("http://") && !value.startsWith("https://")) return value
+  const base = value.split(COVER_POSITION_PREFIX)[0]
+  return `${base}${COVER_POSITION_PREFIX}${position}`
+}
+
 export function coverStyle(value: string): CSSProperties | undefined {
   if (!value) return undefined
   if (value.startsWith("gradient:")) {
@@ -29,10 +44,12 @@ export function coverStyle(value: string): CSSProperties | undefined {
     return { backgroundImage: COVERS[0].css }
   }
   if (value.startsWith("http://") || value.startsWith("https://")) {
+    const position = coverPosition(value)
+    const source = value.split(COVER_POSITION_PREFIX)[0]
     return {
-      backgroundImage: `url(${value})`,
+      backgroundImage: `url(${source})`,
       backgroundSize: "cover",
-      backgroundPosition: "center",
+      backgroundPosition: position,
     }
   }
   return undefined

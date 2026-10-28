@@ -957,6 +957,17 @@ const zh: Record<string, string> = {
   "Webhook replay queued": "Webhook 重放已排队",
   "Could not replay webhook": "无法重放 Webhook",
   "Replay": "重放",
+  "Resize sidebar": "调整侧边栏宽度",
+  "This version matches the current page.": "此版本与当前页面一致。",
+  "Compared with this version": "与此版本相比",
+  "changes": "处变更",
+  "Removed": "已删除",
+  "Changed": "已修改",
+  "Unchanged": "未修改",
+  "Added": "已新增",
+  "Cover position": "封面位置",
+  "Top": "顶部",
+  "Bottom": "底部",
 }
 const API_ERROR_ZH: Record<string, string> = {
   "page not found": "页面不存在",

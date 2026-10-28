@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { Check, ImagePlus, Link2, Trash2 } from "lucide-react"
-import { COVERS } from "@/lib/covers"
+import { COVERS, coverPosition, withCoverPosition, type CoverPosition } from "@/lib/covers"
 import { cn } from "@/lib/utils"
+import { tr } from "@/lib/i18n"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 export function CoverPicker({
@@ -15,6 +16,8 @@ export function CoverPicker({
 }) {
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState("")
+  const isImage = value.startsWith("http://") || value.startsWith("https://")
+  const position = coverPosition(value)
 
   function applyUrl() {
     const trimmed = url.trim()
@@ -82,6 +85,29 @@ export function CoverPicker({
             </button>
           </div>
         </div>
+
+        {isImage && (
+          <div className="mt-3 border-t pt-3">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              {tr("Cover position")}
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {(["top", "center", "bottom"] as CoverPosition[]).map((pos) => (
+                <button
+                  key={pos}
+                  type="button"
+                  onClick={() => onSelect(withCoverPosition(value, pos))}
+                  className={cn(
+                    "rounded-md border px-2 py-1.5 text-[11px] capitalize transition",
+                    position === pos ? "border-brand bg-brand-soft text-brand" : "text-muted-foreground hover:bg-accent",
+                  )}
+                >
+                  {tr(pos === "top" ? "Top" : pos === "bottom" ? "Bottom" : "Center")}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {value && (
           <button

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Clock3, History, Loader2, RotateCcw, Save } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
-import type { Page, PageRevision } from "@/lib/types"
+import type { Block, Page, PageRevision } from "@/lib/types"
 import { cn, formatDate, formatRelative } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
@@ -199,11 +199,7 @@ export function HistoryDialog({
                       {formatDate(selected.createdAt)} · {tr("saved by {name}", { name: selected.authorName || "Someone" })}
                     </p>
                   </div>
-                  <div className="space-y-2">
-                    {(selected.blocks ?? []).map((block) => (
-                      <PreviewBlock key={block.id} block={block} />
-                    ))}
-                  </div>
+                  <RevisionDiff page={page} selected={selected} />
                   <div className="mt-5 flex justify-end border-t pt-4">
                     <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setConfirmOpen(true)}>
                       <RotateCcw className="size-3.5" /> {tr("Restore this version")}
@@ -235,6 +231,73 @@ export function HistoryDialog({
       </Dialog>
     </>
   )
+}
+
+type DiffKind = "same" | "changed" | "removed" | "added"
+
+function blockFingerprint(block: Block) {
+  return JSON.stringify(block)
+}
+
+function RevisionDiff({ page, selected }: { page: Page; selected: PageRevision }) {
+  const selectedBlocks = selected.blocks ?? []
+  if (selectedBlocks.length === 0 && page.blocks.length === 0) return null
+  const current = new Map(page.blocks.map((block) => [block.id, block]))
+  const selectedIDs = new Set(selectedBlocks.map((block) => block.id))
+  let changed = 0
+  let removed = 0
+  let added = 0
+  for (const block of selectedBlocks) {
+    const now = current.get(block.id)
+    if (!now) removed++
+    else if (blockFingerprint(now) !== blockFingerprint(block)) changed++
+  }
+  for (const block of page.blocks) if (!selectedIDs.has(block.id)) added++
+  if (changed + removed + added === 0) {
+    return <p className="text-[11px] text-muted-foreground">{tr("This version matches the current page.")}</p>
+  }
+  return (
+    <div className="space-y-2">
+      <p className="rounded-lg bg-muted/60 px-3 py-2 text-[11px] text-muted-foreground">
+        {tr("Compared with this version")}: {" "}
+        <span className="font-medium text-foreground">{changed + removed + added}</span>{" "}
+        {tr("changes")}
+      </p>
+      <div className="space-y-2">
+        {selectedBlocks.map((block) => {
+          const now = current.get(block.id)
+          const kind: DiffKind = !now ? "removed" : blockFingerprint(now) === blockFingerprint(block) ? "same" : "changed"
+          return (
+            <div key={block.id} className={cn("rounded-lg border px-3 py-2", diffClass(kind))}>
+              <div className="mb-1 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide opacity-80">
+                {kind === "removed" ? tr("Removed") : kind === "changed" ? tr("Changed") : tr("Unchanged")}
+              </div>
+              <PreviewBlock block={block} />
+            </div>
+          )
+        })}
+        {page.blocks.filter((block) => !selectedIDs.has(block.id)).map((block) => (
+          <div key={block.id} className={cn("rounded-lg border px-3 py-2", diffClass("added"))}>
+            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-emerald-700 opacity-80">{tr("Added")}</div>
+            <PreviewBlock block={block} />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function diffClass(kind: DiffKind) {
+  switch (kind) {
+    case "added":
+      return "border-emerald-500/30 bg-emerald-500/5"
+    case "removed":
+      return "border-destructive/30 bg-destructive/5 line-through decoration-destructive/40"
+    case "changed":
+      return "border-amber-500/30 bg-amber-500/5"
+    default:
+      return "border-border/60 bg-background"
+  }
 }
 
 function PreviewBlock({ block }: { block: PageRevision["blocks"] extends (infer T)[] | undefined ? T : never }) {

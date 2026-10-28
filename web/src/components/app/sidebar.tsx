@@ -47,12 +47,51 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 const WORKSPACE_ICONS = ["🧭", "🌊", "🚀", "🌱", "🔥", "🌸", "📚", "🏠", "🎨", "🧠"]
+const SIDEBAR_WIDTH_KEY = "motion.sidebarWidth"
+const DEFAULT_SIDEBAR_WIDTH = 276
+
+function storedSidebarWidth() {
+  try {
+    const value = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))
+    return Number.isFinite(value) && value >= 220 && value <= 420 ? value : DEFAULT_SIDEBAR_WIDTH
+  } catch {
+    return DEFAULT_SIDEBAR_WIDTH
+  }
+}
 
 export function Sidebar() {
   const sidebarOpen = useUIStore((state) => state.sidebarOpen)
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed)
   const setSidebarOpen = useUIStore((state) => state.setSidebarOpen)
   const location = useLocation()
+  const [sidebarWidth, setSidebarWidth] = useState(storedSidebarWidth)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth))
+    } catch {
+      // Private browsing may block storage; resizing still works for this session.
+    }
+  }, [sidebarWidth])
+
+  function startResize(event: React.PointerEvent<HTMLDivElement>) {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = sidebarWidth
+    const move = (moveEvent: PointerEvent) => {
+      setSidebarWidth(Math.min(420, Math.max(220, startWidth + moveEvent.clientX - startX)))
+    }
+    const stop = () => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", stop)
+      document.body.style.cursor = ""
+      document.body.style.userSelect = ""
+    }
+    document.body.style.cursor = "col-resize"
+    document.body.style.userSelect = "none"
+    window.addEventListener("pointermove", move)
+    window.addEventListener("pointerup", stop, { once: true })
+  }
 
   useEffect(() => {
     setSidebarOpen(false)
@@ -67,13 +106,22 @@ export function Sidebar() {
         />
       )}
       <aside
+        style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[276px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform duration-200 md:static md:z-0 md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-[276px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform duration-200 md:static md:z-0 md:w-[var(--sidebar-width)] md:translate-x-0",
           sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full",
           sidebarCollapsed && "md:hidden",
         )}
       >
         <SidebarContent />
+        <div
+          role="separator"
+          aria-label={tr("Resize sidebar")}
+          aria-orientation="vertical"
+          onPointerDown={startResize}
+          onDoubleClick={() => setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)}
+          className="absolute inset-y-0 -right-1 hidden w-2 cursor-col-resize touch-none select-none hover:bg-brand/30 md:block"
+        />
       </aside>
     </>
   )

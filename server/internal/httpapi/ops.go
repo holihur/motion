@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 
@@ -262,6 +263,9 @@ type opsStats struct {
 	RealtimeClients int   `json:"realtimeClients"`
 	RealtimePages   int   `json:"realtimePages"`
 	WebhookFailed   int64 `json:"webhookFailed"`
+	AgentRunsToday  int64 `json:"agentRunsToday"`
+	ExportsToday    int64 `json:"exportsToday"`
+	CommentsToday   int64 `json:"commentsToday"`
 }
 
 func (s *Server) getOpsStats(w http.ResponseWriter, r *http.Request) {
@@ -284,5 +288,10 @@ func (s *Server) getOpsStats(w http.ResponseWriter, r *http.Request) {
 	stats.StorageSize = dbStats.StorageSize
 	stats.RealtimeClients, stats.RealtimePages, _ = s.hub.Stats()
 	stats.WebhookFailed, _ = s.store.Deliveries.CountDocuments(ctx, bson.M{"status": "failed"})
+	now := time.Now().UTC()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	stats.AgentRunsToday, _ = s.store.Audit.CountDocuments(ctx, bson.M{"action": "agent.run", "createdAt": bson.M{"$gte": startOfDay}})
+	stats.ExportsToday, _ = s.store.Audit.CountDocuments(ctx, bson.M{"action": "page.export", "createdAt": bson.M{"$gte": startOfDay}})
+	stats.CommentsToday, _ = s.store.Comments.CountDocuments(ctx, bson.M{"createdAt": bson.M{"$gte": startOfDay}})
 	writeJSON(w, http.StatusOK, stats)
 }

@@ -569,6 +569,9 @@ export function OpsView() {
                       ["Live collaborators", stats.realtimeClients],
                       ["Live pages", stats.realtimePages],
                       ["Failed webhooks", stats.webhookFailed],
+                      ["AI runs today", stats.agentRunsToday],
+                      ["Exports today", stats.exportsToday],
+                      ["Comments today", stats.commentsToday],
                     ].map(([label, value]) => (
                       <div key={String(label)} className="rounded-xl bg-muted/40 px-3 py-2.5">
                         <div className="text-lg font-semibold tabular-nums">{value as number}</div>

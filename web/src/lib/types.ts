@@ -405,6 +405,9 @@ export interface OpsStats {
   realtimeClients: number
   realtimePages: number
   webhookFailed: number
+  agentRunsToday: number
+  exportsToday: number
+  commentsToday: number
 }
 
 export interface SystemInfo {

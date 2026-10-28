@@ -161,6 +161,25 @@ func (s *Server) Router() http.Handler {
 		MaxAge:           300,
 	}))
 	r.Use(s.logRequests)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/api/v1/") {
+				w.Header().Set("X-Motion-API-Version", "1")
+			}
+			if strings.HasPrefix(r.URL.Path, "/api/v1/") {
+				rest := strings.TrimPrefix(r.URL.Path, "/api/v1")
+				if strings.Contains(rest, "..") {
+					writeErr(w, http.StatusBadRequest, "invalid API path")
+					return
+				}
+				clone := r.Clone(r.Context())
+				clone.URL.Path = "/api" + rest
+				next.ServeHTTP(w, clone)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	r.Get("/api/health", s.livez)
 	r.Get("/api/livez", s.livez)

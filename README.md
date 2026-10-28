@@ -333,6 +333,8 @@ Token 只在创建时显示一次，可随时撤销；MCP 和 API 都使用同�
 
 Kubernetes 可使用 `/api/livez` 作为 liveness、`/api/readyz` 作为 readiness。
 
+所有 API 同时支持 `/api/v1/...` 稳定别名，并返回 `X-Motion-API-Version: 1`；`/api/...` 保持向后兼容。
+
 ## 测试
 
 ```bash

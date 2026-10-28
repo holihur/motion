@@ -49,3 +49,10 @@
 - `make build`：前端 → 预压缩 → 内嵌 → 单二进制（发布用）
 - 没有 `embedweb` tag 时前端从 `web/dist` 读取，便于开发
 - GitHub Actions：Go test、前端 typecheck/build、Playwright E2E（2 shard 并行）、Release、GHCR 镜像
+
+## API 版本
+
+- 稳定入口：`/api/v1/...`
+- 兼容入口：`/api/...`
+- 响应头：`X-Motion-API-Version: 1`
+- 破坏性变更通过新版本路径引入，旧路径至少保留一个发布周期。

@@ -10,6 +10,7 @@ import (
 	"github.com/signintech/gopdf"
 
 	"github.com/motion/server/internal/model"
+	"github.com/motion/server/internal/richtext"
 	"github.com/motion/server/internal/staticpublish"
 )
 
@@ -100,25 +101,25 @@ func (r *pdfRenderer) heading(text string, size float64) {
 func (r *pdfRenderer) block(block model.Block) {
 	switch block.Type {
 	case "heading1", "toggleHeading1":
-		r.heading(block.Text, 21)
+		r.richHeading(block, 21)
 	case "heading2", "toggleHeading2":
-		r.heading(block.Text, 17)
+		r.richHeading(block, 17)
 	case "heading3", "toggleHeading3":
-		r.heading(block.Text, 14)
+		r.richHeading(block, 14)
 	case "bulleted":
-		r.text("• "+block.Text, 11, 17, 10)
+		r.richBlock(block, "• ", 11, 17, 10)
 	case "numbered":
-		r.text("1. "+block.Text, 11, 17, 10)
+		r.richBlock(block, "1. ", 11, 17, 10)
 	case "todo":
 		mark := "☐"
 		if block.Checked {
 			mark = "☑"
 		}
-		r.text(mark+" "+block.Text, 11, 17, 10)
+		r.richBlock(block, mark+" ", 11, 17, 10)
 	case "quote":
-		r.text("“"+block.Text+"”", 10.5, 17, 16)
+		r.richBlock(block, "“", 10.5, 17, 16)
 	case "callout":
-		r.text("💡 "+block.Text, 10.5, 17, 10)
+		r.richBlock(block, "💡 ", 10.5, 17, 10)
 	case "code":
 		r.code(block.Text)
 	case "divider":
@@ -145,9 +146,9 @@ func (r *pdfRenderer) block(block model.Block) {
 	case "password":
 		r.text("🔒 "+block.Text, 10.5, 16, 6)
 	case "toggle":
-		r.text("▸ "+block.Text, 11, 17, 4)
+		r.richBlock(block, "▸ ", 11, 17, 4)
 	case "breadcrumb":
-		r.text(block.Text, 9, 14, 2)
+		r.richBlock(block, "", 9, 14, 2)
 	case "form":
 		if block.Form != nil {
 			r.text(block.Form.Title, 13, 18, 8)
@@ -167,9 +168,89 @@ func (r *pdfRenderer) block(block model.Block) {
 			r.text("["+block.Type+"] "+block.Text, 9.5, 15, 6)
 		}
 	default:
-		r.text(block.Text, 11, 18, 0)
+		r.richBlock(block, "", 11, 18, 0)
 	}
 	r.y += 4
+}
+
+func (r *pdfRenderer) richHeading(block model.Block, size float64) {
+	lineHeight := size * 1.35
+	r.ensure(lineHeight + 6)
+	r.y += 4
+	r.richBlock(block, "", size, lineHeight, 0)
+}
+
+func inlineTokens(text string) []string {
+	var tokens []string
+	var current strings.Builder
+	flush := func() {
+		if current.Len() > 0 {
+			tokens = append(tokens, current.String())
+			current.Reset()
+		}
+	}
+	for _, char := range text {
+		if char == '\n' {
+			flush()
+			tokens = append(tokens, "\n")
+			continue
+		}
+		if char == ' ' || char == '\t' {
+			current.WriteRune(char)
+			flush()
+			continue
+		}
+		current.WriteRune(char)
+	}
+	flush()
+	return tokens
+}
+
+func (r *pdfRenderer) richBlock(block model.Block, prefix string, size, lineHeight, indent float64) {
+	runs := richtext.Runs(block.Rich, block.Text)
+	if prefix != "" {
+		runs = append([]richtext.Run{{Text: prefix}}, runs...)
+	}
+	x := r.x + indent
+	right := r.x + r.width
+	r.ensure(lineHeight)
+	for _, run := range runs {
+		fontSize := size
+		if run.Code {
+			fontSize = size - 0.5
+		}
+		r.setFont(fontSize)
+		for _, token := range inlineTokens(run.Text) {
+			if token == "\n" {
+				r.y += lineHeight
+				r.ensure(lineHeight)
+				x = r.x + indent
+				continue
+			}
+			width, err := r.pdf.MeasureTextWidth(token)
+			if err != nil {
+				width = float64(len([]rune(token))) * fontSize * 0.5
+			}
+			if x > r.x+indent && x+width > right {
+				r.y += lineHeight
+				r.ensure(lineHeight)
+				x = r.x + indent
+			}
+			if run.URL != "" {
+				r.pdf.SetTextColor(5, 99, 193)
+			} else {
+				r.pdf.SetTextColor(0, 0, 0)
+			}
+			r.pdf.SetXY(x, r.y)
+			_ = r.pdf.Text(token)
+			if run.URL != "" {
+				r.pdf.AddExternalLink(run.URL, x, r.y, width, lineHeight)
+			}
+			x += width
+		}
+	}
+	r.pdf.SetTextColor(0, 0, 0)
+	r.y += lineHeight
 }
 
 func (r *pdfRenderer) code(text string) {

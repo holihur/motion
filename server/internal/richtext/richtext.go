@@ -200,3 +200,84 @@ func markdownText(value string, format int) string {
 	}
 	return content
 }
+
+// Run is a formatted inline span used by document exporters.
+type Run struct {
+	Text      string
+	Bold      bool
+	Italic    bool
+	Underline bool
+	Strike    bool
+	Code      bool
+	URL       string
+}
+
+func (n node) runs(style Run) []Run {
+	switch n.Type {
+	case "text", "mention":
+		run := style
+		run.Text = n.Text
+		run.Bold = run.Bold || n.Format&formatBold != 0
+		run.Italic = run.Italic || n.Format&formatItalic != 0
+		run.Underline = run.Underline || n.Format&formatUnderline != 0
+		run.Strike = run.Strike || n.Format&formatStrikethrough != 0
+		run.Code = run.Code || n.Format&formatCode != 0
+		return []Run{run}
+	case "linebreak":
+		return []Run{{Text: "\n"}}
+	case "link":
+		next := style
+		next.URL = n.URL
+		var out []Run
+		for _, child := range n.Children {
+			out = append(out, child.runs(next)...)
+		}
+		if len(out) == 0 {
+			next.Text = n.URL
+			out = append(out, next)
+		}
+		return out
+	default:
+		var out []Run
+		for _, child := range n.Children {
+			out = append(out, child.runs(style)...)
+		}
+		return out
+	}
+}
+
+// Runs flattens a Lexical rich value into formatted spans. Adjacent spans with
+// identical formatting are merged so DOCX/PDF exporters do not emit thousands
+// of unnecessary runs.
+func Runs(rich, fallback string) []Run {
+	root, ok := parse(rich)
+	if !ok {
+		return []Run{{Text: fallback}}
+	}
+	var flat []Run
+	for _, child := range root.Children {
+		flat = append(flat, child.runs(Run{})...)
+	}
+	if len(flat) == 0 {
+		return []Run{{Text: fallback}}
+	}
+	merged := make([]Run, 0, len(flat))
+	for _, run := range flat {
+		if run.Text == "" {
+			continue
+		}
+		if len(merged) > 0 {
+			last := &merged[len(merged)-1]
+			if last.Bold == run.Bold && last.Italic == run.Italic && last.Underline == run.Underline &&
+				last.Strike == run.Strike && last.Code == run.Code && last.URL == run.URL {
+				last.Text += run.Text
+				continue
+			}
+		}
+		merged = append(merged, run)
+	}
+	if len(merged) == 0 {
+		return []Run{{Text: fallback}}
+	}
+	return merged
+}

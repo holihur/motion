@@ -33,3 +33,22 @@ func TestFallback(t *testing.T) {
 		t.Fatalf("unexpected markdown fallback: %s", got)
 	}
 }
+
+func TestRuns(t *testing.T) {
+	runs := Runs(sample, "fallback")
+	if len(runs) < 3 {
+		t.Fatalf("expected multiple runs: %#v", runs)
+	}
+	if !runs[1].Code || runs[1].Text != "npm i" {
+		t.Fatalf("inline code run missing: %#v", runs)
+	}
+	var linked *Run
+	for index := range runs {
+		if runs[index].URL != "" {
+			linked = &runs[index]
+		}
+	}
+	if linked == nil || linked.Text != "docs" || !linked.Bold || linked.URL == "" {
+		t.Fatalf("link run missing: %#v", runs)
+	}
+}

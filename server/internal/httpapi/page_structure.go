@@ -67,6 +67,10 @@ func (s *Server) splitPage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if page.Archived {
+		writeErr(w, http.StatusBadRequest, "restore this page from Trash before splitting it")
+		return
+	}
 	if page.IsLayout {
 		writeErr(w, http.StatusBadRequest, "layout pages cannot be split")
 		return
@@ -195,6 +199,10 @@ func (s *Server) mergePages(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+	if page.Archived {
+		writeErr(w, http.StatusBadRequest, "restore this page from Trash before merging")
+		return
+	}
 	if page.IsLayout {
 		writeErr(w, http.StatusBadRequest, "layout pages cannot receive merged content")
 		return
@@ -226,6 +234,10 @@ func (s *Server) mergePages(w http.ResponseWriter, r *http.Request) {
 		}
 		if source.ParentID == nil || *source.ParentID != page.ID {
 			writeErr(w, http.StatusBadRequest, "all pages must be direct sub-pages")
+			return
+		}
+		if source.Archived {
+			writeErr(w, http.StatusBadRequest, "restore all selected sub-pages before merging")
 			return
 		}
 		if source.Locked {

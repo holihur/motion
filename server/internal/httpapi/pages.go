@@ -784,6 +784,10 @@ func (s *Server) duplicatePage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if original.Archived {
+		writeErr(w, http.StatusBadRequest, "restore this page from Trash before duplicating it")
+		return
+	}
 
 	order, err := s.nextOrder(r, original.WorkspaceID, original.ParentID)
 	if err != nil {
@@ -1077,6 +1081,10 @@ func (s *Server) movePage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if page.Archived {
+		writeErr(w, http.StatusBadRequest, "restore this page from Trash before moving it")
+		return
+	}
 	var req movePageRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid request body")
@@ -1103,7 +1111,7 @@ func (s *Server) movePage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var parent model.Page
-		if err := s.store.Pages.FindOne(r.Context(), bson.M{"_id": pid, "workspaceId": page.WorkspaceID}).Decode(&parent); err != nil {
+		if err := s.store.Pages.FindOne(r.Context(), bson.M{"_id": pid, "workspaceId": page.WorkspaceID, "archived": false}).Decode(&parent); err != nil {
 			writeErr(w, http.StatusBadRequest, "parent page not found")
 			return
 		}

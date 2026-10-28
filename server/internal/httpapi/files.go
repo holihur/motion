@@ -132,7 +132,9 @@ func (s *Server) downloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Length", strconv.FormatInt(meta.Length, 10))
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "sandbox")
 	w.Header().Set("Content-Disposition", "inline; filename=\""+strings.ReplaceAll(meta.Name, "\"", "")+"\"")
 	w.Header().Set("Last-Modified", meta.UploadDate.UTC().Format(http.TimeFormat))
 	_, _ = io.Copy(w, stream)

@@ -299,6 +299,7 @@ Token 只在创建时显示一次，可随时撤销；MCP 和 API 都使用同�
 | `AI_MODEL` | `gemini-flash-lite-latest` | Gemini 默认模型 |
 | `UPDATE_REPO` | `holihur/motion` | Release 仓库 |
 | `AUTO_UPDATE` | `off` | `off` / `check` / `apply` |
+| `TRASH_RETENTION_DAYS` | `0` | 回收站保留天数；0 表示永久保留 |
 | `GITHUB_TOKEN` | 空 | 可选，避免 GitHub API 限流 |
 
 > 运行时 **Ops 页面保存的值优先于环境变量**。环境变量只在首次启动或尚未保存 Ops 配置时作为默认值。

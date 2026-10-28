@@ -292,6 +292,7 @@ export const api = {
       mcpEnabled?: boolean
       aiModel?: string
       adminEmails?: string[]
+      trashRetentionDays?: number
       maps?: OpsSettings["maps"]
       oidc?: Partial<OpsSettings["oidc"]> & { clientSecret?: string; clearClientSecret?: boolean }
       update?: Partial<OpsSettings["update"]>

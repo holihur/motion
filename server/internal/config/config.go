@@ -29,6 +29,7 @@ type Config struct {
 	UpdateRepo          string
 	AutoUpdate          string
 	UpdateIntervalHours int
+	TrashRetentionDays  int
 	GitHubToken         string
 	OIDCIssuer          string
 	OIDCClientID        string
@@ -64,6 +65,7 @@ func Load() Config {
 		UpdateRepo:          env("UPDATE_REPO", "holihur/motion"),
 		AutoUpdate:          env("AUTO_UPDATE", "off"),
 		UpdateIntervalHours: atoi(env("UPDATE_INTERVAL_HOURS", "24"), 24),
+		TrashRetentionDays:  atoi(env("TRASH_RETENTION_DAYS", "0"), 0),
 		GitHubToken:         env("GITHUB_TOKEN", ""),
 		OIDCIssuer:          env("OIDC_ISSUER", ""),
 		OIDCClientID:        env("OIDC_CLIENT_ID", ""),

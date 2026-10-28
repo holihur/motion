@@ -24,3 +24,6 @@ coverage/
 .idea/
 .vscode/
 *.swp
+
+# Local `go build` output
+/server/server

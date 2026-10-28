@@ -46,17 +46,18 @@ type Maps struct {
 }
 
 type Settings struct {
-	ID          string    `bson:"_id" json:"-"`
-	AppName     string    `bson:"appName" json:"appName"`
-	AllowSignup bool      `bson:"allowSignup" json:"allowSignup"`
-	MCPEnabled  bool      `bson:"mcpEnabled" json:"mcpEnabled"`
-	AIModel     string    `bson:"aiModel" json:"aiModel"`
-	AdminEmails []string  `bson:"adminEmails" json:"adminEmails"`
-	OIDC        OIDC      `bson:"oidc" json:"oidc"`
-	Maps        Maps      `bson:"maps,omitempty" json:"maps"`
-	Update      Update    `bson:"update" json:"update"`
-	UpdatedAt   time.Time `bson:"updatedAt" json:"updatedAt"`
-	UpdatedBy   string    `bson:"updatedBy" json:"updatedBy"`
+	ID                 string    `bson:"_id" json:"-"`
+	AppName            string    `bson:"appName" json:"appName"`
+	AllowSignup        bool      `bson:"allowSignup" json:"allowSignup"`
+	MCPEnabled         bool      `bson:"mcpEnabled" json:"mcpEnabled"`
+	AIModel            string    `bson:"aiModel" json:"aiModel"`
+	AdminEmails        []string  `bson:"adminEmails" json:"adminEmails"`
+	TrashRetentionDays int       `bson:"trashRetentionDays" json:"trashRetentionDays"`
+	OIDC               OIDC      `bson:"oidc" json:"oidc"`
+	Maps               Maps      `bson:"maps,omitempty" json:"maps"`
+	Update             Update    `bson:"update" json:"update"`
+	UpdatedAt          time.Time `bson:"updatedAt" json:"updatedAt"`
+	UpdatedBy          string    `bson:"updatedBy" json:"updatedBy"`
 }
 
 func Defaults(cfg config.Config) Settings {
@@ -65,12 +66,13 @@ func Defaults(cfg config.Config) Settings {
 		scopes = []string{"openid", "email", "profile"}
 	}
 	return Settings{
-		ID:          globalID,
-		AppName:     cfg.AppName,
-		AllowSignup: cfg.AllowSignup,
-		MCPEnabled:  cfg.MCPEnabled,
-		AIModel:     cfg.AIModel,
-		AdminEmails: normalizeEmails(cfg.AdminEmails),
+		ID:                 globalID,
+		AppName:            cfg.AppName,
+		AllowSignup:        cfg.AllowSignup,
+		MCPEnabled:         cfg.MCPEnabled,
+		AIModel:            cfg.AIModel,
+		AdminEmails:        normalizeEmails(cfg.AdminEmails),
+		TrashRetentionDays: cfg.TrashRetentionDays,
 		OIDC: OIDC{
 			Enabled:        cfg.OIDCEnabled(),
 			Issuer:         cfg.OIDCIssuer,

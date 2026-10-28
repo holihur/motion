@@ -80,6 +80,7 @@ func (s *Store) EnsureIndexes(ctx context.Context) error {
 		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "parentId", Value: 1}}},
 		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "updatedAt", Value: -1}}},
 		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "isLayout", Value: 1}, {Key: "archived", Value: 1}}},
+		{Keys: bson.D{{Key: "archived", Value: 1}, {Key: "archivedAt", Value: 1}}},
 		{Keys: bson.D{{Key: "layoutId", Value: 1}}},
 	})
 	if err != nil {

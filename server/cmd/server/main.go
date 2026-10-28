@@ -85,6 +85,7 @@ func main() {
 		}
 	})
 	api.StartAutoUpdate(ctx)
+	api.StartTrashRetention(ctx)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

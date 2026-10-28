@@ -29,15 +29,16 @@ type opsUpdateView struct {
 }
 
 type opsSettingsView struct {
-	Version     int64         `json:"version"`
-	AppName     string        `json:"appName"`
-	AllowSignup bool          `json:"allowSignup"`
-	MCPEnabled  bool          `json:"mcpEnabled"`
-	AIModel     string        `json:"aiModel"`
-	AdminEmails []string      `json:"adminEmails"`
-	OIDC        opsOIDCView   `json:"oidc"`
-	Maps        site.Maps     `json:"maps"`
-	Update      opsUpdateView `json:"update"`
+	Version            int64         `json:"version"`
+	AppName            string        `json:"appName"`
+	AllowSignup        bool          `json:"allowSignup"`
+	MCPEnabled         bool          `json:"mcpEnabled"`
+	AIModel            string        `json:"aiModel"`
+	AdminEmails        []string      `json:"adminEmails"`
+	TrashRetentionDays int           `json:"trashRetentionDays"`
+	OIDC               opsOIDCView   `json:"oidc"`
+	Maps               site.Maps     `json:"maps"`
+	Update             opsUpdateView `json:"update"`
 }
 
 func opsView(settings site.Settings) opsSettingsView {
@@ -45,7 +46,8 @@ func opsView(settings site.Settings) opsSettingsView {
 		Version: settings.UpdatedAt.UnixMilli(),
 		AppName: settings.AppName, AllowSignup: settings.AllowSignup,
 		MCPEnabled: settings.MCPEnabled, AIModel: settings.AIModel,
-		AdminEmails: append([]string{}, settings.AdminEmails...),
+		AdminEmails:        append([]string{}, settings.AdminEmails...),
+		TrashRetentionDays: settings.TrashRetentionDays,
 		OIDC: opsOIDCView{
 			Enabled: settings.OIDC.Enabled, Issuer: settings.OIDC.Issuer,
 			ClientID: settings.OIDC.ClientID, RedirectURL: settings.OIDC.RedirectURL,
@@ -85,15 +87,16 @@ type opsUpdateRequest struct {
 }
 
 type opsSettingsRequest struct {
-	Version     *int64            `json:"version"`
-	AppName     *string           `json:"appName"`
-	AllowSignup *bool             `json:"allowSignup"`
-	MCPEnabled  *bool             `json:"mcpEnabled"`
-	AIModel     *string           `json:"aiModel"`
-	AdminEmails *[]string         `json:"adminEmails"`
-	OIDC        *opsOIDCRequest   `json:"oidc"`
-	Maps        *site.Maps        `json:"maps"`
-	Update      *opsUpdateRequest `json:"update"`
+	Version            *int64            `json:"version"`
+	AppName            *string           `json:"appName"`
+	AllowSignup        *bool             `json:"allowSignup"`
+	MCPEnabled         *bool             `json:"mcpEnabled"`
+	AIModel            *string           `json:"aiModel"`
+	AdminEmails        *[]string         `json:"adminEmails"`
+	TrashRetentionDays *int              `json:"trashRetentionDays"`
+	OIDC               *opsOIDCRequest   `json:"oidc"`
+	Maps               *site.Maps        `json:"maps"`
+	Update             *opsUpdateRequest `json:"update"`
 }
 
 func (s *Server) saveOpsSettings(w http.ResponseWriter, r *http.Request) {
@@ -139,6 +142,15 @@ func (s *Server) saveOpsSettings(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		settings.AdminEmails = emails
+	}
+
+	if req.TrashRetentionDays != nil {
+		days := *req.TrashRetentionDays
+		if days < 0 || days > 3650 {
+			writeErr(w, http.StatusBadRequest, "trash retention must be between 0 and 3650 days")
+			return
+		}
+		settings.TrashRetentionDays = days
 	}
 
 	if req.Maps != nil {

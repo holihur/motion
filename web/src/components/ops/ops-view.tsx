@@ -169,6 +169,7 @@ export function OpsView() {
         mcpEnabled: settings.mcpEnabled,
         aiModel: settings.aiModel,
         adminEmails: adminEmails.split(",").map((item) => item.trim()).filter(Boolean),
+        trashRetentionDays: settings.trashRetentionDays,
         oidc: {
           enabled: settings.oidc.enabled,
           issuer: settings.oidc.issuer,
@@ -324,6 +325,18 @@ export function OpsView() {
                   </div>
                 </div>
                 <div className="mt-5 space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="ops-trash-retention">Trash retention (days)</Label>
+                    <Input
+                      id="ops-trash-retention"
+                      type="number"
+                      min={0}
+                      max={3650}
+                      value={settings.trashRetentionDays}
+                      onChange={(event) => patch({ trashRetentionDays: Math.max(0, Number(event.target.value) || 0) })}
+                    />
+                    <p className="text-[10px] text-muted-foreground">0 keeps archived pages forever. Older leaf pages are permanently removed every six hours.</p>
+                  </div>
                   <ToggleRow
                     title="Allow new sign-ups"
                     description="People can create an account with email and password."

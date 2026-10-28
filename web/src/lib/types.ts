@@ -373,6 +373,7 @@ export interface OpsSettings {
   mcpEnabled: boolean
   aiModel: string
   adminEmails: string[]
+  trashRetentionDays: number
   oidc: OpsOIDCSettings
   maps: {
     mapboxToken: string

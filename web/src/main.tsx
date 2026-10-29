@@ -3,6 +3,7 @@ import { Toaster } from "sonner"
 import App from "./App"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useThemeStore } from "@/stores/theme"
+import { ensureLanguageLoaded, getLanguage } from "@/lib/i18n"
 import "./index.css"
 
 function Root() {
@@ -28,7 +29,11 @@ function Root() {
   )
 }
 
-createRoot(document.getElementById("root")!).render(<Root />)
+// Load the active language dictionary before the first render so the UI never
+// flashes English while the locale chunk is still in flight.
+ensureLanguageLoaded(getLanguage()).finally(() => {
+  createRoot(document.getElementById("root")!).render(<Root />)
+})
 
 // Offline app-shell cache (production only; API data is never cached).
 if (import.meta.env.PROD && "serviceWorker" in navigator) {

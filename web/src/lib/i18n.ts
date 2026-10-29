@@ -22,14 +22,14 @@ const dictionaries: Record<Language, Record<string, string>> = dictionaryCache
 const _currentLang = typeof localStorage !== "undefined" ? (localStorage.getItem(LANGUAGE_KEY) as Language | null) : null
 if (_currentLang && _currentLang !== "en" && !dictionaryCache[_currentLang]) {
   // Fire-and-forget; tr() will fallback to English until chunk loads, then next render picks it up
-  import(`./locales/${_currentLang}.json`).then((mod) => {
+  import(`./i18n/locales/${_currentLang}.json`).then((mod) => {
     dictionaryCache[_currentLang] = (mod.default ?? mod) as Record<string, string>
   }).catch(() => {})
 }
 export async function ensureLanguageLoaded(lang: Language): Promise<void> {
   if (dictionaryCache[lang]) return
   try {
-    const mod = await import(`./locales/${lang}.json`)
+    const mod = await import(`./i18n/locales/${lang}.json`)
     dictionaryCache[lang] = (mod.default ?? mod) as Record<string, string>
   } catch {
     // Keep fallback to English

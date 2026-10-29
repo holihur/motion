@@ -957,7 +957,7 @@ export function BlockEditor({
       case "code":
         return tr("Write some code…")
       default:
-        return index === 0 ? tr("Write something, or type '/' for commands…") : ""
+        return index === 0 ? tr("Write something, or type '/' for commands…") : tr("输入 / 插入块，# 标题")
     }
   }
 

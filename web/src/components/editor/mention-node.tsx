@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import {
   $getSelection,
@@ -99,42 +99,50 @@ export function MentionPlugin({ members }: { members: Member[] }) {
     () => members.filter((member) => member.userId && member.name),
     [members],
   )
+  const debounceRef = useRef<number | null>(null)
 
   useEffect(() => {
     return editor.registerUpdateListener(({ editorState }) => {
       editorState.read(() => {
         const selection = $getSelection()
         if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+          if (debounceRef.current) window.clearTimeout(debounceRef.current)
           setPopup(null)
           return
         }
         const node = selection.anchor.getNode()
         if (!$isTextNode(node) || node instanceof MentionNode) {
+          if (debounceRef.current) window.clearTimeout(debounceRef.current)
           setPopup(null)
           return
         }
         const before = node.getTextContent().slice(0, selection.anchor.offset)
-        if (!mentionMatch(before)) {
+        const match = mentionMatch(before)
+        if (!match) {
+          if (debounceRef.current) window.clearTimeout(debounceRef.current)
           setPopup(null)
           return
         }
         const query = before.slice(before.lastIndexOf("@") + 1).toLowerCase()
-        const filtered = options.filter((member) =>
-          `${member.name} ${member.email}`.toLowerCase().includes(query),
-        )
-        if (filtered.length === 0) {
-          setPopup(null)
-          return
-        }
-        const domSelection = window.getSelection()
-        const range = domSelection && domSelection.rangeCount > 0 ? domSelection.getRangeAt(0) : null
-        const rect = range?.getBoundingClientRect()
-        setPopup((current) => ({
-          query, options: filtered,
-          selected: Math.min(current?.query === query ? current.selected : 0, filtered.length - 1),
-          left: rect?.left ?? 0,
-          top: (rect?.bottom ?? 0) + 6,
-        }))
+        if (debounceRef.current) window.clearTimeout(debounceRef.current)
+        debounceRef.current = window.setTimeout(() => {
+          const filtered = options.filter((member) =>
+            `${member.name} ${member.email}`.toLowerCase().includes(query),
+          )
+          if (filtered.length === 0) {
+            setPopup(null)
+            return
+          }
+          const domSelection = window.getSelection()
+          const range = domSelection && domSelection.rangeCount > 0 ? domSelection.getRangeAt(0) : null
+          const rect = range?.getBoundingClientRect()
+          setPopup((current) => ({
+            query, options: filtered,
+            selected: Math.min(current?.query === query ? current.selected : 0, filtered.length - 1),
+            left: rect?.left ?? 0,
+            top: (rect?.bottom ?? 0) + 6,
+          }))
+        }, 300)
       })
     })
   }, [editor, options])

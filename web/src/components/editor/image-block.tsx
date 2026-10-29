@@ -75,6 +75,8 @@ export function ImageBlock({
   const [urlDraft, setUrlDraft] = useState("")
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const pendingFileRef = useRef<File | null>(null)
   const [imageError, setImageError] = useState(false)
   const [lightbox, setLightbox] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -112,18 +114,29 @@ export function ImageBlock({
 
   async function uploadImage(file: File) {
     if (!workspaceId || uploading) return
+    pendingFileRef.current = file
     setUploading(true)
+    setUploadError(null)
     setUploadProgress(0)
     try {
       const uploaded = await api.files.upload(file, workspaceId, setUploadProgress)
       onUpdate({ url: uploaded.url, caption: block.caption || uploaded.name, rich: "" })
       toast.success(tr("Image uploaded"))
+      setUploadError(null)
+      pendingFileRef.current = null
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not upload image"))
+      const msg = error instanceof Error ? error.message : tr("Could not upload image")
+      setUploadError(msg)
+      toast.error(msg)
     } finally {
       setUploading(false)
       setUploadProgress(0)
     }
+  }
+
+  function retryUpload() {
+    const file = pendingFileRef.current
+    if (file) void uploadImage(file)
   }
 
   function imageDrop(event: React.DragEvent) {
@@ -355,6 +368,13 @@ export function ImageBlock({
             />
           </label>
         </div>}
+        {uploadError && !uploading && (
+          <div className="flex w-full max-w-md items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-2.5 py-2 text-xs text-destructive">
+            <span className="min-w-0 flex-1 truncate">{uploadError}</span>
+            <button type="button" onClick={retryUpload} className="shrink-0 rounded bg-destructive px-2 py-1 text-[11px] font-medium text-destructive-foreground hover:bg-destructive/90">{tr("Retry")}</button>
+            <button type="button" onClick={() => { setUploadError(null); pendingFileRef.current = null }} className="shrink-0 rounded border px-2 py-1 text-[11px] hover:bg-accent">{tr("Dismiss")}</button>
+          </div>
+        )}
       </div>
     )
   }

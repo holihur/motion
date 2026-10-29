@@ -79,6 +79,7 @@ export function OpsView() {
   const [checking, setChecking] = useState(false)
   const [applying, setApplying] = useState(false)
   const [version, setVersion] = useState("")
+  const [justSaved, setJustSaved] = useState(false)
 
   useEffect(() => {
     if (!token) {
@@ -194,7 +195,9 @@ export function OpsView() {
       setAdminEmails(saved.adminEmails.join(", "))
       setSecret("")
       setClearSecret(false)
+      setJustSaved(true)
       toast.success("Ops settings saved")
+      window.setTimeout(() => setJustSaved(false), 2500)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save settings")
     } finally {
@@ -265,10 +268,13 @@ export function OpsView() {
           <Button variant="outline" size="sm" className="gap-1.5" onClick={lock}>
             <LockKeyhole className="size-3.5" /> Lock Ops
           </Button>
+          <div className="flex items-center gap-2">
+          {justSaved && <span className="flex items-center gap-1 text-xs font-medium text-emerald-600"><CheckCircle2 className="size-3.5" /> Saved</span>}
           <Button size="sm" className="gap-1.5" onClick={() => void save()} disabled={pending || !canSave}>
             {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
             Save changes
           </Button>
+          </div>
         </div>
       </header>
 

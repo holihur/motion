@@ -102,8 +102,12 @@ export function AuthPage() {
 
   return (
     <div className="relative flex min-h-svh flex-col overflow-hidden bg-background lg:grid lg:grid-cols-[1.08fr_1fr]">
-      <div className="pointer-events-none absolute -left-32 top-24 size-96 rounded-full bg-brand/20 blur-3xl animate-float-slow lg:size-[32rem]" />
-      <div className="pointer-events-none absolute -bottom-40 right-1/4 size-96 rounded-full bg-brand-two/20 blur-3xl animate-float-slower" />
+      {/* 呼吸雾：三层错峰起伏，营造呼吸感 */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-40 -top-40 size-[42rem] rounded-full bg-brand/25 blur-3xl animate-breathe" />
+        <div className="absolute -bottom-52 right-[8%] size-[36rem] rounded-full bg-brand-two/25 blur-3xl animate-breathe-late" />
+        <div className="absolute left-[30%] top-[38%] size-[28rem] rounded-full bg-brand/15 blur-3xl animate-breathe-slower" />
+      </div>
 
       {/* Brand panel */}
       <section className="relative hidden flex-col justify-between overflow-hidden border-r border-border/60 bg-sidebar/70 p-12 lg:flex">
@@ -184,8 +188,8 @@ export function AuthPage() {
           </div>
         </header>
 
-        <div className="flex flex-1 items-center justify-center px-5 pb-16 pt-4">
-          <div className="w-full max-w-[400px] animate-rise">
+        <div className="relative flex flex-1 items-center justify-center px-5 pb-16 pt-4">
+          <div className="w-full max-w-[400px] animate-rise rounded-2xl border border-border/60 bg-background/60 p-6 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.3)] backdrop-blur-xl sm:p-8">
             <div className="mb-8">
               <h2 className="text-2xl font-semibold tracking-tight">
                 {mode === "login" ? tr("Welcome back") : tr("Create your account")}

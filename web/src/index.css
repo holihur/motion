@@ -281,6 +281,23 @@
 .animate-float-slower { animation: float-slower 18s ease-in-out infinite; }
 .animate-rise { animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* 登录页呼吸雾：缓慢的吸气—呼气起伏 */
+@keyframes breathe {
+  0%, 100% { transform: scale(1) translate3d(0, 0, 0); opacity: 0.55; }
+  50% { transform: scale(1.18) translate3d(2%, -3%, 0); opacity: 0.9; }
+}
+@keyframes breathe-late {
+  0%, 100% { transform: scale(1.12) translate3d(0, 0, 0); opacity: 0.7; }
+  50% { transform: scale(0.96) translate3d(-3%, 2%, 0); opacity: 0.45; }
+}
+.animate-breathe { animation: breathe 9s ease-in-out infinite; }
+.animate-breathe-late { animation: breathe-late 12s ease-in-out infinite; }
+.animate-breathe-slower { animation: breathe 16s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-breathe, .animate-breathe-late, .animate-breathe-slower,
+  .animate-float-slow, .animate-float-slower { animation: none; }
+}
+
 /* Lexical rich-text blocks */
 .lexical-input {
   position: relative;

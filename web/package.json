@@ -13,7 +13,8 @@
     "prebuild": "node scripts/copy-vendor.mjs",
     "build:fast": "node scripts/copy-vendor.mjs && vite build",
     "typecheck": "tsc -b",
-    "build:check": "pnpm typecheck && pnpm build"
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "build:check": "pnpm typecheck && pnpm i18n:check && pnpm build"
   },
   "dependencies": {
     "@lexical/history": "^0.52.0",

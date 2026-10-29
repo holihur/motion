@@ -44,6 +44,7 @@ jobs:
           cache: true
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - run: pnpm i18n:check
       - run: pnpm build:fast
       - uses: actions/upload-artifact@v4
         with:

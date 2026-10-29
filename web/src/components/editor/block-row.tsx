@@ -9,7 +9,9 @@ import {
   ClipboardCopy,
   Columns2,
   Copy,
+  Globe,
   GripVertical,
+  Languages,
   LockKeyhole,
   LockOpen,
   ImageIcon,
@@ -78,6 +80,7 @@ import {
   type HeadingItem,
 } from "@/components/editor/rich-blocks"
 import { tr } from "@/lib/i18n"
+import { TRANSLATE_LANGS, translateText } from "@/lib/translate"
 import { ColorGrid } from "@/components/ui/color-grid"
 
 export interface BlockRowProps {
@@ -873,6 +876,17 @@ export function BlockRow(props: BlockRowProps) {
 
       <div key={block.type} className={contentClassName}>
         {renderContent()}
+        {block.translations && Object.keys(block.translations).length > 0 && (
+          <div className="mt-1.5 rounded-md border border-dashed border-brand/20 bg-brand-soft/20 px-2.5 py-1.5">
+            {Object.entries(block.translations).slice(0,3).map(([code, val]) => (
+              <div key={code} className="flex items-start gap-1.5 py-0.5 text-xs">
+                <span className="rounded bg-brand px-1 py-0.5 text-[10px] font-mono text-white">{code}</span>
+                <span className="flex-1 leading-5">{val as string}</span>
+              </div>
+            ))}
+            {Object.keys(block.translations).length > 3 && <div className="text-[11px] text-muted-foreground">+{Object.keys(block.translations).length-3} more</div>}
+          </div>
+        )}
       </div>
 
       {locked && !pageReadOnly && (
@@ -1171,6 +1185,26 @@ function BlockMenu({
             <ArrowDown /> {tr("Move down")}
           </DropdownMenuItem>
         )}
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger><Languages /> {tr("Translate")}</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-44">
+            {TRANSLATE_LANGS.map((l) => (
+              <DropdownMenuItem key={l.code} onSelect={async () => {
+                const t = tr("Translating..."); toast.info(t)
+                const out = await translateText(block.text || block.caption || "", l.code as any)
+                const next = { ...(block.translations ?? {}), [l.code]: out }
+                onUpdate({ translations: next } as any)
+                toast.success(`${l.label} ✓`)
+              }}>
+                <Globe className="size-3" /> {l.label} <span className="ml-auto text-[10px] text-muted-foreground">{l.code}</span>
+                {block.translations?.[l.code] && <Check className="ml-1 size-3 text-brand" />}
+              </DropdownMenuItem>
+            ))}
+            {block.translations && Object.keys(block.translations).length > 0 && (
+              <DropdownMenuItem variant="destructive" onSelect={() => onUpdate({ translations: {} } as any)}><Trash2 /> {tr("Clear translations")}</DropdownMenuItem>
+            )}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuItem onSelect={onDuplicate}>
           <Copy /> {tr("Duplicate")}
         </DropdownMenuItem>

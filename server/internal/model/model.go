@@ -136,10 +136,11 @@ type Block struct {
 	Ciphertext  string     `bson:"ciphertext,omitempty" json:"ciphertext,omitempty"`
 	Salt        string     `bson:"salt,omitempty" json:"salt,omitempty"`
 	IV          string     `bson:"iv,omitempty" json:"iv,omitempty"`
-	Table       *TableData    `bson:"table,omitempty" json:"table,omitempty"`
-	Database    *DatabaseData `bson:"database,omitempty" json:"database,omitempty"`
-	Form        *FormData     `bson:"form,omitempty" json:"form,omitempty"`
-	Map         *MapData      `bson:"map,omitempty" json:"map,omitempty"`
+	Table        *TableData         `bson:"table,omitempty" json:"table,omitempty"`
+	Database     *DatabaseData      `bson:"database,omitempty" json:"database,omitempty"`
+	Form         *FormData          `bson:"form,omitempty" json:"form,omitempty"`
+	Map          *MapData           `bson:"map,omitempty" json:"map,omitempty"`
+	Translations map[string]string `bson:"translations,omitempty" json:"translations,omitempty"`
 	LineNumbers bool       `bson:"lineNumbers,omitempty" json:"lineNumbers,omitempty"`
 	Indent      int        `bson:"indent,omitempty" json:"indent,omitempty"`
 	Collapsed   bool       `bson:"collapsed,omitempty" json:"collapsed,omitempty"`

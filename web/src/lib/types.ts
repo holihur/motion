@@ -119,6 +119,7 @@ export interface Block {
   database?: DatabaseData
   form?: FormData
   map?: MapData
+  translations?: Record<string, string>
   lineNumbers?: boolean
   /** 0 = root. Used by toggles and nested content. */
   indent?: number

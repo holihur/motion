@@ -92,9 +92,10 @@ export function SlashMenu({
       <div className="fixed inset-0 z-40" data-slash-backdrop />
       <div
         ref={ref}
-        className="fixed z-50 overflow-hidden rounded-xl border bg-popover shadow-2xl animate-in fade-in-0 zoom-in-95"
-        style={{ left, top, width }}
+        className="fixed z-50 overflow-hidden rounded-2xl border bg-popover shadow-2xl animate-in fade-in-0 zoom-in-95 touch-manipulation"
+        style={{ left, top, width, paddingBottom: compact ? "max(8px, env(safe-area-inset-bottom))" : undefined }}
       >
+        {compact && <div className="mx-auto mt-2 h-1 w-9 rounded-full bg-muted-foreground/20" />}
         <div className="flex items-center justify-between px-3 pb-1 pt-2.5">
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             {state.mode === "insert" ? tr("Insert block") : tr("Turn into")}

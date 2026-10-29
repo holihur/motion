@@ -955,7 +955,7 @@ export function BlockRow(props: BlockRowProps) {
         </Popover>
       )}
 
-      {!readOnly && <div className="flex size-6 shrink-0 items-center justify-center md:hidden">
+      {!readOnly && <div className="flex size-8 shrink-0 items-center justify-center md:hidden">
         <BlockMenu
           block={block}
           locked={locked}

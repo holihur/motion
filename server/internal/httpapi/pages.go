@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -657,6 +658,7 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 	snapshot.Blocks = merged
 	s.maybeSnapshot(r, snapshot, name)
 	s.broadcastLayoutChange(r.Context(), page)
+	go s.notifyNewMentions(context.Background(), page, page.Blocks, merged, currentUserID(r), name)
 	writeJSON(w, http.StatusOK, map[string]any{"blocks": merged, "blocksRev": rev, "updatedAt": now})
 }
 
@@ -820,6 +822,7 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 	snapshot.Blocks = next
 	s.maybeSnapshot(r, snapshot, name)
 	s.broadcastLayoutChange(r.Context(), page)
+	go s.notifyNewMentions(context.Background(), page, page.Blocks, next, currentUserID(r), name)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"blocksRev": rev, "order": order, "upserts": req.Upserts, "deletes": req.Deletes, "updatedAt": now,
 	})

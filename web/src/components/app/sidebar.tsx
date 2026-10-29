@@ -27,6 +27,7 @@ import type { PageSummary } from "@/lib/types"
 import { cn, initials } from "@/lib/utils"
 import { LogoMark } from "@/components/logo"
 import { WorkspaceIcon } from "@/components/app/workspace-icon"
+import { NotificationBell } from "@/components/app/notifications"
 import { PageTree } from "@/components/app/page-tree"
 import { tr } from "@/lib/i18n"
 import { PageActionsMenu } from "@/components/app/page-actions"
@@ -191,6 +192,7 @@ function SidebarContent() {
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <WorkspaceSwitcher />
         </div>
+        <NotificationBell />
         <button
           type="button"
           onClick={() => setSidebarOpen(false)}

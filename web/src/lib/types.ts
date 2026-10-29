@@ -277,6 +277,22 @@ export interface CommentAnnotation {
   height: number
 }
 
+export interface Notification {
+  id: string
+  workspaceId: string
+  actorId?: string
+  actorName: string
+  type: "mention" | "comment_reply"
+  title: string
+  body?: string
+  pageId?: string
+  blockId?: string
+  commentId?: string
+  read: boolean
+  createdAt: string
+  readAt?: string
+}
+
 export interface Comment {
   id: string
   pageId: string

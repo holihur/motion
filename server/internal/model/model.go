@@ -373,6 +373,24 @@ type AIProposal struct {
 	ReviewedBy  *primitive.ObjectID `bson:"reviewedBy,omitempty" json:"reviewedBy,omitempty"`
 }
 
+// Notification is an in-app inbox message (@mention, comment reply, ...).
+type Notification struct {
+	ID          primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
+	UserID      primitive.ObjectID  `bson:"userId" json:"-"`
+	WorkspaceID primitive.ObjectID  `bson:"workspaceId" json:"workspaceId"`
+	ActorID     primitive.ObjectID  `bson:"actorId,omitempty" json:"actorId,omitempty"`
+	ActorName   string              `bson:"actorName" json:"actorName"`
+	Type        string              `bson:"type" json:"type"` // mention, comment_reply
+	Title       string              `bson:"title" json:"title"`
+	Body        string              `bson:"body,omitempty" json:"body,omitempty"`
+	PageID      string              `bson:"pageId,omitempty" json:"pageId,omitempty"`
+	BlockID     string              `bson:"blockId,omitempty" json:"blockId,omitempty"`
+	CommentID   string              `bson:"commentId,omitempty" json:"commentId,omitempty"`
+	Read        bool                `bson:"read" json:"read"`
+	CreatedAt   time.Time           `bson:"createdAt" json:"createdAt"`
+	ReadAt      *time.Time          `bson:"readAt,omitempty" json:"readAt,omitempty"`
+}
+
 type AuditLog struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	WorkspaceID primitive.ObjectID `bson:"workspaceId" json:"workspaceId"`

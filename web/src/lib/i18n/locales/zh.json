@@ -1029,5 +1029,10 @@
   "Variables, replaced on send": "变量，发送时替换",
   "Side by side": "并排",
   "Unified": "单栏",
-  "{n} unchanged block(s)": "{n} 个未改动块"
+  "{n} unchanged block(s)": "{n} 个未改动块",
+  "Mark all read": "全部已读",
+  "No notifications — @ someone to try it out.": "暂无通知——@ 一下同事试试。",
+  "Notifications": "站内信",
+  "Someone @ mentioned you": "有人 @ 了你",
+  "You have a new notification": "你有一条新通知"
 }

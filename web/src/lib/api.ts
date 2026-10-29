@@ -24,6 +24,7 @@ import type {
   PageSummary,
   Paginated,
   User,
+  Notification,
   TaskTemplate,
   Workspace,
 } from "./types"
@@ -298,6 +299,11 @@ export const api = {
   audit: {
     list: (workspaceId: string, page = 1, pageSize = 50) =>
       request<Paginated<AuditLog>>(`/workspaces/${workspaceId}/audit?page=${page}&pageSize=${pageSize}`),
+  },
+  notifications: {
+    list: (limit = 50) => request<{ items: Notification[]; unread: number }>(`/notifications?limit=${limit}`),
+    read: (id: string) => request<{ ok: boolean }>(`/notifications/${id}/read`, { method: "POST" }),
+    readAll: () => request<{ ok: boolean }>("/notifications/read-all", { method: "POST" }),
   },
   ops: {
     settings: (opsToken: string) => request<OpsSettings>("/ops/settings", {}, opsToken),

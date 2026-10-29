@@ -37,6 +37,15 @@ export function useWorkspaceRealtime(workspaceId: string | null) {
             toast.error(tr("Agent task failed"))
             return
           }
+          if (event.type === "notify") {
+            if (event.userId) {
+              // Only the mentioned user lights up; others ignore.
+              window.dispatchEvent(new CustomEvent("motion:notifications-changed", { detail: event }))
+            } else {
+              window.dispatchEvent(new CustomEvent("motion:notifications-changed"))
+            }
+            return
+          }
           if (event.type !== "proposals" && event.type !== "agent-run") return
           window.dispatchEvent(new CustomEvent("motion:proposals-changed"))
           if ((event.type === "proposals" && event.action === "created") ||

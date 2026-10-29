@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -129,7 +130,10 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 	_, name := s.editorFor(r)
 	comment.AuthorName = name
 
+	var parent model.Comment
+	hasParent := false
 	if req.ParentID != nil && strings.TrimSpace(*req.ParentID) != "" {
+		hasParent = true
 		parentID, err := primitive.ObjectIDFromHex(*req.ParentID)
 		if err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid parent comment id")
@@ -184,6 +188,9 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		"pageId": pageID.Hex(), "pageTitle": page.Title, "commentId": comment.ID.Hex(),
 		"author": name, "body": comment.Body, "quote": comment.Quote,
 	})
+	if hasParent {
+		go s.notifyCommentReply(context.Background(), page, parent, comment, name)
+	}
 	writeJSON(w, http.StatusCreated, comment)
 }
 

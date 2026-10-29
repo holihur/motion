@@ -196,6 +196,19 @@ export function GanttBlock({
                             <div title={`${formatDay(start!, true)} – ${formatDay(end!, true)} · ${task.progress}%`} className="absolute top-1/2 h-5 -translate-y-1/2 overflow-hidden rounded-md bg-muted/80" style={{ left: `${left}%`, width: `${width}%`, minWidth: 6 }}>
                               <div className="h-full rounded-md opacity-90 transition-all" style={{ width: `${task.progress}%`, backgroundColor: PALETTE[index % PALETTE.length] }} />
                               {width > 14 && <span className="absolute inset-0 flex items-center pl-1.5 text-[9px] font-medium text-white/95 mix-blend-luminosity">{task.progress}%</span>}
+                              {!readOnly && (
+                                <span onMouseDown={(e) => {
+                                  e.preventDefault()
+                                  const bar = (e.currentTarget.parentElement as HTMLElement)
+                                  const rect = bar.getBoundingClientRect()
+                                  const onMove = (ev: MouseEvent) => {
+                                    const pct = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100))
+                                    setCell(index, 3, String(Math.round(pct)))
+                                  }
+                                  const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
+                                  window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp)
+                                }} className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-white/30 opacity-0 group-hover/gantt:opacity-100" />
+                              )}
                             </div>
                           ) : (
                             <span className="text-[10px] text-amber-600 dark:text-amber-400">{tr("Invalid dates")}</span>

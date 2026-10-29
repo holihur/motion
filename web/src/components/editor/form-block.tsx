@@ -130,23 +130,39 @@ export function FormBlock({
       </div>
 
       {editing ? (
-        <div className="space-y-3 p-3.5">
-          <input ref={titleRef} value={form.title ?? ""} onChange={(event) => save({ ...form, title: event.target.value })} placeholder={tr("Form title")} className="h-9 w-full rounded-md border bg-background px-2.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/25" />
-          <textarea value={form.description ?? ""} onChange={(event) => save({ ...form, description: event.target.value })} rows={2} placeholder={tr("Description (optional)")} className="w-full resize-y rounded-md border bg-background px-2.5 py-2 text-xs outline-none" />
-          {fields.map((field, index) => (
-            <div key={field.id} className="space-y-2 rounded-lg border p-2.5">
-              <div className="flex items-center gap-2">
-                <Input value={field.label} onChange={(event) => setField(index, { label: event.target.value })} placeholder={tr("Question")} className="h-8 flex-1 text-xs" />
-                <select value={field.type} onChange={(event) => setField(index, { type: event.target.value as FormField["type"] })} className="h-8 rounded border bg-background px-1 text-xs">
-                  {FIELD_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-                </select>
-                <label className="flex items-center gap-1 text-[10px] text-muted-foreground"><input type="checkbox" checked={field.required} onChange={(event) => setField(index, { required: event.target.checked })} /> {tr("Required")}</label>
-                <button type="button" onClick={() => removeField(index)} aria-label={tr("Remove field")} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><X className="size-3.5" /></button>
+        <div className="grid gap-4 p-3.5 lg:grid-cols-2">
+          <div className="space-y-3">
+            <input ref={titleRef} value={form.title ?? ""} onChange={(event) => save({ ...form, title: event.target.value })} placeholder={tr("Form title")} className="h-9 w-full rounded-md border bg-background px-2.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/25" />
+            <textarea value={form.description ?? ""} onChange={(event) => save({ ...form, description: event.target.value })} rows={2} placeholder={tr("Description (optional)")} className="w-full resize-y rounded-md border bg-background px-2.5 py-2 text-xs outline-none" />
+            {fields.map((field, index) => (
+              <div key={field.id} className="space-y-2 rounded-lg border p-2.5">
+                <div className="flex items-center gap-2">
+                  <Input value={field.label} onChange={(event) => setField(index, { label: event.target.value })} placeholder={tr("Question")} className="h-8 flex-1 text-xs" />
+                  <select value={field.type} onChange={(event) => setField(index, { type: event.target.value as FormField["type"] })} className="h-8 rounded border bg-background px-1 text-xs">
+                    {FIELD_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                  </select>
+                  <label className="flex items-center gap-1 text-[10px] text-muted-foreground"><input type="checkbox" checked={field.required} onChange={(event) => setField(index, { required: event.target.checked })} /> {tr("Required")}</label>
+                  <button type="button" onClick={() => removeField(index)} aria-label={tr("Remove field")} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><X className="size-3.5" /></button>
+                </div>
+                {field.type === "select" && <Input value={(field.options ?? []).join(", ")} onChange={(event) => setField(index, { options: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) })} placeholder={tr("Options, comma separated")} className="h-8 text-xs" />}
               </div>
-              {field.type === "select" && <Input value={(field.options ?? []).join(", ")} onChange={(event) => setField(index, { options: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) })} placeholder={tr("Options, comma separated")} className="h-8 text-xs" />}
+            ))}
+            <button type="button" onClick={addField} className="flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="size-3" /> {tr("Add field")}</button>
+          </div>
+          <div className="rounded-lg border bg-muted/20 p-3">
+            <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{tr("Preview")}</div>
+            <div className="space-y-3 rounded-lg border bg-card p-3">
+              <div className="text-sm font-semibold">{form.title || tr("Untitled form")}{fields.some((f) => f.required) && <span className="ml-1 text-destructive">*</span>}</div>
+              {form.description && <p className="whitespace-pre-wrap text-xs text-muted-foreground">{form.description}</p>}
+              {fields.map((field) => (
+                <div key={field.id} className="space-y-1">
+                  <label className="block text-xs font-medium">{field.label || tr("Question")}{field.required && <span className="ml-1 text-destructive">*</span>}</label>
+                  {field.type === "textarea" ? <div className="h-16 rounded-md border bg-muted/30" /> : field.type === "select" ? <div className="h-8 rounded-md border bg-muted/30 px-2 py-1 text-xs text-muted-foreground">{(field.options ?? []).join(" / ") || tr("Choose…")}</div> : <div className="h-8 rounded-md border bg-muted/30" />}
+                </div>
+              ))}
+              <div className="pt-1"><span className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">{form.submitLabel || tr("Submit")}</span></div>
             </div>
-          ))}
-          <button type="button" onClick={addField} className="flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="size-3" /> {tr("Add field")}</button>
+          </div>
         </div>
       ) : (
         <div className="space-y-4 p-4">

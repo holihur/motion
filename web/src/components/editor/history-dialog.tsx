@@ -28,6 +28,8 @@ export function HistoryDialog({
 }) {
   const [revisions, setRevisions] = useState<PageRevision[]>([])
   const [selected, setSelected] = useState<PageRevision | null>(null)
+  const [compare, setCompare] = useState<PageRevision | null>(null)
+  const [compareLoading, setCompareLoading] = useState(false)
   const [revisionPage, setRevisionPage] = useState(1)
   const [revisionHasMore, setRevisionHasMore] = useState(false)
   const [revisionTotal, setRevisionTotal] = useState(0)
@@ -59,10 +61,22 @@ export function HistoryDialog({
     setPreviewLoading(true)
     try {
       setSelected(await api.pages.revision(page.id, revision.id))
+      setCompare(null)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not load version")
     } finally {
       setPreviewLoading(false)
+    }
+  }
+  async function selectCompare(revision: PageRevision) {
+    if (selected?.id === revision.id) return
+    setCompareLoading(true)
+    try {
+      setCompare(await api.pages.revision(page.id, revision.id))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not load version")
+    } finally {
+      setCompareLoading(false)
     }
   }
 
@@ -143,14 +157,11 @@ export function HistoryDialog({
               ) : (
                 <div className="space-y-0.5">
                   {revisions.map((revision, index) => (
+                    <div key={revision.id} className={cn("flex w-full items-center gap-1 rounded-lg", selected?.id === revision.id ? "bg-accent" : "hover:bg-accent/50")}> 
                     <button
-                      key={revision.id}
                       type="button"
                       onClick={() => void selectRevision(revision)}
-                      className={cn(
-                        "flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left transition",
-                        selected?.id === revision.id ? "bg-accent" : "hover:bg-accent/50",
-                      )}
+                      className="flex flex-1 items-start gap-2 px-2 py-2 text-left"
                     >
                       <Clock3 className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                       <span className="min-w-0 flex-1">
@@ -166,6 +177,14 @@ export function HistoryDialog({
                         </span>
                       </span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => void selectCompare(revision)}
+                      disabled={!selected || selected.id === revision.id}
+                      title={tr("Compare")}
+                      className={cn("mr-1 rounded px-1.5 py-1 text-[10px]", compare?.id === revision.id ? "bg-brand text-white" : "bg-muted hover:bg-accent")}
+                    >vs</button>
+                    </div>
                   ))}
                   {revisionHasMore && (
                     <button
@@ -199,7 +218,10 @@ export function HistoryDialog({
                       {formatDate(selected.createdAt)} · {tr("saved by {name}", { name: selected.authorName || "Someone" })}
                     </p>
                   </div>
-                  <RevisionDiff page={page} selected={selected} />
+                  {compare ? (
+                    compareLoading ? <div className="flex justify-center py-6"><Loader2 className="size-5 animate-spin" /></div> :
+                    <TwoVersionDiff a={compare} b={selected} />
+                  ) : <RevisionDiff page={page} selected={selected} />}
                   <div className="mt-5 flex justify-end border-t pt-4">
                     <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setConfirmOpen(true)}>
                       <RotateCcw className="size-3.5" /> {tr("Restore this version")}
@@ -287,6 +309,32 @@ function RevisionDiff({ page, selected }: { page: Page; selected: PageRevision }
   )
 }
 
+function TwoVersionDiff({ a, b }: { a: PageRevision; b: PageRevision }) {
+  const blocksA = a.blocks ?? []
+  const blocksB = b.blocks ?? []
+  const titleChanged = a.title !== b.title
+  const coverChanged = a.cover !== b.cover
+  return (
+    <div className="space-y-3">
+      {(titleChanged || coverChanged) && (
+        <div className="flex flex-wrap gap-1.5">
+          {titleChanged && <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700">{tr("Title changed")}: {a.title || "—"} → {b.title || "—"}</span>}
+          {coverChanged && <span className="rounded bg-violet-500/15 px-2 py-0.5 text-[10px] font-medium text-violet-700">{tr("Cover changed")}</span>}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{formatDate(a.createdAt)} · {a.authorName || "Someone"}</div>
+          {blocksA.map((block) => <div key={block.id} className="rounded border px-2 py-1.5 bg-muted/20"><PreviewBlock block={block} /></div>)}
+        </div>
+        <div className="space-y-2">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{formatDate(b.createdAt)} · {b.authorName || "Someone"}</div>
+          {blocksB.map((block) => <div key={block.id} className="rounded border px-2 py-1.5 bg-background"><PreviewBlock block={block} /></div>)}
+        </div>
+      </div>
+    </div>
+  )
+}
 function diffClass(kind: DiffKind) {
   switch (kind) {
     case "added":

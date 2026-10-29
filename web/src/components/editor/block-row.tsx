@@ -831,7 +831,7 @@ export function BlockRow(props: BlockRowProps) {
                 onDragStart()
               }}
               onDragEnd={onDragEnd}
-              className="flex size-5 cursor-grab items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground active:cursor-grabbing"
+              className="flex size-5 cursor-grab items-center justify-center rounded text-muted-foreground opacity-[0.12] transition hover:bg-accent hover:text-foreground hover:opacity-100 group-hover/block:opacity-100 active:cursor-grabbing"
               aria-label="Drag block"
             >
               <GripVertical className="size-3.5" />

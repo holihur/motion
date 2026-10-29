@@ -18,6 +18,7 @@ import { hasMarkdownSyntax, parseMarkdownToBlocks } from "@/lib/markdown-import"
 import { blocksToMarkdown } from "@/lib/markdown"
 import type { RealtimePresence } from "@/lib/realtime"
 import { filterCommands, type SlashCommand } from "@/components/editor/commands"
+import { createBlock } from "@/components/editor/block-factory"
 
 const LIST_TYPES: BlockType[] = ["bulleted", "numbered", "todo"]
 const TOGGLE_TYPES: BlockType[] = ["toggle", "toggleHeading1", "toggleHeading2", "toggleHeading3"]
@@ -35,33 +36,6 @@ const SHORTCUTS: [string, BlockType][] = [
   ["``` ", "code"],
   ["```", "code"],
 ]
-
-function createBlock(type: BlockType = "paragraph"): Block {
-  return {
-    id: uid(),
-    type,
-    text: type === "diagram" ? DEFAULT_DIAGRAM : "",
-    checked: false,
-    ...(type === "code" ? { language: "auto" } : {}),
-    ...(type === "callout" ? { color: "amber" } : {}),
-    ...(type === "table"
-      ? {
-          table: {
-            columns: ["Column 1", "Column 2", "Column 3"],
-            rows: [["", "", ""], ["", "", ""]],
-            header: true,
-          },
-        }
-      : {}),
-    ...(type === "gantt" ? { table: defaultGanttTable() } : {}),
-    ...(type === "chart" ? { table: defaultChartTable(), language: "bar" } : {}),
-    ...(type === "columns" ? { table: defaultColumnsTable() } : {}),
-    ...(type === "qrcode" ? { language: "280" } : {}),
-    ...(type === "barcode" ? { language: "CODE128" } : {}),
-    ...(type === "form" ? { form: defaultForm() } : {}),
-    ...(type === "map" ? { map: { lat: 37.7749, lng: -122.4194, zoom: 12, label: "San Francisco", provider: "mapbox" } } : {}),
-  }
-}
 
 const DEFAULT_DIAGRAM = `flowchart LR
   Idea[Idea] --> Draft[Draft]

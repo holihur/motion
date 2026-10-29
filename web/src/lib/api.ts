@@ -404,6 +404,32 @@ export const api = {
         method: "POST",
         body: body({ pageId, includeChildren }),
       }),
+    importNotion: (workspaceId: string, page: string) =>
+      request<{ title: string; blocks: Block[] }>(`/workspaces/${workspaceId}/integrations/notion/import`, {
+        method: "POST",
+        body: body({ page }),
+      }),
+    importYuque: (workspaceId: string, doc: string) =>
+      request<{ title: string; blocks: Block[] }>(`/workspaces/${workspaceId}/integrations/yuque/import`, {
+        method: "POST",
+        body: body({ doc }),
+      }),
+    importFeishu: (workspaceId: string, doc: string) =>
+      request<{ title: string; blocks: Block[] }>(`/workspaces/${workspaceId}/integrations/feishu/import`, {
+        method: "POST",
+        body: body({ doc }),
+      }),
+    exportWorkspace: async (workspaceId: string, format: "md" | "html") => {
+      const headers = new Headers()
+      const token = getToken()
+      if (token) headers.set("Authorization", `Bearer ${token}`)
+      const response = await fetch(`/api/workspaces/${workspaceId}/export?format=${format}`, { headers })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null
+        throw new ApiError(localizeApiError(payload?.error || `请求失败（${response.status}）`), response.status)
+      }
+      return response.blob()
+    },
     test: (workspaceId: string, provider: string) =>
       request<{ ok: boolean; message: string; latencyMs: number }>(`/workspaces/${workspaceId}/integrations/${provider}/test`, { method: "POST" }),
   },

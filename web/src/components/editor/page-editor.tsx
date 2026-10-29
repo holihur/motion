@@ -828,6 +828,18 @@ export function PageEditor() {
       : tr("Pasted {n} block(s)", { n: imported.length }))
   }
 
+
+  function insertBlocks(blocks: Block[], filename = "") {
+    if (readOnly || !page) return
+    if (blocks.length === 0) {
+      toast.error(tr("No blocks found in this file"))
+      return
+    }
+    setBlocks((previous) => previous.length === 1 && previous[0].text === "" ? blocks : [...previous, ...blocks])
+    scheduleSave()
+    toast.success(tr("Imported {n} block(s) from {name}", { n: blocks.length, name: filename || tr("file") }))
+  }
+
   useEffect(() => {
     function onMarkdownPaste(event: ClipboardEvent) {
       if (readOnly || !page) return
@@ -857,10 +869,18 @@ export function PageEditor() {
       if (!detail?.text || (detail.pageId && detail.pageId !== pageId)) return
       insertMarkdown(detail.text)
     }
+    function onImportBlocks(event: Event) {
+      if (readOnly || !page) return
+      const detail = (event as CustomEvent<{ pageId?: string; blocks?: Block[]; filename?: string }>).detail
+      if (!detail?.blocks || (detail.pageId && detail.pageId !== pageId)) return
+      insertBlocks(detail.blocks, detail.filename || tr("file"))
+    }
     window.addEventListener("motion:import-markdown", onImport)
+    window.addEventListener("motion:import-blocks", onImportBlocks)
     window.addEventListener("motion:paste-markdown", onPasteMarkdown)
     return () => {
       window.removeEventListener("motion:import-markdown", onImport)
+      window.removeEventListener("motion:import-blocks", onImportBlocks)
       window.removeEventListener("motion:paste-markdown", onPasteMarkdown)
     }
     // scheduleSave intentionally uses the current page closure.

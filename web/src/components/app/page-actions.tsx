@@ -12,6 +12,7 @@ import {
   FileText,
   FileType2,
   FileUp,
+  ArrowDownToLine,
   GitMerge,
   Link2,
   LockKeyhole,
@@ -50,6 +51,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { MergePagesDialog, SplitPageDialog } from "@/components/app/page-structure-dialogs"
+import { ImportDialog } from "@/components/app/import-dialog"
 import { PageThemeDialog } from "@/components/app/page-theme-dialog"
 import { PageLayoutDialog } from "@/components/app/page-layout-dialog"
 
@@ -78,6 +80,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const [structure, setStructure] = useState<"split" | "merge" | null>(null)
   const [themeOpen, setThemeOpen] = useState(false)
   const [layoutOpen, setLayoutOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [enabledProviders, setEnabledProviders] = useState<Set<string>>(new Set())
   const [groups, setGroups] = useState<PublishGroup[]>([])
   const importRef = useRef<HTMLInputElement>(null)
@@ -182,6 +185,13 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
 
   async function onImportFile(file: File) {
     try {
+      const lower = file.name.toLowerCase()
+      if (lower.endsWith(".html") || lower.endsWith(".htm")) {
+        const { parseHTMLToBlocks } = await import("@/lib/html-import")
+        const blocks = parseHTMLToBlocks(await file.text())
+        window.dispatchEvent(new CustomEvent("motion:import-blocks", { detail: { pageId: page.id, blocks, filename: file.name } }))
+        return
+      }
       const text = await file.text()
       window.dispatchEvent(new CustomEvent("motion:import-markdown", { detail: { pageId: page.id, text, filename: file.name } }))
     } catch (error) {
@@ -351,7 +361,10 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           </DropdownMenuItem>}
           {!readOnly && !locked && <DropdownMenuSeparator />}
           {!readOnly && !locked && <DropdownMenuItem onSelect={() => importRef.current?.click()}>
-            <FileUp /> {tr("Import Markdown")}
+            <FileUp /> {tr("Import file (Markdown / HTML)")}
+          </DropdownMenuItem>}
+          {!readOnly && !locked && <DropdownMenuItem onSelect={() => setImportOpen(true)}>
+            <ArrowDownToLine /> {tr("Import from other notes…")}
           </DropdownMenuItem>}
           {!readOnly && !locked && <DropdownMenuItem onSelect={() => void onDuplicate()}>
             <Copy /> {tr("Duplicate")}
@@ -402,7 +415,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
       <input
         ref={importRef}
         type="file"
-        accept=".md,.markdown,.txt,text/markdown,text/plain"
+        accept=".md,.markdown,.txt,.html,.htm,text/markdown,text/plain,text/html"
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0]
@@ -417,6 +430,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
       />
       <PageThemeDialog page={page} open={themeOpen} onOpenChange={setThemeOpen} />
       <PageLayoutDialog page={page} open={layoutOpen} onOpenChange={setLayoutOpen} />
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
       <SplitPageDialog
         page={page}
         open={structure === "split"}

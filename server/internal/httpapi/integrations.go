@@ -19,6 +19,7 @@ import (
 	"github.com/motion/server/internal/adf"
 	"github.com/motion/server/internal/atlassian"
 	"github.com/motion/server/internal/gitpublish"
+	"github.com/motion/server/internal/importer"
 	"github.com/motion/server/internal/model"
 	"github.com/motion/server/internal/objectstore"
 	"github.com/motion/server/internal/secret"
@@ -127,7 +128,7 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	provider := strings.ToLower(strings.TrimSpace(chiURLParam(r, "provider")))
-	if provider != "webhook" && provider != "ssh" && provider != "git" && provider != "jira" && provider != "confluence" && provider != "s3" && provider != "aliyun_oss" && provider != "qiniu" && provider != "tencent_cos" {
+	if provider != "webhook" && provider != "ssh" && provider != "git" && provider != "jira" && provider != "confluence" && provider != "s3" && provider != "aliyun_oss" && provider != "qiniu" && provider != "tencent_cos" && provider != "notion" && provider != "yuque" && provider != "feishu" {
 		writeErr(w, http.StatusBadRequest, "unsupported integration provider")
 		return
 	}
@@ -300,7 +301,7 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 		set["secretHint"] = hint
 	}
 	if err == mongo.ErrNoDocuments {
-		if (provider == "ssh" || provider == "git" || provider == "jira" || provider == "confluence" || provider == "s3" || provider == "aliyun_oss" || provider == "qiniu" || provider == "tencent_cos") && strings.TrimSpace(req.Secret) == "" {
+		if (provider == "ssh" || provider == "git" || provider == "jira" || provider == "confluence" || provider == "s3" || provider == "aliyun_oss" || provider == "qiniu" || provider == "tencent_cos" || provider == "notion" || provider == "yuque" || provider == "feishu") && strings.TrimSpace(req.Secret) == "" {
 			writeErr(w, http.StatusBadRequest, "a private key or access token is required")
 			return
 		}
@@ -842,6 +843,24 @@ func (s *Server) testIntegration(w http.ResponseWriter, r *http.Request) {
 					UseSSL: integration.Config["useSSL"] != "false",
 				})
 			}
+		}
+	case "notion":
+		var token string
+		token, err = secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
+		if err == nil {
+			err = importer.TestNotionToken(ctx, token)
+		}
+	case "yuque":
+		var token string
+		token, err = secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
+		if err == nil {
+			err = importer.TestYuqueToken(ctx, token)
+		}
+	case "feishu":
+		var appSecret string
+		appSecret, err = secret.Decrypt(s.cfg.EncryptionKey, integration.SecretCipher)
+		if err == nil {
+			err = importer.TestFeishu(ctx, integration.Config["appId"], appSecret)
 		}
 	default:
 		writeErr(w, http.StatusBadRequest, "unsupported integration provider")

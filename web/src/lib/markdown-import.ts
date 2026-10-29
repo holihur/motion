@@ -2,7 +2,7 @@ import type { Block, TableData } from "@/lib/types"
 import { uid } from "@/lib/utils"
 import { inlineMarkdownToRich } from "@/lib/inline-markdown"
 
-function block(type: Block["type"], text: string, extra: Partial<Block> = {}): Block {
+export function markdownBlock(type: Block["type"], text: string, extra: Partial<Block> = {}): Block {
   const parsed = type === "code" ? { plain: text } : inlineMarkdownToRich(text)
   return {
     id: uid(),
@@ -61,7 +61,7 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
         index += 1
       }
       index += 1
-      out.push(block("code", code.join("\n"), { language }))
+      out.push(markdownBlock("code", code.join("\n"), { language }))
       continue
     }
 
@@ -75,19 +75,19 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
         index += 1
       }
       const table: TableData = { columns, rows, header: true }
-      out.push(block("table", "", { table }))
+      out.push(markdownBlock("table", "", { table }))
       continue
     }
 
     if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
-      out.push(block("divider", ""))
+      out.push(markdownBlock("divider", ""))
       index += 1
       continue
     }
 
     const image = /^\s*!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)\s*$/.exec(line)
     if (image) {
-      out.push(block("image", "", { url: image[2], caption: image[1] }))
+      out.push(markdownBlock("image", "", { url: image[2], caption: image[1] }))
       index += 1
       continue
     }
@@ -95,28 +95,28 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
     const heading = /^\s*(#{1,6})\s+(.*)$/.exec(line)
     if (heading) {
       const level = Math.min(3, heading[1].length) as 1 | 2 | 3
-      out.push(block(`heading${level}` as Block["type"], heading[2].trim(), { indent: indentOf(line) }))
+      out.push(markdownBlock(`heading${level}` as Block["type"], heading[2].trim(), { indent: indentOf(line) }))
       index += 1
       continue
     }
 
     const todo = /^\s*[-*+]\s+\[([ xX])\]\s+(.*)$/.exec(line)
     if (todo) {
-      out.push(block("todo", todo[2].trim(), { checked: todo[1].toLowerCase() === "x", indent: indentOf(line) }))
+      out.push(markdownBlock("todo", todo[2].trim(), { checked: todo[1].toLowerCase() === "x", indent: indentOf(line) }))
       index += 1
       continue
     }
 
     const bullet = /^\s*[-*+]\s+(.*)$/.exec(line)
     if (bullet) {
-      out.push(block("bulleted", bullet[1].trim(), { indent: indentOf(line) }))
+      out.push(markdownBlock("bulleted", bullet[1].trim(), { indent: indentOf(line) }))
       index += 1
       continue
     }
 
     const numbered = /^\s*\d+[.)]\s+(.*)$/.exec(line)
     if (numbered) {
-      out.push(block("numbered", numbered[1].trim(), { indent: indentOf(line) }))
+      out.push(markdownBlock("numbered", numbered[1].trim(), { indent: indentOf(line) }))
       index += 1
       continue
     }
@@ -129,7 +129,7 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
       else if (/^\[!WARNING\]/i.test(text)) { text = text.replace(/^\[!WARNING\]\s*/i, ""); color = "red" }
       else if (/^\[!TIP\]/i.test(text)) { text = text.replace(/^\[!TIP\]\s*/i, ""); color = "green" }
       const callout = color !== "amber"
-      out.push(block(callout ? "callout" : "quote", text, callout ? { color } : { indent: indentOf(line) }))
+      out.push(markdownBlock(callout ? "callout" : "quote", text, callout ? { color } : { indent: indentOf(line) }))
       index += 1
       continue
     }
@@ -143,7 +143,7 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
       paragraph.push(next.trim())
       index += 1
     }
-    out.push(block("paragraph", paragraph.join("\n")))
+    out.push(markdownBlock("paragraph", paragraph.join("\n")))
   }
 
   return out

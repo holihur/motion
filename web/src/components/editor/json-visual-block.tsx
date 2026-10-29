@@ -112,7 +112,7 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
             <div className="space-y-2">
               <div className="flex items-center gap-1 text-[11px] text-muted-foreground"><BarChart3 className="size-3" /> 柱状/饼图 · {chartData.length} 项</div>
               <MiniBar data={chartData} />
-              <div className="flex gap-1 pt-1">{chartData.slice(0,6).map(d=> <span key={d.name} className="rounded bg-brand-soft px-1.5 py-0.5 text-[11px]">{d.name}:{d.value}</span>)}</div>
+              <div className="flex gap-1 pt-1">{chartData.slice(0,6).map((d: { name: string; value: number })=> <span key={d.name} className="rounded bg-brand-soft px-1.5 py-0.5 text-[11px]">{d.name}:{d.value}</span>)}</div>
             </div>
           ) : (
             <div className="space-y-2">

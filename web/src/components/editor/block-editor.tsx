@@ -629,11 +629,64 @@ export function BlockEditor({
     }
   }
 
+  function isSingleUrl(value: string) {
+    const t = value.trim()
+    return /^https?:\/\/[^\s]+$/.test(t) && !t.includes("\n")
+  }
+  function isJsonLike(value: string) {
+    const t = value.trim()
+    if (!((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]")))) return false
+    try { JSON.parse(t); return true } catch { return false }
+  }
+  function isCodeLike(value: string) {
+    const lines = value.split("\n")
+    if (lines.length >= 2 && /[{};]\s*$/.test(value)) return true
+    if (/^(function|const |let |import |export |class |def |<\w+>)/m.test(value)) return true
+    if (lines.length >= 3 && value.includes("  ") && /[;{}]/.test(value)) return true
+    return false
+  }
+  function isTableLike(value: string) {
+    const lines = value.split("\n").filter((l) => l.trim())
+    if (lines.length < 2) return false
+    const tabCount = lines.filter((l) => l.includes("\t")).length
+    const pipeCount = lines.filter((l) => l.includes("|")).length
+    return tabCount >= Math.ceil(lines.length * 0.6) || pipeCount >= Math.ceil(lines.length * 0.6)
+  }
   function handlePaste(index: number, raw: string) {
     const block = blocksRef.current[index]
     const el = document.getElementById(`block-input-${block.id}`) as HTMLElement | null
     const offset = el ? caretOffset(el) : block.text.length
     const text = raw.replace(/\r/g, "")
+    const trimmed = text.trim()
+    // Single URL → bookmark
+    if (isSingleUrl(trimmed)) {
+      const created = createBlock("bookmark")
+      created.url = trimmed; created.text = trimmed
+      const currentEmpty = block.type === "paragraph" && block.text === ""
+      const next = currentEmpty ? [...blocksRef.current.slice(0, index), created, ...blocksRef.current.slice(index + 1)] : [...blocksRef.current.slice(0, index + 1), created, ...blocksRef.current.slice(index + 1)]
+      commit(next); focusNew(created.id, "end"); toast.success(tr("Pasted {n} block(s)", { n: 1 })); return
+    }
+    // JSON / code → code block
+    if (isJsonLike(trimmed) || isCodeLike(text)) {
+      const created = createBlock("code")
+      created.text = text; created.language = isJsonLike(trimmed) ? "json" : "auto"
+      const currentEmpty = block.type === "paragraph" && block.text === ""
+      const next = currentEmpty ? [...blocksRef.current.slice(0, index), created, ...blocksRef.current.slice(index + 1)] : [...blocksRef.current.slice(0, index + 1), created, ...blocksRef.current.slice(index + 1)]
+      commit(next); focusNew(created.id, "end"); return
+    }
+    // Table-like (TSV/pipe) → table
+    if (isTableLike(text)) {
+      const lines = text.split("\n").filter((l) => l.trim())
+      const sep = lines[0].includes("\t") ? "\t" : "|"
+      const rows = lines.map((l) => l.split(sep).map((c) => c.trim().replace(/^\||\|$/g, "").trim()))
+      const columns = rows[0] ?? ["Column 1"]
+      const dataRows = rows.slice(1).length ? rows.slice(1) : [[""]]
+      const created = createBlock("table")
+      created.table = { columns, rows: dataRows, header: true }
+      const currentEmpty = block.type === "paragraph" && block.text === ""
+      const next = currentEmpty ? [...blocksRef.current.slice(0, index), created, ...blocksRef.current.slice(index + 1)] : [...blocksRef.current.slice(0, index + 1), created, ...blocksRef.current.slice(index + 1)]
+      commit(next); focusNew(created.id, "end"); return
+    }
     if (hasMarkdownSyntax(text)) {
       const imported = parseMarkdownToBlocks(text)
       if (imported.length === 0) return

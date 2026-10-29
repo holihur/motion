@@ -324,6 +324,7 @@ export function BlockEditor({
           }
         : {}),
       ...(type === "columns" ? { table: block.type === "columns" && block.table ? block.table : defaultColumnsTable() } : {}),
+      ...(type === "database" ? { database: block.type === "database" && block.database ? block.database : { columns: [{ id: "c1", name: "Name", type: "text" as const, width: 200 }, { id: "c2", name: "Status", type: "status" as const, options: ["Todo", "Doing", "Done"] }, { id: "c3", name: "Due", type: "date" as const }], rows: [{ c1: "Task 1", c2: "Todo", c3: "" }], viewMode: "table" as const } } : {}),
     })
     focusNew(block.id, clear ? "start" : "end")
     closeSlash()

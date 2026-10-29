@@ -64,6 +64,26 @@ type TableData struct {
 	Align   []string   `bson:"align,omitempty" json:"align,omitempty"`
 }
 
+type DatabaseColumn struct {
+	ID      string   `bson:"id" json:"id"`
+	Name    string   `bson:"name" json:"name"`
+	Type    string   `bson:"type" json:"type"` // text, select, status, person, date, number
+	Options []string `bson:"options,omitempty" json:"options,omitempty"`
+	Width   int      `bson:"width,omitempty" json:"width,omitempty"`
+}
+
+type DatabaseData struct {
+	Columns  []DatabaseColumn     `bson:"columns" json:"columns"`
+	Rows     []map[string]string `bson:"rows" json:"rows"`
+	ViewMode string              `bson:"viewMode,omitempty" json:"viewMode,omitempty"` // table, board
+	GroupBy  string              `bson:"groupBy,omitempty" json:"groupBy,omitempty"`
+}
+
+type ShareOverride struct {
+	UserID string `bson:"userId" json:"userId"`
+	Role   string `bson:"role" json:"role"` // editor, viewer, none
+}
+
 type FormField struct {
 	ID       string   `bson:"id" json:"id"`
 	Label    string   `bson:"label" json:"label"`
@@ -99,8 +119,8 @@ type FormSubmission struct {
 }
 
 type Block struct {
-	ID          string     `bson:"id" json:"id"`
-	Type        string     `bson:"type" json:"type"`
+	ID          string        `bson:"id" json:"id"`
+	Type        string        `bson:"type" json:"type"`
 	Text        string     `bson:"text" json:"text"`
 	Rich        string     `bson:"rich,omitempty" json:"rich,omitempty"`
 	Checked     bool       `bson:"checked,omitempty" json:"checked,omitempty"`
@@ -116,9 +136,10 @@ type Block struct {
 	Ciphertext  string     `bson:"ciphertext,omitempty" json:"ciphertext,omitempty"`
 	Salt        string     `bson:"salt,omitempty" json:"salt,omitempty"`
 	IV          string     `bson:"iv,omitempty" json:"iv,omitempty"`
-	Table       *TableData `bson:"table,omitempty" json:"table,omitempty"`
-	Form        *FormData  `bson:"form,omitempty" json:"form,omitempty"`
-	Map         *MapData   `bson:"map,omitempty" json:"map,omitempty"`
+	Table       *TableData    `bson:"table,omitempty" json:"table,omitempty"`
+	Database    *DatabaseData `bson:"database,omitempty" json:"database,omitempty"`
+	Form        *FormData     `bson:"form,omitempty" json:"form,omitempty"`
+	Map         *MapData      `bson:"map,omitempty" json:"map,omitempty"`
 	LineNumbers bool       `bson:"lineNumbers,omitempty" json:"lineNumbers,omitempty"`
 	Indent      int        `bson:"indent,omitempty" json:"indent,omitempty"`
 	Collapsed   bool       `bson:"collapsed,omitempty" json:"collapsed,omitempty"`
@@ -126,10 +147,12 @@ type Block struct {
 }
 
 type Page struct {
-	ID           primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
-	WorkspaceID  primitive.ObjectID  `bson:"workspaceId" json:"workspaceId"`
-	ParentID     *primitive.ObjectID `bson:"parentId,omitempty" json:"parentId,omitempty"`
-	Title        string              `bson:"title" json:"title"`
+	ID             primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
+	WorkspaceID    primitive.ObjectID  `bson:"workspaceId" json:"workspaceId"`
+	ParentID       *primitive.ObjectID `bson:"parentId,omitempty" json:"parentId,omitempty"`
+	ShareOverrides []ShareOverride     `bson:"shareOverrides,omitempty" json:"shareOverrides,omitempty"`
+	Watermark      bool                `bson:"watermark,omitempty" json:"watermark,omitempty"`
+	Title          string              `bson:"title" json:"title"`
 	Icon         string              `bson:"icon" json:"icon"`
 	Cover        string              `bson:"cover" json:"cover"`
 	Theme        string              `bson:"theme,omitempty" json:"theme,omitempty"`

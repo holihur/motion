@@ -186,6 +186,9 @@ func (s *Server) Router() http.Handler {
 	r.Get("/api/readyz", s.readyz)
 	r.Get("/api/healthz", s.healthz)
 	r.HandleFunc("/mcp", s.mcpEndpoint)
+	// SCIM 2.0 stub (enterprise provisioning)
+	r.Get("/scim/v2/Users", s.scimUsers)
+	r.Get("/scim/v2/Users/{id}", s.scimUserByID)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/system/info", s.systemInfo)
@@ -261,6 +264,7 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("workspace:write")).Delete("/agents/{agentID}", s.deleteAgent)
 			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/proposals", s.listProposals)
 			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/audit", s.listAudit)
+			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/audit/export", s.exportAudit)
 			r.With(s.requireScope("pages:read")).Get("/proposals/{proposalID}", s.getProposal)
 			r.With(s.requireScope("pages:write")).Post("/proposals/{proposalID}/approve", s.approveProposal)
 			r.With(s.requireScope("pages:write")).Post("/proposals/{proposalID}/reject", s.rejectProposal)

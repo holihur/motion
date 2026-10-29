@@ -1,10 +1,12 @@
 import { useCallback, useRef } from "react"
+import { clearDraft, enqueue, replayQueue, saveDraft } from "@/lib/offline-queue"
 
 export type SaveState = "saved" | "saving" | "error"
 
 export function usePageSave(
   saveFn: () => Promise<void>,
   delay = 600,
+  pageId?: string,
 ) {
   const timerRef = useRef<number | null>(null)
   const savingRef = useRef(false)
@@ -20,6 +22,15 @@ export function usePageSave(
       savingRef.current = true
       try {
         await saveFn()
+        if (pageId) clearDraft(pageId)
+        // replay any queued ops when back online
+        void replayQueue(() => localStorage.getItem("motion:token"))
+      } catch (e) {
+        if (pageId && !navigator.onLine) {
+          saveDraft(pageId, { at: Date.now(), error: String(e) })
+          enqueue({ id: `${pageId}-${Date.now()}`, pageId, url: location.href, method: "PUT", body: "", createdAt: Date.now() })
+        }
+        throw e
       } finally {
         savingRef.current = false
         if (pendingRef.current) {
@@ -28,7 +39,7 @@ export function usePageSave(
         }
       }
     }, delay)
-  }, [saveFn, delay])
+  }, [saveFn, delay, pageId])
 
   const flush = useCallback(async () => {
     if (timerRef.current) {
@@ -42,6 +53,10 @@ export function usePageSave(
     savingRef.current = true
     try {
       await saveFn()
+      if (pageId) clearDraft(pageId)
+    } catch (e) {
+      if (pageId && !navigator.onLine) saveDraft(pageId, { at: Date.now(), error: String(e) })
+      throw e
     } finally {
       savingRef.current = false
       if (pendingRef.current) {
@@ -49,7 +64,7 @@ export function usePageSave(
         schedule()
       }
     }
-  }, [saveFn, schedule])
+  }, [saveFn, schedule, pageId])
 
   const cancel = useCallback(() => {
     if (timerRef.current) {

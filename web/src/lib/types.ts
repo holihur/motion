@@ -12,6 +12,7 @@ export type BlockType =
   | "divider"
   | "image"
   | "table"
+  | "database"
   | "diagram"
   | "password"
   | "bookmark"
@@ -41,6 +42,28 @@ export interface TableData {
   header: boolean
   widths?: number[]
   align?: ("left" | "center" | "right")[]
+}
+
+export type DatabaseColumnType = "text" | "select" | "status" | "person" | "date" | "number"
+
+export interface DatabaseColumn {
+  id: string
+  name: string
+  type: DatabaseColumnType
+  options?: string[]
+  width?: number
+}
+
+export interface DatabaseData {
+  columns: DatabaseColumn[]
+  rows: Record<string, string>[]
+  viewMode?: "table" | "board"
+  groupBy?: string
+}
+
+export interface ShareOverride {
+  userId: string
+  role: "editor" | "viewer" | "none"
 }
 
 export interface FormField {
@@ -92,6 +115,7 @@ export interface Block {
   salt?: string
   iv?: string
   table?: TableData
+  database?: DatabaseData
   form?: FormData
   map?: MapData
   lineNumbers?: boolean
@@ -159,6 +183,8 @@ export interface PageSummary {
   lockedByName?: string
   layoutId?: string
   isLayout?: boolean
+  shareOverrides?: ShareOverride[]
+  watermark?: boolean
   order: number
   updatedAt: string
   snippet?: string

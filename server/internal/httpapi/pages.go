@@ -32,6 +32,7 @@ var blockTypes = map[string]bool{
 	"divider":        true,
 	"image":          true,
 	"table":          true,
+	"database":       true,
 	"diagram":        true,
 	"password":       true,
 	"bookmark":       true,
@@ -261,6 +262,39 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		updates["favorite"] = favorite
+	}
+	if value, ok := raw["watermark"]; ok {
+		var wm bool
+		if err := json.Unmarshal(value, &wm); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid watermark")
+			return
+		}
+		updates["watermark"] = wm
+	}
+	if value, ok := raw["shareOverrides"]; ok {
+		var overrides []model.ShareOverride
+		if err := json.Unmarshal(value, &overrides); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid share overrides")
+			return
+		}
+		if len(overrides) > 50 {
+			overrides = overrides[:50]
+		}
+		cleaned := make([]model.ShareOverride, 0, len(overrides))
+		seen := map[string]bool{}
+		for _, o := range overrides {
+			o.UserID = strings.TrimSpace(o.UserID)
+			o.Role = strings.TrimSpace(o.Role)
+			if o.UserID == "" || seen[o.UserID] {
+				continue
+			}
+			if o.Role != "editor" && o.Role != "viewer" && o.Role != "none" {
+				continue
+			}
+			seen[o.UserID] = true
+			cleaned = append(cleaned, o)
+		}
+		updates["shareOverrides"] = cleaned
 	}
 
 	if value, ok := raw["parentId"]; ok {
@@ -544,6 +578,9 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" || b.Type == "columns" {
 			b.Table = sanitizeTable(b.Table)
 		}
+		if b.Type == "database" {
+			b.Database = sanitizeDatabase(b.Database)
+		}
 		if b.Type == "form" && b.Form != nil {
 			b.Form.Title = truncateRunes(b.Form.Title, 200)
 			b.Form.Description = truncateRunes(b.Form.Description, 1000)
@@ -683,6 +720,9 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 		}
 		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" || b.Type == "columns" {
 			b.Table = sanitizeTable(b.Table)
+		}
+		if b.Type == "database" {
+			b.Database = sanitizeDatabase(b.Database)
 		}
 		if b.Type == "form" && b.Form != nil {
 			b.Form.Title = truncateRunes(b.Form.Title, 200)

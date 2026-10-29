@@ -76,6 +76,16 @@ func (s *Server) accessiblePageFor(ctx context.Context, pageID, userID primitive
 	if err != nil {
 		return model.Page{}, "", err
 	}
+	// Page-level shareOverrides take precedence (none = revoked)
+	uid := userID.Hex()
+	for _, o := range page.ShareOverrides {
+		if o.UserID == uid {
+			if o.Role == "none" {
+				return model.Page{}, "", mongo.ErrNoDocuments
+			}
+			return page, o.Role, nil
+		}
+	}
 	return page, role, nil
 }
 

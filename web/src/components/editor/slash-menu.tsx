@@ -9,7 +9,7 @@ const CATEGORY_ORDER = ["基础", "媒体", "高级", "导入"] as const
 const CATEGORY_MAP: Record<string, string> = {
   paragraph: "基础", heading1: "基础", heading2: "基础", heading3: "基础", bulleted: "基础", numbered: "基础", todo: "基础", quote: "基础", callout: "基础", code: "基础", divider: "基础", toc: "基础",
   image: "媒体", video: "媒体", embed: "媒体", bookmark: "媒体", file: "媒体", map: "媒体", equation: "媒体",
-  table: "高级", diagram: "高级", gantt: "高级", chart: "高级", columns: "高级", toggle: "高级", toggleHeading1: "高级", toggleHeading2: "高级", toggleHeading3: "高级", pageLink: "高级", breadcrumb: "高级", form: "高级", qrcode: "高级", barcode: "高级", password: "高级", content: "高级",
+  table: "高级", database: "高级", diagram: "高级", gantt: "高级", chart: "高级", columns: "高级", toggle: "高级", toggleHeading1: "高级", toggleHeading2: "高级", toggleHeading3: "高级", pageLink: "高级", breadcrumb: "高级", form: "高级", qrcode: "高级", barcode: "高级", password: "高级", content: "高级",
 }
 const SHORTCUTS: Record<string, string> = {
   heading1: "# + 空格", heading2: "## + 空格", heading3: "### + 空格", bulleted: "- + 空格", numbered: "1. + 空格", todo: "[] + 空格", quote: "> + 空格", code: "``` + 空格", divider: "---", table: "/table",

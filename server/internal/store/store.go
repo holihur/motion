@@ -21,6 +21,7 @@ type Store struct {
 	AISettings      *mongo.Collection
 	Settings        *mongo.Collection
 	Agents          *mongo.Collection
+	AgentRuns       *mongo.Collection
 	Proposals       *mongo.Collection
 	Audit           *mongo.Collection
 	Integrations    *mongo.Collection
@@ -55,6 +56,7 @@ func Connect(ctx context.Context, uri, dbName string) (*Store, error) {
 		AISettings:      db.Collection("ai_settings"),
 		Settings:        db.Collection("settings"),
 		Agents:          db.Collection("agents"),
+		AgentRuns:       db.Collection("agent_runs"),
 		Proposals:       db.Collection("ai_proposals"),
 		Audit:           db.Collection("audit_logs"),
 		Integrations:    db.Collection("integrations"),
@@ -171,6 +173,13 @@ func (s *Store) EnsureIndexes(ctx context.Context) error {
 	_, err = s.Proposals.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "status", Value: 1}, {Key: "createdAt", Value: -1}}},
 		{Keys: bson.D{{Key: "pageId", Value: 1}, {Key: "createdAt", Value: -1}}},
+	})
+	if err != nil {
+		return err
+	}
+	_, err = s.AgentRuns.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "createdAt", Value: -1}}},
+		{Keys: bson.D{{Key: "agentId", Value: 1}, {Key: "createdAt", Value: -1}}},
 	})
 	if err != nil {
 		return err

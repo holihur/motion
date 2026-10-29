@@ -310,6 +310,27 @@ type Agent struct {
 	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
+// AgentRun records one agent task execution (manual dispatch or scheduled).
+type AgentRun struct {
+	ID          primitive.ObjectID   `bson:"_id,omitempty" json:"id"`
+	WorkspaceID primitive.ObjectID   `bson:"workspaceId" json:"workspaceId"`
+	AgentID     primitive.ObjectID   `bson:"agentId" json:"agentId"`
+	AgentName   string               `bson:"agentName" json:"agentName"`
+	ActorID     primitive.ObjectID   `bson:"actorId" json:"actorId"`
+	ActorName   string               `bson:"actorName" json:"actorName"`
+	Prompt      string               `bson:"prompt" json:"prompt"`
+	PageID      string               `bson:"pageId,omitempty" json:"pageId,omitempty"`
+	Scheduled   bool               `bson:"scheduled,omitempty" json:"scheduled,omitempty"`
+	Status      string               `bson:"status" json:"status"` // queued, running, succeeded, failed
+	ProposalIDs []string           `bson:"proposalIds,omitempty" json:"proposalIds,omitempty"`
+	Actions     int                  `bson:"actions,omitempty" json:"actions,omitempty"`
+	Tokens      int64                `bson:"tokens,omitempty" json:"tokens,omitempty"`
+	Error       string               `bson:"error,omitempty" json:"error,omitempty"`
+	CreatedAt   time.Time            `bson:"createdAt" json:"createdAt"`
+	StartedAt   *time.Time           `bson:"startedAt,omitempty" json:"startedAt,omitempty"`
+	FinishedAt  *time.Time           `bson:"finishedAt,omitempty" json:"finishedAt,omitempty"`
+}
+
 // AgentSchedule runs an agent task periodically. NextRun is maintained by the server.
 type AgentSchedule struct {
 	Enabled      bool       `bson:"enabled" json:"enabled"`

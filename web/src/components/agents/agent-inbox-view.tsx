@@ -4,12 +4,14 @@ import {
   Bot,
   Check,
   Clock3,
+  History,
   Inbox,
   Loader2,
   Pencil,
   Play,
   Plus,
   RefreshCw,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -17,7 +19,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
-import type { Agent, AgentMode, AIProposal, AuditLog } from "@/lib/types"
+import type { Agent, AgentMode, AgentRun, AIProposal, AuditLog } from "@/lib/types"
 import { formatRelative } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 import { WorkspaceIcon } from "@/components/app/workspace-icon"
@@ -39,7 +41,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-type Tab = "pending" | "all" | "agents" | "activity"
+type Tab = "pending" | "runs" | "all" | "agents" | "activity"
 
 export function AgentInboxView() {
   const activeId = useWorkspaceStore((state) => state.activeId)
@@ -49,6 +51,7 @@ export function AgentInboxView() {
   const [proposals, setProposals] = useState<AIProposal[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
   const [logs, setLogs] = useState<AuditLog[]>([])
+  const [runs, setRuns] = useState<AgentRun[]>([])
   const [auditPage, setAuditPage] = useState(1)
   const [auditHasMore, setAuditHasMore] = useState(false)
   const [auditTotal, setAuditTotal] = useState(0)
@@ -65,11 +68,13 @@ export function AgentInboxView() {
     if (!activeId) return
     setLoading(true)
     try {
-      const [nextProposals, nextAgents, nextAudit] = await Promise.all([
+      const [nextProposals, nextAgents, nextAudit, nextRuns] = await Promise.all([
         api.proposals.list(activeId),
         api.agents.list(activeId),
         api.audit.list(activeId, 1, 50),
+        api.agents.runs(activeId, 50).catch(() => [] as AgentRun[]),
       ])
+      setRuns(nextRuns)
       setProposals(nextProposals)
       setAgents(nextAgents)
       setLogs(nextAudit.items)
@@ -185,6 +190,20 @@ export function AgentInboxView() {
     }
   }
 
+  async function retryRun(run: AgentRun) {
+    if (!activeId || reviewing) return
+    setReviewing(true)
+    try {
+      await api.agents.run(activeId, run.agentId, { prompt: run.prompt, pageId: run.pageId })
+      toast.success(tr("Task dispatched — results will appear here"))
+      await load()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not dispatch task"))
+    } finally {
+      setReviewing(false)
+    }
+  }
+
   async function deleteAgent(agent: Agent) {
     if (!confirm(tr("Delete agent “{name}”?", { name: agent.name }))) return
     try {
@@ -245,6 +264,7 @@ export function AgentInboxView() {
               <TabsTrigger value="pending" className="data-[state=active]:bg-muted">
                 {tr("Pending")} {pending.length > 0 && <span className="ml-1 rounded-full bg-amber-500/15 px-1.5 text-[10px] text-amber-700 dark:text-amber-300">{pending.length}</span>}
               </TabsTrigger>
+              <TabsTrigger value="runs" className="data-[state=active]:bg-muted">{tr("Runs")}</TabsTrigger>
               <TabsTrigger value="all" className="data-[state=active]:bg-muted">{tr("All proposals")}</TabsTrigger>
               <TabsTrigger value="agents" className="data-[state=active]:bg-muted">{tr("Agents")}</TabsTrigger>
               <TabsTrigger value="activity" className="data-[state=active]:bg-muted">{tr("Activity")}</TabsTrigger>
@@ -269,6 +289,9 @@ export function AgentInboxView() {
                 onOpen={setSelected}
                 empty="No pending AI changes."
               />
+            </TabsContent>
+            <TabsContent value="runs" className="pt-4">
+              <RunsList runs={runs} loading={loading} reviewing={reviewing} onRetry={(run) => void retryRun(run)} />
             </TabsContent>
             <TabsContent value="all" className="pt-4">
               <ProposalList
@@ -477,6 +500,77 @@ function DispatchBar({ agents, forcedAgent, onForcedAgentConsumed, onDispatched 
         {tr("Runs in the background — approval-mode results land here for review, auto-mode applies directly.")}
       </p>
     </form>
+  )
+}
+
+/* ---------------- 运行记录 ---------------- */
+
+function runDuration(run: AgentRun): string {
+  if (!run.startedAt) return ""
+  const end = run.finishedAt ?? new Date().toISOString()
+  const secs = Math.max(0, Math.round((new Date(end).getTime() - new Date(run.startedAt).getTime()) / 1000))
+  if (secs < 60) return `${secs}s`
+  return `${Math.floor(secs / 60)}m${secs % 60}s`
+}
+
+function RunsList({ runs, loading, reviewing, onRetry }: {
+  runs: AgentRun[]
+  loading: boolean
+  reviewing: boolean
+  onRetry: (run: AgentRun) => void
+}) {
+  if (loading && runs.length === 0) {
+    return (
+      <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
+    )
+  }
+  if (runs.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed px-6 py-14 text-center">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-muted">
+          <History className="size-5 text-muted-foreground" />
+        </div>
+        <h3 className="mt-4 text-sm font-medium">{tr("No runs yet")}</h3>
+        <p className="mt-1 text-xs text-muted-foreground">{tr("Dispatch a task above — every run is tracked here.")}</p>
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-2">
+      {runs.map((run) => (
+        <div key={run.id} className="flex items-start gap-3 rounded-xl border bg-card px-3 py-2.5">
+          <span className="mt-1.5 size-2 shrink-0 rounded-full" style={{
+            background: run.status === "succeeded" ? "#10b981" : run.status === "failed" ? "#ef4444" : run.status === "running" ? "#3b82f6" : "#a1a1aa",
+          }} />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="font-semibold">{run.agentName}</span>
+              {run.scheduled && <span className="rounded bg-muted px-1 py-0.5 text-[9px] text-muted-foreground">{tr("Scheduled")}</span>}
+              <span className="text-muted-foreground">· {run.actorName} · {formatRelative(run.createdAt)}</span>
+              {runDuration(run) && <span className="tabular-nums text-muted-foreground">· {runDuration(run)}</span>}
+              {typeof run.tokens === "number" && run.tokens > 0 && <span className="tabular-nums text-muted-foreground">· {run.tokens} tokens</span>}
+            </div>
+            <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">“{run.prompt}”</div>
+            {run.status === "failed" && run.error && (
+              <div className="mt-1 line-clamp-2 rounded-md bg-red-500/5 px-2 py-1 text-[11px] text-red-700 dark:text-red-300">{run.error}</div>
+            )}
+            {run.status === "succeeded" && (
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                {typeof run.actions === "number" && run.actions > 0 ? `${run.actions} actions · ` : ""}{tr("{n} proposal(s)", { n: run.proposalIds?.length ?? 0 })}
+              </div>
+            )}
+            {(run.status === "queued" || run.status === "running") && (
+              <div className="mt-0.5 text-[11px] text-blue-600 dark:text-blue-400">{run.status === "queued" ? tr("Queued…") : tr("Running…")}</div>
+            )}
+          </div>
+          {run.status === "failed" && (
+            <Button size="sm" variant="outline" className="h-7 shrink-0 gap-1 text-[11px]" disabled={reviewing} onClick={() => onRetry(run)}>
+              <RotateCcw className="size-3" /> {tr("Retry")}
+            </Button>
+          )}
+        </div>
+      ))}
+    </div>
   )
 }
 

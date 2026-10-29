@@ -364,25 +364,50 @@ func (s *Server) runAgent(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusTooManyRequests, "daily AI token budget exceeded; try again tomorrow")
 		return
 	}
-	runID := primitive.NewObjectID()
+	run := model.AgentRun{
+		ID: primitive.NewObjectID(), WorkspaceID: wsID,
+		AgentID: agent.ID, AgentName: agent.Name,
+		ActorID: user.ID, ActorName: user.Name,
+		Prompt: prompt, PageID: pageHex,
+		Status: "queued", CreatedAt: time.Now().UTC(),
+	}
+	if _, err := s.store.AgentRuns.InsertOne(r.Context(), run); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not queue task")
+		return
+	}
 	s.writeAudit(r.Context(), wsID, user.ID, user.Name, agent.ID, agent.Name,
 		"agent.run.queued", "agent", agent.ID.Hex(), "Queued task for "+agent.Name)
-	go s.executeAgentRun(agent, user, setting, prompt, pageHex, runID.Hex())
+	go s.executeAgentRun(agent, user, setting, prompt, pageHex, run.ID, false)
 	writeJSON(w, http.StatusAccepted, map[string]any{
 		"runId": runID.Hex(), "agentId": agent.ID.Hex(), "status": "queued",
 	})
 }
 
-func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting model.AISetting, prompt, pageHex, runID string) {
+func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting model.AISetting, prompt, pageHex string, runID primitive.ObjectID, scheduled bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
+	fail := func(msg string) {
+		now := time.Now().UTC()
+		_, _ = s.store.AgentRuns.UpdateByID(ctx, runID, bson.M{"$set": bson.M{
+			"status": "failed", "error": msg, "finishedAt": now,
+		}})
+		s.writeAudit(ctx, agent.WorkspaceID, user.ID, user.Name, agent.ID, agent.Name,
+			"agent.run.failed", "agent", agent.ID.Hex(), "Task failed: "+msg)
+		s.hub.BroadcastWorkspace(agent.WorkspaceID.Hex(), map[string]any{
+			"type": "agent-run", "workspaceId": agent.WorkspaceID.Hex(),
+			"action": "failed", "runId": runID.Hex(), "agentId": agent.ID.Hex(), "error": msg,
+		}, "")
+	}
+	now := time.Now().UTC()
+	_, _ = s.store.AgentRuns.UpdateByID(ctx, runID, bson.M{"$set": bson.M{
+		"status": "running", "startedAt": now,
+	}})
 	key := ""
 	if setting.KeyCipher != "" {
 		var err error
 		key, err = secret.Decrypt(s.cfg.EncryptionKey, setting.KeyCipher)
 		if err != nil {
-			s.writeAudit(ctx, agent.WorkspaceID, user.ID, user.Name, agent.ID, agent.Name,
-				"agent.run.failed", "agent", agent.ID.Hex(), "Could not read the saved API key")
+			fail("Could not read the saved API key")
 			return
 		}
 	}
@@ -397,30 +422,107 @@ func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting mod
 	runner := &docagent.Runner{
 		Store: s.store, Hub: s.hub, User: user, Key: key,
 		ModelName: modelName, Provider: setting.Provider, BaseURL: setting.BaseURL,
-		Scopes: agentScopes, TrackChanges: agent.Mode == "approval",
+		Scopes: agentScopes, TrackChanges: true,
 	}
 	reply, actions, err := runner.Run(ctx, nil, prompt, pageHex)
 	if err != nil {
-		s.writeAudit(ctx, agent.WorkspaceID, user.ID, user.Name, agent.ID, agent.Name,
-			"agent.run.failed", "agent", agent.ID.Hex(), "Task failed: "+err.Error())
-		s.hub.BroadcastWorkspace(agent.WorkspaceID.Hex(), map[string]any{
-			"type": "agent-run", "workspaceId": agent.WorkspaceID.Hex(),
-			"action": "failed", "runId": runID, "agentId": agent.ID.Hex(),
-			}, "")
+		fail(err.Error())
 		return
 	}
 	s.recordAIUsage(ctx, user.ID, runner.LastUsage, prompt, reply)
 	proposals := []model.AIProposal{}
 	if agent.Mode == "approval" {
 		proposals = s.finalizeApproval(ctx, agent, runner, user, prompt)
+	} else {
+		// Auto-apply keeps working, but leaves an approved record for audit.
+		proposals = s.recordAutoProposals(ctx, agent, runner, user, prompt)
 	}
+	proposalIDs := make([]string, 0, len(proposals))
+	for _, proposal := range proposals {
+		proposalIDs = append(proposalIDs, proposal.ID.Hex())
+	}
+	finished := time.Now().UTC()
+	_, _ = s.store.AgentRuns.UpdateByID(ctx, runID, bson.M{"$set": bson.M{
+		"status": "succeeded", "finishedAt": finished,
+		"proposalIds": proposalIDs, "actions": len(actions),
+		"tokens": runner.LastUsage.TotalTokens,
+	}})
 	s.writeAudit(ctx, agent.WorkspaceID, user.ID, user.Name, agent.ID, agent.Name,
 		"agent.run", "agent", agent.ID.Hex(),
 		fmt.Sprintf("Ran %s (%d actions, %d proposals)", agent.Name, len(actions), len(proposals)))
 	s.hub.BroadcastWorkspace(agent.WorkspaceID.Hex(), map[string]any{
 		"type": "agent-run", "workspaceId": agent.WorkspaceID.Hex(),
-		"action": "finished", "runId": runID, "agentId": agent.ID.Hex(),
+		"action": "finished", "runId": runID.Hex(), "agentId": agent.ID.Hex(),
+		"proposalCount": len(proposals),
 	}, "")
+	_ = scheduled
+}
+
+// recordAutoProposals persists approved records for auto-apply runs so the
+// Inbox keeps an audit trail. Page state is NOT restored.
+func (s *Server) recordAutoProposals(ctx context.Context, agent model.Agent, runner *docagent.Runner, actor model.User, prompt string) []model.AIProposal {
+	created := make([]model.AIProposal, 0)
+	now := time.Now().UTC()
+	for _, touched := range runner.Touched {
+		after := touched.After
+		if !touched.Created && pagesEqual(touched.Before, after) {
+			continue
+		}
+		proposal := model.AIProposal{
+			ID: primitive.NewObjectID(), WorkspaceID: after.WorkspaceID, PageID: after.ID,
+			AgentID: agent.ID, AgentName: agent.Name, ActorID: actor.ID, ActorName: actor.Name,
+			PageTitle: after.Title, Prompt: prompt, Before: touched.Before, After: after, Created: touched.Created,
+			Status: "approved", CreatedAt: now, ReviewedAt: &now, ReviewedBy: &actor.ID,
+		}
+		if touched.Created {
+			proposal.Before = nil
+		}
+		if _, err := s.store.Proposals.InsertOne(ctx, proposal); err != nil {
+			continue
+		}
+		created = append(created, proposal)
+		s.writeAudit(ctx, proposal.WorkspaceID, actor.ID, actor.Name, agent.ID, agent.Name,
+			"proposal.approved", "proposal", proposal.ID.Hex(), "Auto-applied changes to \u201c"+proposal.PageTitle+"\u201d")
+	}
+	if len(created) > 0 {
+		s.hub.BroadcastWorkspace(agent.WorkspaceID.Hex(), map[string]any{
+			"type": "proposals", "workspaceId": agent.WorkspaceID.Hex(), "action": "created",
+		}, "")
+	}
+	return created
+}
+
+// GET /workspaces/{workspaceID}/agent-runs?limit=
+func (s *Server) listAgentRuns(w http.ResponseWriter, r *http.Request) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	if _, _, err := s.accessibleWorkspace(r, wsID); err != nil {
+		writeErr(w, http.StatusNotFound, "workspace not found")
+		return
+	}
+	limit := int64(50)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		var parsed int64
+		if _, err := fmt.Sscanf(raw, "%d", &parsed); err == nil && parsed > 0 && parsed <= 200 {
+			limit = parsed
+		}
+	}
+	cur, err := s.store.AgentRuns.Find(r.Context(), bson.M{"workspaceId": wsID},
+		options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}}).SetLimit(limit))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load runs")
+		return
+	}
+	defer cur.Close(r.Context())
+	runs := make([]model.AgentRun, 0)
+	if err := cur.All(r.Context(), &runs); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load runs")
+		return
+	}
+	writeJSON(w, http.StatusOK, runs)
 }
 
 // StartAgentScheduler periodically runs agents with an enabled schedule.
@@ -514,7 +616,17 @@ func (s *Server) executeScheduledRun(agent model.Agent) {
 		}
 	}
 	_, _ = s.store.Agents.UpdateByID(ctx, agent.ID, bson.M{"$set": bson.M{"schedule.lastRunError": ""}})
-	s.executeAgentRun(agent, owner, setting, prompt, pageHex, "sched-"+time.Now().UTC().Format("20060102150405"))
+	run := model.AgentRun{
+		ID: primitive.NewObjectID(), WorkspaceID: agent.WorkspaceID,
+		AgentID: agent.ID, AgentName: agent.Name,
+		ActorID: owner.ID, ActorName: owner.Name,
+		Prompt: prompt, PageID: pageHex, Scheduled: true,
+		Status: "queued", CreatedAt: time.Now().UTC(),
+	}
+	if _, err := s.store.AgentRuns.InsertOne(ctx, run); err != nil {
+		return
+	}
+	s.executeAgentRun(agent, owner, setting, prompt, pageHex, run.ID, true)
 }
 
 func (s *Server) currentUserName(r *http.Request) string {

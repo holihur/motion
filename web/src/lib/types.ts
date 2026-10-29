@@ -329,6 +329,26 @@ export interface AgentSchedule {
   lastRunError?: string
 }
 
+export interface AgentRun {
+  id: string
+  workspaceId: string
+  agentId: string
+  agentName: string
+  actorId: string
+  actorName: string
+  prompt: string
+  pageId?: string
+  scheduled?: boolean
+  status: "queued" | "running" | "succeeded" | "failed"
+  proposalIds?: string[]
+  actions?: number
+  tokens?: number
+  error?: string
+  createdAt: string
+  startedAt?: string
+  finishedAt?: string
+}
+
 export interface Agent {
   id: string
   workspaceId: string

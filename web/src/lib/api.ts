@@ -5,6 +5,7 @@ import type {
   AIProposal,
   AISettings,
   Agent,
+  AgentRun,
   AuditLog,
   Block,
   SystemInfo,
@@ -275,6 +276,8 @@ export const api = {
         method: "POST",
         body: body(input),
       }),
+    runs: (workspaceId: string, limit = 50) =>
+      request<AgentRun[]>(`/workspaces/${workspaceId}/agent-runs?limit=${limit}`),
   },
   proposals: {
     list: (workspaceId: string, status?: string) =>

@@ -60,5 +60,13 @@
   "Every {n}h": "Every {n}h",
   "Import failed": "Import failed",
   "Select": "Select",
-  "Reject reason": "Reject reason"
+  "Reject reason": "Reject reason",
+  "Runs": "Runs",
+  "No runs yet": "No runs yet",
+  "Dispatch a task above — every run is tracked here.": "Dispatch a task above — every run is tracked here.",
+  "Scheduled": "Scheduled",
+  "Queued…": "Queued…",
+  "Running…": "Running…",
+  "Retry": "Retry",
+  "{n} proposal(s)": "{n} proposal(s)"
 }

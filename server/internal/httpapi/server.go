@@ -266,6 +266,7 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/agents", s.createAgent)
 			r.With(s.requireScope("workspace:write")).Patch("/agents/{agentID}", s.updateAgent)
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/agents/{agentID}/run", s.runAgent)
+			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/agent-runs", s.listAgentRuns)
 			r.With(s.requireScope("workspace:write")).Delete("/agents/{agentID}", s.deleteAgent)
 			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/proposals", s.listProposals)
 			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/audit", s.listAudit)

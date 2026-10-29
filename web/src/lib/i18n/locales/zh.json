@@ -1026,5 +1026,8 @@
   "Use template… ({n})": "使用模板…（{n}）",
   "Leaderboard": "排行榜",
   "Sends as": "实际发送",
-  "Variables, replaced on send": "变量，发送时替换"
+  "Variables, replaced on send": "变量，发送时替换",
+  "Side by side": "并排",
+  "Unified": "单栏",
+  "{n} unchanged block(s)": "{n} 个未改动块"
 }

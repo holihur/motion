@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Check, Loader2, RotateCcw, Sparkles, X } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Check, Columns2, Loader2, RotateCcw, Rows3, Sparkles, X } from "lucide-react"
 import type { AIProposal, Block } from "@/lib/types"
 import { formatRelative } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
@@ -46,7 +46,6 @@ export function ProposalDialog({
 }) {
   const [reason, setReason] = useState("")
   if (!proposal) return null
-  const changes = diffBlocks(proposal.before?.blocks ?? [], proposal.after.blocks)
   const pending = proposal.status === "pending"
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -86,19 +85,7 @@ export function ProposalDialog({
           </div>
         )}
 
-        <div className="space-y-2">
-          {changes.added.map((block) => <DiffRow key={block.id} block={block} kind="added" />)}
-          {changes.changed.map((block) => {
-            const old = (proposal.before?.blocks ?? []).find((item) => item.id === block.id)
-            return <DiffRow key={block.id} block={block} before={old} kind="changed" />
-          })}
-          {changes.removed.map((block) => <DiffRow key={block.id} block={block} kind="removed" />)}
-          {changes.added.length + changes.changed.length + changes.removed.length === 0 && (
-            <div className="rounded-xl border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">
-              {tr("No visible content changes")}
-            </div>
-          )}
-        </div>
+        <DiffView before={proposal.before?.blocks ?? []} after={proposal.after.blocks} />
 
         {pending && (
           <div className="space-y-1.5">
@@ -137,23 +124,220 @@ export function ProposalDialog({
   )
 }
 
-function DiffRow({ block, before, kind }: { block: Block; before?: Block; kind: "added" | "changed" | "removed" }) {
-  const tone =
-    kind === "added"
-      ? "border-emerald-500/25 bg-emerald-500/5"
-      : kind === "removed"
-        ? "border-red-500/25 bg-red-500/5"
-        : "border-amber-500/25 bg-amber-500/5"
+/* ---------------- 并排对比 ---------------- */
+
+type DiffRowItem =
+  | { kind: "same"; block: Block }
+  | { kind: "added"; block: Block }
+  | { kind: "removed"; block: Block }
+  | { kind: "changed"; before: Block; after: Block }
+  | { kind: "gap"; count: number }
+
+/** 按 after 顺序对齐，removed 插在其后继之前，unchanged 只留上下文。 */
+function alignRows(before: Block[], after: Block[], context = 1): DiffRowItem[] {
+  const beforeMap = new Map(before.map((b) => [b.id, b]))
+  const afterMap = new Map(after.map((b) => [b.id, b]))
+  const removedIds = new Set(before.filter((b) => !afterMap.has(b.id)).map((b) => b.id))
+  // removed 按 before 位置挂到其后第一个仍存在的块之前
+  const pendingRemoved = new Map<string, Block[]>() // key: afterId | "__tail__"
+  let bucket: Block[] = []
+  for (const b of before) {
+    if (removedIds.has(b.id)) {
+      bucket.push(b)
+    } else {
+      const list = pendingRemoved.get(b.id) ?? []
+      pendingRemoved.set(b.id, [...list, ...bucket])
+      bucket = []
+    }
+  }
+  if (bucket.length) {
+    const list = pendingRemoved.get("__tail__") ?? []
+    pendingRemoved.set("__tail__", [...list, ...bucket])
+  }
+  const rows: DiffRowItem[] = []
+  const pushRemoved = (key: string) => {
+    for (const b of pendingRemoved.get(key) ?? []) rows.push({ kind: "removed", block: b })
+  }
+  for (const b of after) {
+    pushRemoved(b.id)
+    const old = beforeMap.get(b.id)
+    if (!old) rows.push({ kind: "added", block: b })
+    else if (JSON.stringify(old) === JSON.stringify(b)) rows.push({ kind: "same", block: b })
+    else rows.push({ kind: "changed", before: old, after: b })
+  }
+  pushRemoved("__tail__")
+  // 折叠非上下文 same 行
+  const hot = new Set<number>()
+  rows.forEach((r, i) => {
+    if (r.kind === "same") return
+    for (let k = Math.max(0, i - context); k <= Math.min(rows.length - 1, i + context); k++) hot.add(k)
+  })
+  const out: DiffRowItem[] = []
+  let gap = 0
+  rows.forEach((r, i) => {
+    if (r.kind === "same" && !hot.has(i)) {
+      gap++
+      return
+    }
+    if (gap > 0) {
+      out.push({ kind: "gap", count: gap })
+      gap = 0
+    }
+    out.push(r)
+  })
+  if (gap > 0) out.push({ kind: "gap", count: gap })
+  return out
+}
+
+/** 公共前后缀 diff：O(n)，改几个字的场景足够精确。 */
+function splitChange(a: string, b: string): { pre: string; del: string; ins: string; post: string } {
+  const ar = [...a], br = [...b]
+  let pre = 0
+  while (pre < ar.length && pre < br.length && ar[pre] === br[pre]) pre++
+  let post = 0
+  while (post < ar.length - pre && post < br.length - pre && ar[ar.length - 1 - post] === br[br.length - 1 - post]) post++
+  return {
+    pre: ar.slice(0, pre).join(""),
+    del: ar.slice(pre, ar.length - post).join(""),
+    ins: br.slice(pre, br.length - post).join(""),
+    post: post ? ar.slice(ar.length - post).join("") : "",
+  }
+}
+
+function InlineChange({ before, after }: { before: string; after: string }) {
+  const part = useMemo(() => {
+    if (before.length + after.length > 4000) return null
+    const c = splitChange(before, after)
+    if (!c.del && !c.ins) return null
+    return c
+  }, [before, after])
+  if (!part) return <>{after}</>
   return (
-    <div className={`rounded-xl border px-3 py-2.5 ${tone}`}>
-      <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-        <span>{block.type}</span>
-        <span className="ml-auto">{kind === "added" ? "+" : kind === "removed" ? "−" : "±"}</span>
+    <>
+      {part.pre}
+      {part.del && <del className="rounded bg-red-500/20 px-0.5 text-red-700 decoration-red-500/60 dark:text-red-300">{part.del}</del>}
+      {part.ins && <ins className="rounded bg-emerald-500/20 px-0.5 text-emerald-700 no-underline dark:text-emerald-300">{part.ins}</ins>}
+      {part.post}
+    </>
+  )
+}
+
+function CellText({ text, empty }: { text: string; empty: string }) {
+  if (!text) return <span className="text-muted-foreground/50">{empty}</span>
+  return <>{text.length > 600 ? text.slice(0, 600) + "…" : text}</>
+}
+
+function DiffView({ before, after }: { before: Block[]; after: Block[] }) {
+  const [mode, setMode] = useState<"side" | "unified">("side")
+  const rows = useMemo(() => alignRows(before, after, 1), [before, after])
+  const counts = useMemo(() => {
+    let added = 0, removed = 0, changed = 0
+    for (const r of rows) {
+      if (r.kind === "added") added++
+      else if (r.kind === "removed") removed++
+      else if (r.kind === "changed") changed++
+    }
+    return { added, removed, changed }
+  }, [rows])
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">
+        {tr("No visible content changes")}
       </div>
-      {kind === "changed" && before && (
-        <div className="mt-1 whitespace-pre-wrap text-xs leading-5 text-red-700/80 line-through decoration-red-500/40 dark:text-red-300/80">{before.text || tr("Empty block")}</div>
+    )
+  }
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+        <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-semibold text-emerald-700 dark:text-emerald-300">+{counts.added}</span>
+        <span className="rounded bg-amber-500/10 px-1.5 py-0.5 font-semibold text-amber-700 dark:text-amber-300">±{counts.changed}</span>
+        <span className="rounded bg-red-500/10 px-1.5 py-0.5 font-semibold text-red-700 dark:text-red-300">−{counts.removed}</span>
+        <span className="ml-auto flex overflow-hidden rounded-lg border">
+          <button
+            type="button"
+            title={tr("Side by side")}
+            onClick={() => setMode("side")}
+            className={`flex items-center gap-1 px-2 py-1 ${mode === "side" ? "bg-muted font-semibold" : "text-muted-foreground hover:bg-accent"}`}
+          >
+            <Columns2 className="size-3" />{tr("Side by side")}
+          </button>
+          <button
+            type="button"
+            title={tr("Unified")}
+            onClick={() => setMode("unified")}
+            className={`flex items-center gap-1 px-2 py-1 ${mode === "unified" ? "bg-muted font-semibold" : "text-muted-foreground hover:bg-accent"}`}
+          >
+            <Rows3 className="size-3" />{tr("Unified")}
+          </button>
+        </span>
+      </div>
+      {mode === "side" && (
+        <div>
+          <div className="mb-1 hidden grid-cols-2 gap-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground sm:grid">
+            <span className="px-1">{tr("Before")}</span>
+            <span className="px-1">{tr("After")}</span>
+          </div>
+          <div className="space-y-1.5">
+            {rows.map((r, i) => {
+              if (r.kind === "gap") {
+                return <div key={i} className="rounded-md bg-muted/40 px-2 py-1 text-center text-[10px] text-muted-foreground">··· {tr("{n} unchanged block(s)", { n: r.count })} ···</div>
+              }
+              const leftTone = r.kind === "removed" || r.kind === "changed" ? "border-red-500/25 bg-red-500/5" : "border-border/50 bg-muted/20"
+              const rightTone = r.kind === "added" || r.kind === "changed" ? (r.kind === "added" ? "border-emerald-500/25 bg-emerald-500/5" : "border-amber-500/25 bg-amber-500/5") : "border-border/50 bg-muted/20"
+              const left = r.kind === "removed" ? r.block : r.kind === "changed" ? r.before : r.kind === "same" ? r.block : null
+              const right = r.kind === "added" ? r.block : r.kind === "changed" ? r.after : r.kind === "same" ? r.block : null
+              return (
+                <div key={i} className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 sm:gap-2">
+                  <div className={`min-w-0 rounded-lg border px-2.5 py-2 ${leftTone}`}>
+                    <RowLabel block={left} sign={r.kind === "removed" ? "−" : r.kind === "changed" ? "±" : ""} />
+                    {left && <div className="mt-0.5 whitespace-pre-wrap text-xs leading-5"><CellText text={left.text} empty={left.type} /></div>}
+                  </div>
+                  <div className={`min-w-0 rounded-lg border px-2.5 py-2 ${rightTone}`}>
+                    <RowLabel block={right} sign={r.kind === "added" ? "+" : r.kind === "changed" ? "±" : ""} />
+                    {right && (
+                      <div className="mt-0.5 whitespace-pre-wrap text-xs leading-5">
+                        {r.kind === "changed" ? <InlineChange before={r.before.text} after={r.after.text} /> : <CellText text={right.text} empty={right.type} />}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       )}
-      <div className="mt-1 whitespace-pre-wrap text-xs leading-5">{block.text || (block.type === "divider" ? "───" : tr("Empty block"))}</div>
+      {mode === "unified" && (
+        <div className="space-y-2">
+          {rows.map((r, i) => {
+            if (r.kind === "gap") {
+              return <div key={i} className="rounded-md bg-muted/40 px-2 py-1 text-center text-[10px] text-muted-foreground">··· {tr("{n} unchanged block(s)", { n: r.count })} ···</div>
+            }
+            if (r.kind === "same") return null
+            const tone = r.kind === "added" ? "border-emerald-500/25 bg-emerald-500/5" : r.kind === "removed" ? "border-red-500/25 bg-red-500/5" : "border-amber-500/25 bg-amber-500/5"
+            return (
+              <div key={i} className={`rounded-xl border px-3 py-2.5 ${tone}`}>
+                <RowLabel block={r.kind === "changed" ? r.after : r.block} sign={r.kind === "added" ? "+" : r.kind === "removed" ? "−" : "±"} />
+                {r.kind === "changed" && (
+                  <div className="mt-1 whitespace-pre-wrap text-xs leading-5 text-red-700/80 line-through decoration-red-500/40 dark:text-red-300/80">{r.before.text || tr("Empty block")}</div>
+                )}
+                <div className="mt-1 whitespace-pre-wrap text-xs leading-5">
+                  {r.kind === "changed" ? <InlineChange before={r.before.text} after={r.after.text} /> : <CellText text={r.block.text} empty={r.block.type} />}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RowLabel({ block, sign }: { block: Block | null; sign: string }) {
+  if (!block) return <div className="text-[10px] text-muted-foreground/40">—</div>
+  return (
+    <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+      <span>{block.type}</span>
+      {sign && <span className="ml-auto font-mono font-bold">{sign}</span>}
     </div>
   )
 }

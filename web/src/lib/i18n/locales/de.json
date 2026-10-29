@@ -1026,5 +1026,8 @@
   "Use template… ({n})": "Use template… ({n})",
   "Leaderboard": "Leaderboard",
   "Sends as": "Sends as",
-  "Variables, replaced on send": "Variables, replaced on send"
+  "Variables, replaced on send": "Variables, replaced on send",
+  "Side by side": "Side by side",
+  "Unified": "Unified",
+  "{n} unchanged block(s)": "{n} unchanged block(s)"
 }

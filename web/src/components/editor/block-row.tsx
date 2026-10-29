@@ -30,6 +30,7 @@ import { BLOCK_LABELS, SLASH_COMMANDS } from "@/components/editor/commands"
 import { CALLOUT_COLORS, CALLOUT_EMOJI } from "@/lib/covers"
 import { cn, formatRelative } from "@/lib/utils"
 import { isImeKeyEvent } from "@/lib/keyboard"
+import { useTableBlock } from "@/components/editor/use-table-block"
 import {
   ALIGN_STYLE_TYPES,
   BACKGROUND_COLORS,
@@ -383,88 +384,16 @@ export function BlockRow(props: BlockRowProps) {
           />
         )
       case "table": {
-        const table = block.table ?? {
-          columns: ["Column 1", "Column 2", "Column 3"],
-          rows: [["", "", ""], ["", "", ""]],
-          header: true,
-        }
-        const widths = table.columns.map((_, index) => table.widths?.[index] ?? 160)
-        const aligns = table.columns.map((_, index) => table.align?.[index] ?? "left")
-        const updateTable = (next: typeof table) => onUpdate({ table: next })
-        const setCell = (rowIndex: number, columnIndex: number, value: string) => {
-          const rows = table.rows.map((row, index) =>
-            index === rowIndex
-              ? table.columns.map((_, cellIndex) => (cellIndex === columnIndex ? value : (row[cellIndex] ?? "")))
-              : row,
-          )
-          updateTable({ ...table, rows })
-        }
-        const addRow = () => {
-          if (table.rows.length >= 200) return
-          updateTable({ ...table, rows: [...table.rows, table.columns.map(() => "")] })
-        }
-        const removeRow = (index: number) => {
-          if (table.rows.length <= 1) return
-          updateTable({ ...table, rows: table.rows.filter((_, rowIndex) => rowIndex !== index) })
-        }
-        const addColumn = () => {
-          if (table.columns.length >= 20) return
-          const name = `Column ${table.columns.length + 1}`
-          updateTable({
-            ...table,
-            columns: [...table.columns, name],
-            rows: table.rows.map((row) => [...row, ""]),
-            widths: [...widths, 160],
-            align: [...aligns, "left"],
-          })
-        }
-        const removeColumn = (index: number) => {
-          if (table.columns.length <= 1) return
-          updateTable({
-            ...table,
-            columns: table.columns.filter((_, columnIndex) => columnIndex !== index),
-            rows: table.rows.map((row) => row.filter((_, columnIndex) => columnIndex !== index)),
-            widths: widths.filter((_, columnIndex) => columnIndex !== index),
-            align: aligns.filter((_, columnIndex) => columnIndex !== index),
-          })
-        }
-        const setColumn = (index: number, value: string) => {
-          updateTable({
-            ...table,
-            columns: table.columns.map((column, columnIndex) => (columnIndex === index ? value : column)),
-          })
-        }
-        const setAlignment = (index: number, value: "left" | "center" | "right") => {
-          updateTable({ ...table, align: aligns.map((item, i) => i === index ? value : item) })
-        }
-        const resizeColumn = (event: React.MouseEvent, index: number) => {
-          event.preventDefault()
-          event.stopPropagation()
-          const startX = event.clientX
-          const startWidth = widths[index]
-          const onMove = (moveEvent: MouseEvent) => {
-            const next = Math.max(60, Math.min(600, startWidth + moveEvent.clientX - startX))
-            updateTable({ ...table, widths: widths.map((value, i) => i === index ? next : value) })
-          }
-          const onUp = () => {
-            window.removeEventListener("mousemove", onMove)
-            window.removeEventListener("mouseup", onUp)
-          }
-          window.addEventListener("mousemove", onMove)
-          window.addEventListener("mouseup", onUp)
-        }
+        const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, copyTable } = useTableBlock(block, onUpdate)
         const sortByColumn = (index: number) => {
-          const current = (table as unknown as { _sortColumn?: number; _sortDir?: "asc"|"desc" })
-          const dir = current._sortColumn === index && current._sortDir === "asc" ? "desc" : "asc"
           const sorted = [...table.rows].sort((a, b) => {
             const av = a[index] ?? ""
             const bv = b[index] ?? ""
             const an = Number(av), bn = Number(bv)
-            if (!Number.isNaN(an) && !Number.isNaN(bn) && av !== "" && bv !== "") return dir === "asc" ? an - bn : bn - an
-            return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
+            if (!Number.isNaN(an) && !Number.isNaN(bn) && av !== "" && bv !== "") return av.localeCompare(bv)
+            return av.localeCompare(bv)
           })
-          updateTable({ ...table, rows: sorted } as typeof table)
-          // store sort state in a non-persisted way via closure is not persisted; we just sort
+          updateTable({ ...table, rows: sorted })
         }
         const focusCell = (rowIndex: number, columnIndex: number) => {
           window.setTimeout(() => {

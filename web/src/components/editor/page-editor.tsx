@@ -30,6 +30,8 @@ import { applyBlockSync, diffBlocks } from "@/lib/blocks"
 import { cn, initials, uid } from "@/lib/utils"
 import { caretOffset, focusBlockById, setCaret } from "@/lib/caret"
 import { usePageSave } from "@/components/editor/page-save"
+import { Breadcrumbs } from "@/components/editor/page-breadcrumbs"
+import { MobileToolButton } from "@/components/editor/mobile-tools"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { RealtimeClient, type RealtimePresence } from "@/lib/realtime"
 import { coverStyle } from "@/lib/covers"
@@ -1588,72 +1590,4 @@ export function PageEditor() {
     </div>
   )
 }
-
-function MobileToolButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="flex min-w-14 flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-muted-foreground transition active:bg-accent"
-    >
-      {children}
-      <span className="text-[9px] font-medium">{label}</span>
-    </button>
-  )
-}
-
-function Breadcrumbs({ page, title, icon }: { page: Page; title: string; icon: string }) {
-  const navigate = useNavigate()
-  const pages = useWorkspaceStore((state) => state.pages)
-  const chain = useMemo(() => {
-    const fromStore = ancestorChain(pages, page.id)
-    if (fromStore.length > 0) return fromStore
-    return [{ ...page, title, icon }]
-  }, [pages, page, title, icon])
-
-  return (
-    <nav className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-      {chain.slice(0, -1).map((item, index) => (
-        <Fragment key={item.id}>
-          <button
-            type="button"
-            onClick={() => navigate(`/page/${item.id}`)}
-            className={cn(
-              "max-w-[140px] items-center gap-1 truncate rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground",
-              index < chain.length - 2 ? "hidden md:flex" : "hidden sm:flex",
-            )}
-          >
-            {item.icon ? <span className="text-[12px] leading-none">{item.icon}</span> : <FileText className="size-3" />}
-            <span className="truncate">{pageTitle(item.title)}</span>
-          </button>
-          <ChevronRight
-            className={cn(
-              "size-3 shrink-0 text-muted-foreground/40",
-              index < chain.length - 2 ? "hidden md:block" : "hidden sm:block",
-            )}
-          />
-        </Fragment>
-      ))}
-      <span className="flex min-w-0 items-center gap-1.5 rounded px-1.5 py-0.5 font-medium text-foreground">
-        {icon ? (
-          <span className="text-[13px] leading-none">{icon}</span>
-        ) : (
-          <FileText className="size-3.5 shrink-0 text-muted-foreground" />
-        )}
-        <span className="truncate">{pageTitle(title)}</span>
-      </span>
-    </nav>
-  )
-}
-
-
 

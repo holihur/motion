@@ -265,11 +265,16 @@ export const api = {
   },
   agents: {
     list: (workspaceId: string) => request<Agent[]>(`/workspaces/${workspaceId}/agents`),
-    create: (workspaceId: string, input: Partial<Pick<Agent, "name" | "icon" | "description" | "mode" | "scopes" | "enabled">>) =>
+    create: (workspaceId: string, input: Partial<Pick<Agent, "name" | "icon" | "description" | "mode" | "scopes" | "enabled" | "schedule">>) =>
       request<Agent>(`/workspaces/${workspaceId}/agents`, { method: "POST", body: body(input) }),
-    update: (agentId: string, input: Partial<Pick<Agent, "name" | "icon" | "description" | "mode" | "scopes" | "enabled">>) =>
+    update: (agentId: string, input: Partial<Pick<Agent, "name" | "icon" | "description" | "mode" | "scopes" | "enabled" | "schedule">>) =>
       request<Agent>(`/agents/${agentId}`, { method: "PATCH", body: body(input) }),
     remove: (agentId: string) => request<void>(`/agents/${agentId}`, { method: "DELETE" }),
+    run: (workspaceId: string, agentId: string, input: { prompt: string; pageId?: string }) =>
+      request<{ runId: string; agentId: string; status: string }>(`/workspaces/${workspaceId}/agents/${agentId}/run`, {
+        method: "POST",
+        body: body(input),
+      }),
   },
   proposals: {
     list: (workspaceId: string, status?: string) =>
@@ -278,7 +283,7 @@ export const api = {
       ),
     get: (id: string) => request<AIProposal>(`/proposals/${id}`),
     approve: (id: string) => request<AIProposal>(`/proposals/${id}/approve`, { method: "POST" }),
-    reject: (id: string) => request<AIProposal>(`/proposals/${id}/reject`, { method: "POST" }),
+    reject: (id: string, reason?: string) => request<AIProposal>(`/proposals/${id}/reject`, { method: "POST", body: body({ reason: reason ?? "" }) }),
   },
   audit: {
     list: (workspaceId: string, page = 1, pageSize = 50) =>

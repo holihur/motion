@@ -4,6 +4,7 @@ import { useAuthStore } from "@/stores/auth"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { useUIStore } from "@/stores/ui"
 import { Sidebar } from "@/components/app/sidebar"
+import { useWorkspaceRealtime } from "@/components/app/use-workspace-realtime"
 import { Splash } from "@/components/app/splash"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -25,6 +26,8 @@ export function AppShell() {
   const setSettingsOpen = useUIStore((state) => state.setSettingsOpen)
   const setSidebarOpen = useUIStore((state) => state.setSidebarOpen)
   const navigate = useNavigate()
+  const activeId = useWorkspaceStore((state) => state.activeId)
+  useWorkspaceRealtime(activeId)
 
   useEffect(() => {
     void bootstrap()

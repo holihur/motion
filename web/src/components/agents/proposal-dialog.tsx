@@ -1,4 +1,5 @@
-import { Check, Loader2, Sparkles, X } from "lucide-react"
+import { useState } from "react"
+import { Check, Loader2, RotateCcw, Sparkles, X } from "lucide-react"
 import type { AIProposal, Block } from "@/lib/types"
 import { formatRelative } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
@@ -34,13 +35,16 @@ export function ProposalDialog({
   proposal,
   onOpenChange,
   onReview,
+  onRetry,
   reviewing = false,
 }: {
   proposal: AIProposal | null
   onOpenChange: (open: boolean) => void
-  onReview: (proposal: AIProposal, action: "approve" | "reject") => void
+  onReview: (proposal: AIProposal, action: "approve" | "reject", reason?: string) => void
+  onRetry?: (proposal: AIProposal) => void
   reviewing?: boolean
 }) {
+  const [reason, setReason] = useState("")
   if (!proposal) return null
   const changes = diffBlocks(proposal.before?.blocks ?? [], proposal.after.blocks)
   const pending = proposal.status === "pending"
@@ -60,6 +64,20 @@ export function ProposalDialog({
           <span className={proposalStatusClass(proposal.status)}>{tr(proposal.status)}</span>
           {proposal.created && <span className="rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-700 dark:text-sky-300">{tr("New page")}</span>}
         </div>
+
+        {proposal.prompt && (
+          <div className="rounded-xl border border-brand/20 bg-brand-soft/20 px-3 py-2 text-xs leading-5">
+            <span className="font-medium">{tr("Task")}: </span>
+            <span className="text-muted-foreground">{proposal.prompt}</span>
+          </div>
+        )}
+
+        {proposal.status === "rejected" && proposal.rejectReason && (
+          <div className="rounded-xl border border-red-500/25 bg-red-500/5 px-3 py-2 text-xs leading-5">
+            <span className="font-medium">{tr("Reject reason")}: </span>
+            <span className="text-muted-foreground">{proposal.rejectReason}</span>
+          </div>
+        )}
 
         {proposal.before && proposal.before.title !== proposal.after.title && (
           <div className="grid gap-2 rounded-xl border p-3 text-xs sm:grid-cols-2">
@@ -82,11 +100,29 @@ export function ProposalDialog({
           )}
         </div>
 
-        <DialogFooter>
+        {pending && (
+          <div className="space-y-1.5">
+            <div className="text-[11px] font-medium text-muted-foreground">{tr("Reject reason (optional — used when retrying)")}</div>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={2}
+              placeholder={tr("e.g. keep the tone casual, don't touch the pricing table")}
+              className="w-full rounded-lg border bg-background px-2.5 py-2 text-xs outline-none focus:border-brand"
+            />
+          </div>
+        )}
+
+        <DialogFooter className="gap-1.5">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>{tr("Close")}</Button>
+          {proposal.status === "rejected" && onRetry && (
+            <Button variant="outline" disabled={reviewing} onClick={() => onRetry(proposal)} className="gap-1.5">
+              <RotateCcw className="size-3.5" /> {tr("Retry with feedback")}
+            </Button>
+          )}
           {pending && (
             <>
-              <Button variant="outline" disabled={reviewing} onClick={() => onReview(proposal, "reject")} className="gap-1.5">
+              <Button variant="outline" disabled={reviewing} onClick={() => onReview(proposal, "reject", reason.trim() || undefined)} className="gap-1.5">
                 <X className="size-3.5" /> {tr("Reject")}
               </Button>
               <Button disabled={reviewing} onClick={() => onReview(proposal, "approve")} className="gap-1.5">

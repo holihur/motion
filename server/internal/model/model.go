@@ -305,8 +305,20 @@ type Agent struct {
 	Scopes      []string           `bson:"scopes" json:"scopes"`
 	Enabled     bool               `bson:"enabled" json:"enabled"`
 	IsDefault   bool               `bson:"isDefault,omitempty" json:"isDefault,omitempty"`
+	Schedule    *AgentSchedule     `bson:"schedule,omitempty" json:"schedule,omitempty"`
 	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
 	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
+}
+
+// AgentSchedule runs an agent task periodically. NextRun is maintained by the server.
+type AgentSchedule struct {
+	Enabled      bool       `bson:"enabled" json:"enabled"`
+	EveryHours   int        `bson:"everyHours" json:"everyHours"`
+	Prompt       string     `bson:"prompt" json:"prompt"`
+	PageID       string     `bson:"pageId,omitempty" json:"pageId,omitempty"`
+	NextRun      *time.Time `bson:"nextRun,omitempty" json:"nextRun,omitempty"`
+	LastRun      *time.Time `bson:"lastRun,omitempty" json:"lastRun,omitempty"`
+	LastRunError string     `bson:"lastRunError,omitempty" json:"lastRunError,omitempty"`
 }
 
 type AIProposal struct {
@@ -317,7 +329,9 @@ type AIProposal struct {
 	AgentName   string              `bson:"agentName" json:"agentName"`
 	ActorID     primitive.ObjectID  `bson:"actorId" json:"actorId"`
 	ActorName   string              `bson:"actorName" json:"actorName"`
-	PageTitle   string              `bson:"pageTitle" json:"pageTitle"`
+	PageTitle    string              `bson:"pageTitle" json:"pageTitle"`
+	Prompt       string              `bson:"prompt,omitempty" json:"prompt,omitempty"`
+	RejectReason string              `bson:"rejectReason,omitempty" json:"rejectReason,omitempty"`
 	Before      *Page               `bson:"before,omitempty" json:"before,omitempty"`
 	After       Page                `bson:"after" json:"after"`
 	Created     bool                `bson:"created,omitempty" json:"created,omitempty"`

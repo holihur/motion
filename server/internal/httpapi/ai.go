@@ -484,7 +484,7 @@ func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
 	s.recordAIUsage(r.Context(), user.ID, agent.LastUsage, req.Message, reply)
 	proposals := []model.AIProposal{}
 	if agentConfig.Mode == "approval" {
-		proposals = s.finalizeApproval(r.Context(), agentConfig, agent, user)
+		proposals = s.finalizeApproval(r.Context(), agentConfig, agent, user, req.Message)
 	}
 	if len(proposals) > 0 {
 		reply = strings.TrimSpace(reply) + fmt.Sprintf("\n\nPrepared %d change(s) for review in Agent Inbox.", len(proposals))
@@ -622,7 +622,7 @@ func (s *Server) aiChatStream(w http.ResponseWriter, r *http.Request) {
 	s.recordAIUsage(r.Context(), user.ID, agent.LastUsage, req.Message, reply)
 	proposals := []model.AIProposal{}
 	if agentConfig.Mode == "approval" {
-		proposals = s.finalizeApproval(r.Context(), agentConfig, agent, user)
+		proposals = s.finalizeApproval(r.Context(), agentConfig, agent, user, req.Message)
 	}
 	if len(proposals) > 0 {
 		reply = strings.TrimSpace(reply) + fmt.Sprintf("\n\nPrepared %d change(s) for review in Agent Inbox.", len(proposals))

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   Bot,
   Check,
@@ -6,6 +7,7 @@ import {
   Inbox,
   Loader2,
   Pencil,
+  Play,
   Plus,
   RefreshCw,
   ShieldCheck,
@@ -55,6 +57,8 @@ export function AgentInboxView() {
   const [selected, setSelected] = useState<AIProposal | null>(null)
   const [reviewing, setReviewing] = useState(false)
   const [agentDialog, setAgentDialog] = useState<{ open: boolean; agent?: Agent }>({ open: false })
+  const [dispatchAgent, setDispatchAgent] = useState("")
+  const [checked, setChecked] = useState<Set<string>>(new Set())
   const workspace = workspaces.find((item) => item.id === activeId)
 
   const load = useCallback(async () => {
@@ -72,6 +76,7 @@ export function AgentInboxView() {
       setAuditPage(nextAudit.page)
       setAuditHasMore(nextAudit.hasMore)
       setAuditTotal(nextAudit.total)
+      setChecked(new Set())
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not load Agent Inbox"))
     } finally {
@@ -109,11 +114,25 @@ export function AgentInboxView() {
 
   const pending = useMemo(() => proposals.filter((item) => item.status === "pending"), [proposals])
 
-  async function review(proposal: AIProposal, action: "approve" | "reject") {
+  const stats = useMemo(() => {
+    const map = new Map<string, { pending: number; approved: number; rejected: number; lastAt: string }>()
+    for (const p of proposals) {
+      const key = p.agentId || p.agentName
+      const entry = map.get(key) ?? { pending: 0, approved: 0, rejected: 0, lastAt: "" }
+      if (p.status === "pending") entry.pending += 1
+      else if (p.status === "approved") entry.approved += 1
+      else if (p.status === "rejected") entry.rejected += 1
+      if (!entry.lastAt || p.createdAt > entry.lastAt) entry.lastAt = p.createdAt
+      map.set(key, entry)
+    }
+    return map
+  }, [proposals])
+
+  async function review(proposal: AIProposal, action: "approve" | "reject", reason?: string) {
     if (reviewing) return
     setReviewing(true)
     try {
-      await (action === "approve" ? api.proposals.approve(proposal.id) : api.proposals.reject(proposal.id))
+      await (action === "approve" ? api.proposals.approve(proposal.id) : api.proposals.reject(proposal.id, reason))
       toast.success(action === "approve" ? tr("AI changes applied") : tr("AI changes rejected"))
       setSelected(null)
       await load()
@@ -121,6 +140,46 @@ export function AgentInboxView() {
       window.dispatchEvent(new CustomEvent("motion:proposals-changed"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not review this proposal"))
+    } finally {
+      setReviewing(false)
+    }
+  }
+
+  async function reviewMany(ids: string[], action: "approve" | "reject") {
+    if (reviewing || ids.length === 0) return
+    setReviewing(true)
+    try {
+      for (const id of ids) {
+        const item = proposals.find((p) => p.id === id)
+        if (!item || item.status !== "pending") continue
+        await (action === "approve" ? api.proposals.approve(id) : api.proposals.reject(id))
+      }
+      toast.success(action === "approve" ? tr("AI changes applied") : tr("AI changes rejected"))
+      setChecked(new Set())
+      await load()
+      await refreshPages()
+      window.dispatchEvent(new CustomEvent("motion:proposals-changed"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not review this proposal"))
+      await load()
+    } finally {
+      setReviewing(false)
+    }
+  }
+
+  async function retryWithReason(proposal: AIProposal) {
+    if (!activeId || reviewing) return
+    const base = proposal.prompt || `继续处理页面「${proposal.pageTitle}」`
+    const prompt = proposal.rejectReason
+      ? `${base}\n\n上次被驳回，理由：${proposal.rejectReason}\n请针对以上理由修正后重新提交。`
+      : base
+    setReviewing(true)
+    try {
+      await api.agents.run(activeId, proposal.agentId, { prompt, pageId: proposal.pageId })
+      toast.success(tr("Task dispatched — results will appear here"))
+      setSelected(null)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not dispatch task"))
     } finally {
       setReviewing(false)
     }
@@ -165,7 +224,7 @@ export function AgentInboxView() {
                 <Inbox className="size-5 text-brand" /> {tr("Agent Inbox")}
               </h1>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-                {tr("Your asynchronous approval queue and audit trail. When you are online, reviews open directly in the AI panel.")}
+                {tr("Dispatch tasks to agents, review their changes, and automate recurring work.")}
               </p>
             </div>
             <div className="hidden rounded-xl border bg-card px-3 py-2 text-right sm:block">
@@ -174,7 +233,14 @@ export function AgentInboxView() {
             </div>
           </div>
 
-          <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="mt-7">
+          <DispatchBar
+            agents={agents}
+            forcedAgent={dispatchAgent}
+            onForcedAgentConsumed={() => setDispatchAgent("")}
+            onDispatched={() => toast.success(tr("Task dispatched — results will appear here"))}
+          />
+
+          <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="mt-5">
             <TabsList className="w-full justify-start bg-transparent p-0">
               <TabsTrigger value="pending" className="data-[state=active]:bg-muted">
                 {tr("Pending")} {pending.length > 0 && <span className="ml-1 rounded-full bg-amber-500/15 px-1.5 text-[10px] text-amber-700 dark:text-amber-300">{pending.length}</span>}
@@ -185,55 +251,115 @@ export function AgentInboxView() {
             </TabsList>
 
             <TabsContent value="pending" className="pt-4">
-              <ProposalList proposals={pending} loading={loading} onOpen={setSelected} empty="No pending AI changes." />
+              <ProposalList
+                proposals={pending}
+                loading={loading}
+                reviewing={reviewing}
+                checked={checked}
+                onToggleCheck={(id) => setChecked((prev) => {
+                  const next = new Set(prev)
+                  if (next.has(id)) next.delete(id)
+                  else next.add(id)
+                  return next
+                })}
+                onCheckAll={() => setChecked(new Set(pending.map((p) => p.id)))}
+                onClearCheck={() => setChecked(new Set())}
+                onBatch={(action) => void reviewMany([...checked].filter((id) => pending.some((p) => p.id === id)), action)}
+                onQuick={(p, action) => void review(p, action)}
+                onOpen={setSelected}
+                empty="No pending AI changes."
+              />
             </TabsContent>
             <TabsContent value="all" className="pt-4">
-              <ProposalList proposals={proposals} loading={loading} onOpen={setSelected} empty="No AI proposals yet." />
+              <ProposalList
+                proposals={proposals}
+                loading={loading}
+                reviewing={reviewing}
+                checked={checked}
+                onToggleCheck={(id) => setChecked((prev) => {
+                  const next = new Set(prev)
+                  if (next.has(id)) next.delete(id)
+                  else next.add(id)
+                  return next
+                })}
+                onCheckAll={() => setChecked(new Set(proposals.filter((p) => p.status === "pending").map((p) => p.id)))}
+                onClearCheck={() => setChecked(new Set())}
+                onBatch={(action) => void reviewMany([...checked], action)}
+                onQuick={(p, action) => void review(p, action)}
+                onOpen={setSelected}
+                empty="No AI proposals yet."
+              />
             </TabsContent>
             <TabsContent value="agents" className="pt-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 {loading && agents.length === 0
                   ? [0, 1].map((item) => <Skeleton key={item} className="h-36 rounded-xl" />)
-                  : agents.map((agent) => (
-                      <div key={agent.id} className="rounded-xl border bg-card p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-xl">
-                            {agent.icon}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-sm font-semibold">{agent.name}</span>
-                              {agent.isDefault && (
-                                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">{tr("Default")}</span>
-                              )}
-                              {!agent.enabled && <span className="text-[9px] text-destructive">{tr("Disabled")}</span>}
+                  : agents.map((agent) => {
+                      const stat = stats.get(agent.id) ?? stats.get(agent.name)
+                      const total = (stat?.approved ?? 0) + (stat?.rejected ?? 0)
+                      const rate = total > 0 ? Math.round(((stat?.approved ?? 0) / total) * 100) : null
+                      return (
+                        <div key={agent.id} className="rounded-xl border bg-card p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-xl">
+                              {agent.icon}
                             </div>
-                            <div className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-muted-foreground">
-                              {agent.description || tr("No description")}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate text-sm font-semibold">{agent.name}</span>
+                                {agent.isDefault && (
+                                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">{tr("Default")}</span>
+                                )}
+                                {!agent.enabled && <span className="text-[9px] text-destructive">{tr("Disabled")}</span>}
+                                {(stat?.pending ?? 0) > 0 && (
+                                  <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-300">
+                                    {stat!.pending} {tr("Pending")}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                                {agent.description || tr("No description")}
+                              </div>
+                              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                                {rate !== null && <span>{tr("Approval rate")} <b className="text-foreground">{rate}%</b> ({stat!.approved}/{total})</span>}
+                                {stat?.lastAt && <span>{tr("Last active")} {formatRelative(stat.lastAt)}</span>}
+                                {agent.schedule?.enabled && (
+                                  <span className="flex items-center gap-0.5 text-brand"><Clock3 className="size-3" />{tr("Every {n}h", { n: agent.schedule.everyHours })}{agent.schedule.nextRun ? ` · ${tr("next")} ${formatRelative(agent.schedule.nextRun)}` : ""}</span>
+                                )}
+                                {agent.schedule?.lastRunError && <span className="text-destructive">{agent.schedule.lastRunError}</span>}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                          <span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
-                            {agent.mode === "approval" ? <ShieldCheck className="size-3" /> : <Sparkles className="size-3" />}
-                            {agent.mode === "approval" ? tr("Requires approval") : tr("Auto apply")}
-                          </span>
-                          {agent.scopes.map((scope) => (
-                            <span key={scope} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">{scope}</span>
-                          ))}
-                        </div>
-                        <div className="mt-3 flex items-center gap-1.5">
-                          <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setAgentDialog({ open: true, agent })}>
-                            <Pencil className="size-3" /> {tr("Edit")}
-                          </Button>
-                          {!agent.isDefault && (
-                            <Button variant="ghost" size="sm" className="h-7 gap-1 text-[11px] text-muted-foreground hover:text-destructive" onClick={() => void deleteAgent(agent)}>
-                              <Trash2 className="size-3" /> {tr("Delete")}
+                          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                            <span className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground">
+                              {agent.mode === "approval" ? <ShieldCheck className="size-3" /> : <Sparkles className="size-3" />}
+                              {agent.mode === "approval" ? tr("Requires approval") : tr("Auto apply")}
+                            </span>
+                            {agent.scopes.map((scope) => (
+                              <span key={scope} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">{scope}</span>
+                            ))}
+                          </div>
+                          <div className="mt-3 flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              className="h-7 gap-1 text-[11px]"
+                              disabled={!agent.enabled}
+                              onClick={() => { setDispatchAgent(agent.id); setTab("pending") }}
+                            >
+                              <Play className="size-3" /> {tr("Dispatch")}
                             </Button>
-                          )}
+                            <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => setAgentDialog({ open: true, agent })}>
+                              <Pencil className="size-3" /> {tr("Edit")}
+                            </Button>
+                            {!agent.isDefault && (
+                              <Button variant="ghost" size="sm" className="h-7 gap-1 text-[11px] text-muted-foreground hover:text-destructive" onClick={() => void deleteAgent(agent)}>
+                                <Trash2 className="size-3" /> {tr("Delete")}
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
               </div>
             </TabsContent>
             <TabsContent value="activity" className="pt-4">
@@ -251,9 +377,11 @@ export function AgentInboxView() {
       </div>
 
       <ProposalDialog
+        key={selected?.id ?? "none"}
         proposal={selected}
         onOpenChange={(open) => !open && setSelected(null)}
         onReview={review}
+        onRetry={retryWithReason}
         reviewing={reviewing}
       />
       <AgentDialog
@@ -269,17 +397,110 @@ export function AgentInboxView() {
   )
 }
 
+/* ---------------- 派活条 ---------------- */
+
+function DispatchBar({ agents, forcedAgent, onForcedAgentConsumed, onDispatched }: {
+  agents: Agent[]
+  forcedAgent: string
+  onForcedAgentConsumed: () => void
+  onDispatched: () => void
+}) {
+  const activeId = useWorkspaceStore((s) => s.activeId)
+  const pages = useWorkspaceStore((s) => s.pages)
+  const [agentId, setAgentId] = useState("")
+  const [prompt, setPrompt] = useState("")
+  const [pageId, setPageId] = useState("")
+  const [sending, setSending] = useState(false)
+  const enabled = useMemo(() => agents.filter((a) => a.enabled), [agents])
+
+  useEffect(() => {
+    if (forcedAgent) {
+      setAgentId(forcedAgent)
+      onForcedAgentConsumed()
+      document.getElementById("agent-dispatch-input")?.focus()
+    }
+  }, [forcedAgent, onForcedAgentConsumed])
+
+  useEffect(() => {
+    if (!agentId && enabled.length > 0) setAgentId(enabled[0].id)
+  }, [agentId, enabled])
+
+  async function submit(event?: React.FormEvent) {
+    event?.preventDefault()
+    if (!activeId || !agentId || !prompt.trim() || sending) return
+    setSending(true)
+    try {
+      await api.agents.run(activeId, agentId, { prompt: prompt.trim(), pageId: pageId || undefined })
+      setPrompt("")
+      onDispatched()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not dispatch task"))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="mt-5 rounded-2xl border border-brand/25 bg-gradient-to-br from-brand-soft/40 via-card to-card p-3 shadow-sm">
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <select
+          value={agentId}
+          onChange={(e) => setAgentId(e.target.value)}
+          className="h-9 shrink-0 rounded-lg border bg-background px-2 text-xs outline-none sm:max-w-40"
+        >
+          {enabled.map((a) => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+          {enabled.length === 0 && <option value="">{tr("No enabled agents")}</option>}
+        </select>
+        <Input
+          id="agent-dispatch-input"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder={tr("Tell an agent what to do… e.g. summarize this week's notes")}
+          className="h-9 flex-1"
+        />
+        <select
+          value={pageId}
+          onChange={(e) => setPageId(e.target.value)}
+          className="h-9 shrink-0 rounded-lg border bg-background px-2 text-xs text-muted-foreground outline-none sm:max-w-44"
+        >
+          <option value="">{tr("Any page")}</option>
+          {pages.filter((p) => !p.archived).slice(0, 200).map((p) => (
+            <option key={p.id} value={p.id}>{p.title || tr("Untitled")}</option>
+          ))}
+        </select>
+        <Button type="submit" size="sm" className="h-9 gap-1.5" disabled={sending || !agentId || !prompt.trim()}>
+          {sending ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
+          {tr("Dispatch")}
+        </Button>
+      </div>
+      <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
+        {tr("Runs in the background — approval-mode results land here for review, auto-mode applies directly.")}
+      </p>
+    </form>
+  )
+}
+
+/* ---------------- 提案列表：批量 + 行内审批 + diff 预览 ---------------- */
+
 function ProposalList({
-  proposals,
-  loading,
-  onOpen,
-  empty,
+  proposals, loading, reviewing, checked, onToggleCheck, onCheckAll, onClearCheck, onBatch, onQuick, onOpen, empty,
 }: {
   proposals: AIProposal[]
   loading: boolean
+  reviewing: boolean
+  checked: Set<string>
+  onToggleCheck: (id: string) => void
+  onCheckAll: () => void
+  onClearCheck: () => void
+  onBatch: (action: "approve" | "reject") => void
+  onQuick: (proposal: AIProposal, action: "approve" | "reject") => void
   onOpen: (proposal: AIProposal) => void
   empty: string
 }) {
+  const navigate = useNavigate()
+  const pendingIds = proposals.filter((p) => p.status === "pending").map((p) => p.id)
+  const checkedPending = [...checked].filter((id) => pendingIds.includes(id))
+
   if (loading && proposals.length === 0) {
     return (
       <div className="space-y-3">
@@ -294,37 +515,121 @@ function ProposalList({
           <Inbox className="size-5 text-muted-foreground" />
         </div>
         <h3 className="mt-4 text-sm font-medium">{tr(empty)}</h3>
-        <p className="mt-1 text-xs text-muted-foreground">{tr("Ask an agent to edit a page; changes appear here when approval is required.")}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{tr("Dispatch a task above — changes appear here when approval is required.")}</p>
       </div>
     )
   }
   return (
     <div className="space-y-2.5">
-      {proposals.map((proposal) => (
-        <button
-          key={proposal.id}
-          type="button"
-          onClick={() => onOpen(proposal)}
-          className="flex w-full items-start gap-3 rounded-xl border bg-card p-4 text-left transition hover:border-brand/30 hover:bg-accent/25"
-        >
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-lg">✨</div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">{proposal.pageTitle || tr("Untitled")}</span>
-              <span className={statusClass(proposal.status)}>{tr(proposal.status)}</span>
-              {proposal.created && <span className="rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-700 dark:text-sky-300">{tr("New page")}</span>}
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">
-              {proposal.agentName} · {proposal.actorName} · {formatRelative(proposal.createdAt)}
-            </div>
-            <div className="mt-2 line-clamp-2 text-xs text-muted-foreground">
-              {describeDiff(proposal)}
-            </div>
+      {pendingIds.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed px-3 py-2 text-xs">
+          <button type="button" onClick={() => (checkedPending.length === pendingIds.length ? onClearCheck() : onCheckAll())} className="font-medium text-brand hover:underline">
+            {checkedPending.length === pendingIds.length ? tr("Deselect all") : tr("Select all ({n})", { n: pendingIds.length })}
+          </button>
+          {checkedPending.length > 0 && (
+            <>
+              <span className="text-muted-foreground">· {tr("{n} selected", { n: checkedPending.length })}</span>
+              <span className="ml-auto flex gap-1.5">
+                <Button size="sm" className="h-7 text-[11px]" disabled={reviewing} onClick={() => onBatch("approve")}>
+                  <Check className="size-3" /> {tr("Approve all")}
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-[11px]" disabled={reviewing} onClick={() => onBatch("reject")}>
+                  <X className="size-3" /> {tr("Reject all")}
+                </Button>
+              </span>
+            </>
+          )}
+        </div>
+      )}
+      {proposals.map((proposal) => {
+        const isPending = proposal.status === "pending"
+        return (
+          <div
+            key={proposal.id}
+            className="flex w-full items-start gap-2.5 rounded-xl border bg-card p-3 text-left transition hover:border-brand/30 sm:gap-3 sm:p-4"
+          >
+            {isPending && (
+              <input
+                type="checkbox"
+                checked={checked.has(proposal.id)}
+                onChange={() => onToggleCheck(proposal.id)}
+                className="mt-1.5 size-3.5 shrink-0 accent-[var(--brand)]"
+                aria-label={tr("Select")}
+              />
+            )}
+            <button type="button" onClick={() => onOpen(proposal)} className="min-w-0 flex-1 text-left">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium">{proposal.pageTitle || tr("Untitled")}</span>
+                <span className={statusClass(proposal.status)}>{tr(proposal.status)}</span>
+                {proposal.created && <span className="rounded-full bg-sky-500/10 px-1.5 py-0.5 text-[9px] text-sky-700 dark:text-sky-300">{tr("New page")}</span>}
+              </div>
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                {proposal.agentName} · {proposal.actorName} · {formatRelative(proposal.createdAt)}
+              </div>
+              {proposal.prompt && (
+                <div className="mt-1.5 line-clamp-1 rounded-md bg-muted/50 px-2 py-1 text-[11px] text-muted-foreground">
+                  “{proposal.prompt}”
+                </div>
+              )}
+              <div className="mt-1.5 space-y-1">
+                <DiffPreview proposal={proposal} />
+              </div>
+              <span
+                className="mt-1 inline-block text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                onClick={(e) => { e.stopPropagation(); navigate(`/page/${proposal.pageId}`) }}
+              >
+                {tr("Open page")} →
+              </span>
+            </button>
+            {isPending && (
+              <span className="flex shrink-0 flex-col gap-1.5 sm:flex-row">
+                <Button size="sm" className="h-7 px-2.5 text-[11px]" disabled={reviewing} onClick={() => onQuick(proposal, "approve")}>
+                  <Check className="size-3" />
+                  <span className="hidden sm:inline">{tr("Approve")}</span>
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 px-2.5 text-[11px]" disabled={reviewing} onClick={() => onQuick(proposal, "reject")}>
+                  <X className="size-3" />
+                  <span className="hidden sm:inline">{tr("Reject")}</span>
+                </Button>
+              </span>
+            )}
           </div>
-          <span className="hidden shrink-0 text-[10px] font-medium text-brand sm:block">{tr("Review")} →</span>
-        </button>
-      ))}
+        )
+      })}
     </div>
+  )
+}
+
+function DiffPreview({ proposal }: { proposal: AIProposal }) {
+  const changes = diffBlocks(proposal.before?.blocks ?? [], proposal.after.blocks)
+  const items: { sign: string; tone: string; text: string }[] = []
+  for (const b of changes.added.slice(0, 2)) items.push({ sign: "+", tone: "text-emerald-700 dark:text-emerald-300", text: b.text || b.type })
+  if (items.length < 2) {
+    for (const b of changes.changed.slice(0, 2 - items.length)) {
+      const old = (proposal.before?.blocks ?? []).find((item) => item.id === b.id)
+      const text = old && old.text !== b.text ? `${old.text} → ${b.text}` : b.text
+      items.push({ sign: "±", tone: "text-amber-700 dark:text-amber-300", text: text || b.type })
+    }
+  }
+  if (items.length === 0) {
+    for (const b of changes.removed.slice(0, 2)) items.push({ sign: "−", tone: "text-red-700 dark:text-red-300", text: b.text || b.type })
+  }
+  if (items.length === 0) {
+    const title = proposal.before && proposal.before.title !== proposal.after.title ? tr("Title changed") : tr("No visible content changes")
+    return <div className="line-clamp-2 text-xs text-muted-foreground">{title}</div>
+  }
+  return (
+    <>
+      {items.map((item, i) => (
+        <div key={i} className={`line-clamp-1 text-xs ${item.tone}`}>
+          <span className="mr-1 font-mono font-bold">{item.sign}</span>
+          {item.text.length > 90 ? item.text.slice(0, 90) + "…" : item.text}
+        </div>
+      ))}
+      {changes.added.length + changes.changed.length + changes.removed.length > items.length && (
+        <div className="text-[10px] text-muted-foreground">…{tr("more")}</div>
+      )}
+    </>
   )
 }
 
@@ -332,20 +637,6 @@ function statusClass(status: string) {
   if (status === "approved") return "rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] text-emerald-700 dark:text-emerald-300"
   if (status === "rejected") return "rounded-full bg-red-500/10 px-1.5 py-0.5 text-[9px] text-red-700 dark:text-red-300"
   return "rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-700 dark:text-amber-300"
-}
-
-function describeDiff(proposal: AIProposal) {
-  const changes = diffBlocks(proposal.before?.blocks ?? [], proposal.after.blocks)
-  const title = proposal.before && proposal.before.title !== proposal.after.title
-    ? tr("Title changed")
-    : ""
-  const parts = [
-    title,
-    changes.added.length ? tr("{n} block(s) added", { n: changes.added.length }) : "",
-    changes.changed.length ? tr("{n} block(s) changed", { n: changes.changed.length }) : "",
-    changes.removed.length ? tr("{n} block(s) removed", { n: changes.removed.length }) : "",
-  ].filter(Boolean)
-  return parts.join(" · ") || tr("No visible content changes")
 }
 
 function Activity({
@@ -358,6 +649,9 @@ function Activity({
   loadingMore: boolean
   onLoadMore: () => void
 }) {
+  const [filter, setFilter] = useState("")
+  const names = useMemo(() => [...new Set(logs.map((l) => l.agentName).filter(Boolean))] as string[], [logs])
+  const shown = filter ? logs.filter((l) => l.agentName === filter) : logs
   if (loading && logs.length === 0) {
     return <div className="space-y-2">{[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-12 rounded-lg" />)}</div>
   }
@@ -365,33 +659,57 @@ function Activity({
     return <div className="rounded-xl border border-dashed px-4 py-12 text-center text-xs text-muted-foreground">{tr("No activity yet.")}</div>
   }
   return (
-    <div className="overflow-hidden rounded-xl border bg-card">
-      {logs.map((log) => (
-        <div key={log.id} className="flex items-start gap-3 border-b px-3 py-2.5 last:border-b-0">
-          <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            {log.action.startsWith("proposal") ? <ShieldCheck className="size-3.5" /> : <Bot className="size-3.5" />}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-medium">{log.summary}</div>
-            <div className="mt-0.5 text-[10px] text-muted-foreground">
-              {log.actorName}{log.agentName ? ` · ${log.agentName}` : ""} · {formatRelative(log.createdAt)}
-            </div>
-          </div>
-          <span className="shrink-0 font-mono text-[9px] text-muted-foreground/60">{log.action}</span>
-        </div>
-      ))}
-      {hasMore && (
-        <div className="border-t p-2">
+    <div>
+      {names.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1">
           <button
             type="button"
-            onClick={onLoadMore}
-            disabled={loadingMore}
-            className="w-full rounded-md border border-border/70 px-2 py-1.5 text-[11px] font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
+            onClick={() => setFilter("")}
+            className={filter === "" ? "rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-medium text-brand" : "rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-accent"}
           >
-            {loadingMore ? tr("Loading…") : tr("Load more ({n} of {total})", { n: logs.length, total })}
+            {tr("All")}
           </button>
+          {names.map((name) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => setFilter((f) => (f === name ? "" : name))}
+              className={filter === name ? "rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-medium text-brand" : "rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-accent"}
+            >
+              {name}
+            </button>
+          ))}
         </div>
       )}
+      <div className="overflow-hidden rounded-xl border bg-card">
+        {shown.map((log) => (
+          <div key={log.id} className="flex items-start gap-3 border-b px-3 py-2.5 last:border-b-0">
+            <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              {log.action.startsWith("proposal") ? <ShieldCheck className="size-3.5" /> : <Bot className="size-3.5" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-medium">{log.summary}</div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                {log.actorName}{log.agentName ? ` · ${log.agentName}` : ""} · {formatRelative(log.createdAt)}
+              </div>
+            </div>
+            <span className="shrink-0 font-mono text-[9px] text-muted-foreground/60">{log.action}</span>
+          </div>
+        ))}
+        {shown.length === 0 && <div className="px-4 py-8 text-center text-xs text-muted-foreground">{tr("No activity for this agent.")}</div>}
+        {hasMore && (
+          <div className="border-t p-2">
+            <button
+              type="button"
+              onClick={onLoadMore}
+              disabled={loadingMore}
+              className="w-full rounded-md border border-border/70 px-2 py-1.5 text-[11px] font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-50"
+            >
+              {loadingMore ? tr("Loading…") : tr("Load more ({n} of {total})", { n: logs.length, total })}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -408,12 +726,17 @@ function AgentDialog({
   onSaved: () => void
 }) {
   const activeId = useWorkspaceStore((state) => state.activeId)
+  const pages = useWorkspaceStore((state) => state.pages)
   const [name, setName] = useState("Motion AI")
   const [icon, setIcon] = useState("✨")
   const [description, setDescription] = useState("")
   const [mode, setMode] = useState<AgentMode>("approval")
   const [scopes, setScopes] = useState<string[]>(["pages:read", "pages:write"])
   const [enabled, setEnabled] = useState(true)
+  const [schedOn, setSchedOn] = useState(false)
+  const [everyHours, setEveryHours] = useState("24")
+  const [schedPrompt, setSchedPrompt] = useState("")
+  const [schedPage, setSchedPage] = useState("")
   const [pending, setPending] = useState(false)
 
   useEffect(() => {
@@ -424,14 +747,30 @@ function AgentDialog({
     setMode(agent?.mode ?? "approval")
     setScopes(agent?.scopes ?? ["pages:read", "pages:write"])
     setEnabled(agent?.enabled ?? true)
+    setSchedOn(agent?.schedule?.enabled ?? false)
+    setEveryHours(String(agent?.schedule?.everyHours ?? 24))
+    setSchedPrompt(agent?.schedule?.prompt ?? "")
+    setSchedPage(agent?.schedule?.pageId ?? "")
   }, [open, agent])
 
   async function save(event: React.FormEvent) {
     event.preventDefault()
     if (!activeId || pending || !name.trim() || scopes.length === 0) return
+    if (schedOn && !schedPrompt.trim()) {
+      toast.error(tr("Scheduled tasks need a prompt"))
+      return
+    }
     setPending(true)
     try {
-      const input = { name: name.trim(), icon: icon.trim() || "✨", description: description.trim(), mode, scopes, enabled }
+      const input = {
+        name: name.trim(), icon: icon.trim() || "✨", description: description.trim(), mode, scopes, enabled,
+        schedule: {
+          enabled: schedOn,
+          everyHours: Math.min(720, Math.max(1, Number(everyHours) || 24)),
+          prompt: schedPrompt.trim(),
+          pageId: schedPage || undefined,
+        },
+      }
       if (agent) await api.agents.update(agent.id, input)
       else await api.agents.create(activeId, input)
       toast.success(agent ? tr("Agent updated") : tr("Agent created"))
@@ -449,7 +788,7 @@ function AgentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90svh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{agent ? tr("Edit agent") : tr("New agent")}</DialogTitle>
           <DialogDescription>{tr("Agents can read pages and stage edits for approval.")}</DialogDescription>
@@ -497,6 +836,48 @@ function AgentDialog({
                 </button>
               ))}
             </div>
+          </div>
+          <div className="space-y-2 rounded-xl border p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-medium"><Clock3 className="size-3.5 text-brand" />{tr("Scheduled runs")}</div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">{tr("Run this task automatically every few hours.")}</div>
+              </div>
+              <Switch checked={schedOn} onCheckedChange={setSchedOn} />
+            </div>
+            {schedOn && (
+              <div className="space-y-2 pt-1">
+                <div className="grid grid-cols-[110px_1fr] items-center gap-2">
+                  <Label>{tr("Every")}</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input type="number" min={1} max={720} value={everyHours} onChange={(e) => setEveryHours(e.target.value)} className="h-8 w-20" />
+                    <span className="text-xs text-muted-foreground">{tr("hours")}</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{tr("Task")}</Label>
+                  <textarea
+                    value={schedPrompt}
+                    onChange={(e) => setSchedPrompt(e.target.value)}
+                    rows={2}
+                    placeholder={tr("e.g. summarize yesterday's new pages")}
+                    className="w-full rounded-md border bg-background px-2.5 py-2 text-xs outline-none focus:border-brand"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{tr("Page (optional)")}</Label>
+                  <select value={schedPage} onChange={(e) => setSchedPage(e.target.value)} className="h-8 w-full rounded-md border bg-background px-2 text-xs outline-none">
+                    <option value="">{tr("Any page")}</option>
+                    {pages.filter((p) => !p.archived).slice(0, 200).map((p) => (
+                      <option key={p.id} value={p.id}>{p.title || tr("Untitled")}</option>
+                    ))}
+                  </select>
+                </div>
+                {agent?.schedule?.nextRun && agent.schedule.enabled && (
+                  <div className="text-[10px] text-muted-foreground">{tr("Next run")} {formatRelative(agent.schedule.nextRun)}{agent.schedule.lastRun ? ` · ${tr("last")} ${formatRelative(agent.schedule.lastRun)}` : ""}</div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-between rounded-lg border px-3 py-2">
             <div>

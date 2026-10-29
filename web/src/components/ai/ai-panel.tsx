@@ -553,6 +553,7 @@ export function AIPanel({
         </p>
       </div>
       <ProposalDialog
+        key={reviewingProposal?.id ?? "none"}
         proposal={reviewingProposal}
         onOpenChange={(next) => {
           if (!next) setReviewingProposal(null)

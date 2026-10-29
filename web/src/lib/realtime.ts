@@ -14,10 +14,12 @@ export class RealtimeClient {
   private timer: number | null = null
   private closed = false
   private pageId: string
+  private workspaceId: string
   private handlers: RealtimeHandlers
 
-  constructor(pageId: string, handlers: RealtimeHandlers) {
+  constructor(pageId: string, handlers: RealtimeHandlers, workspaceId = "") {
     this.pageId = pageId
+    this.workspaceId = workspaceId
     this.handlers = handlers
   }
 
@@ -38,6 +40,7 @@ export class RealtimeClient {
         type: "auth",
         token,
         pageId: this.pageId,
+        workspaceId: this.workspaceId,
         clientId: getClientId(),
       }))
       this.handlers.onStatus?.("connected")

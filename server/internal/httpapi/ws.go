@@ -43,10 +43,11 @@ func (s *Server) websocketOriginAllowed(r *http.Request) bool {
 }
 
 type realtimeAuthMessage struct {
-	Type     string `json:"type"`
-	Token    string `json:"token"`
-	PageID   string `json:"pageId"`
-	ClientID string `json:"clientId"`
+	Type        string `json:"type"`
+	Token       string `json:"token"`
+	PageID      string `json:"pageId"`
+	WorkspaceID string `json:"workspaceId"`
+	ClientID    string `json:"clientId"`
 }
 
 func (s *Server) realtimeUser(r *http.Request, token string) (primitive.ObjectID, error) {
@@ -103,15 +104,20 @@ func (s *Server) websocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = conn.SetReadDeadline(time.Time{})
-	pageID, err := primitive.ObjectIDFromHex(strings.TrimSpace(auth.PageID))
-	if err != nil {
-		_ = conn.WriteJSON(map[string]string{"type": "error", "error": "invalid page id"})
-		_ = conn.Close()
-		return
-	}
 	userID, err := s.realtimeUser(r, strings.TrimSpace(auth.Token))
 	if err != nil {
 		_ = conn.WriteJSON(map[string]string{"type": "error", "error": "invalid or expired token"})
+		_ = conn.Close()
+		return
+	}
+	// Workspace-only subscription (Agent Inbox etc.): no page channel.
+	if strings.TrimSpace(auth.PageID) == "" {
+		s.serveWorkspaceConn(w, r, conn, strings.TrimSpace(auth.WorkspaceID), userID, strings.TrimSpace(auth.ClientID))
+		return
+	}
+	pageID, err := primitive.ObjectIDFromHex(strings.TrimSpace(auth.PageID))
+	if err != nil {
+		_ = conn.WriteJSON(map[string]string{"type": "error", "error": "invalid page id"})
 		_ = conn.Close()
 		return
 	}
@@ -129,6 +135,47 @@ func (s *Server) serveRealtime(w http.ResponseWriter, r *http.Request, pageID, u
 		return
 	}
 	s.serveRealtimeConn(w, r, conn, pageID, userID, clientID)
+}
+
+// serveWorkspaceConn subscribes a client to workspace-level events only
+// (tree / proposals), without joining any page channel.
+func (s *Server) serveWorkspaceConn(w http.ResponseWriter, r *http.Request, conn *websocket.Conn, workspaceHex string, userID primitive.ObjectID, clientID string) {
+	_ = w
+	wsID, err := primitive.ObjectIDFromHex(workspaceHex)
+	if err != nil {
+		_ = conn.WriteJSON(map[string]string{"type": "error", "error": "invalid workspace id"})
+		_ = conn.Close()
+		return
+	}
+	if _, _, err := s.accessibleWorkspaceFor(r.Context(), wsID, userID); err != nil {
+		_ = conn.WriteJSON(map[string]string{"type": "error", "error": "workspace not found"})
+		_ = conn.Close()
+		return
+	}
+	var user model.User
+	if err := s.store.Users.FindOne(r.Context(), bson.M{"_id": userID}).Decode(&user); err != nil {
+		_ = conn.WriteJSON(map[string]string{"type": "error", "error": "account no longer exists"})
+		_ = conn.Close()
+		return
+	}
+	if clientID == "" {
+		clientID = primitive.NewObjectID().Hex()
+	}
+	client := &realtime.Client{
+		Hub:         s.hub,
+		Conn:        conn,
+		Send:        make(chan []byte, 256),
+		Done:        make(chan struct{}),
+		PageID:      "",
+		WorkspaceID: wsID.Hex(),
+		ClientID:    clientID,
+		UserID:      user.ID.Hex(),
+		Name:        user.Name,
+		Color:       realtime.ColorFor(user.ID.Hex()),
+	}
+	s.hub.Add(client)
+	go client.WritePump()
+	go client.ReadPump()
 }
 
 func (s *Server) serveRealtimeConn(w http.ResponseWriter, r *http.Request, conn *websocket.Conn, pageID, userID primitive.ObjectID, clientID string) {

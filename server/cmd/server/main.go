@@ -84,6 +84,7 @@ func main() {
 	})
 	api.StartAutoUpdate(ctx)
 	api.StartTrashRetention(ctx)
+	api.StartAgentScheduler(ctx)
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,

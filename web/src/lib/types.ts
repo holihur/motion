@@ -319,6 +319,16 @@ export interface AIChatResponse {
 
 export type AgentMode = "auto" | "approval"
 
+export interface AgentSchedule {
+  enabled: boolean
+  everyHours: number
+  prompt: string
+  pageId?: string
+  nextRun?: string
+  lastRun?: string
+  lastRunError?: string
+}
+
 export interface Agent {
   id: string
   workspaceId: string
@@ -330,6 +340,7 @@ export interface Agent {
   scopes: string[]
   enabled: boolean
   isDefault?: boolean
+  schedule?: AgentSchedule
   createdAt: string
   updatedAt: string
 }
@@ -343,6 +354,8 @@ export interface AIProposal {
   actorId: string
   actorName: string
   pageTitle: string
+  prompt?: string
+  rejectReason?: string
   before?: Page
   after: Page
   created?: boolean

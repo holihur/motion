@@ -409,7 +409,21 @@ export function ChartBlock({
             {type === "pie" && <p className="text-[10px] text-muted-foreground">{tr("Pie charts use the first series.")}</p>}
           </div>
         ) : (
-          <ChartGraph type={type} labels={labels} series={series} />
+          <div onClick={() => {
+            if (readOnly) return
+            const label = window.prompt(tr("Enter label to edit (exact)"))
+            if (!label) return
+            const idx = labels.findIndex((l) => l === label)
+            if (idx < 0) { toast.error(tr("Label not found")); return }
+            const val = window.prompt(tr("Enter new value for {label}", { label }), String(series[0]?.values[idx] ?? ""))
+            if (val === null) return
+            const num = Number(val)
+            if (Number.isNaN(num)) { toast.error(tr("Enter a valid number")); return }
+            setCell(idx, 1, String(num))
+          }} className={readOnly ? "" : "cursor-pointer"}>
+            <ChartGraph type={type} labels={labels} series={series} />
+            {!readOnly && <div className="mt-1 text-center text-[10px] text-muted-foreground">{tr("Click chart to edit a value")}</div>}
+          </div>
         )}
       </div>
     </div>

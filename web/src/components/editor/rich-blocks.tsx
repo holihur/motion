@@ -20,6 +20,7 @@ import {
   Upload,
   Video,
 } from "lucide-react"
+import { toast } from "sonner"
 import katex from "katex"
 import "katex/dist/katex.min.css"
 import type { Block } from "@/lib/types"

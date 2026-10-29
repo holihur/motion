@@ -7,6 +7,7 @@ import {
   ArrowUp,
   Check,
   ClipboardCopy,
+  Columns2,
   Copy,
   GripVertical,
   LockKeyhole,
@@ -463,13 +464,6 @@ export function BlockRow(props: BlockRowProps) {
           const lastRow = rowIndex + matrix.length - 1
           const lastColumn = columnIndex + Math.max(...matrix.map((row) => row.length)) - 1
           focusCell(lastRow, lastColumn)
-        }
-        const copyTable = () => {
-          const tsv = [table.columns, ...table.rows].map((row) => table.columns.map((_, index) => row[index] ?? "").join("\t")).join("\n")
-          void navigator.clipboard.writeText(tsv).then(
-            () => toast.success(tr("Table copied")),
-            () => toast.error(tr("Could not copy table")),
-          )
         }
         return (
           <div className="my-2 overflow-hidden rounded-lg border border-border/80 bg-card" onFocus={() => onFocusBlock?.(block.id)}>

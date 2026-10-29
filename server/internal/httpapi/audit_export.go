@@ -20,7 +20,7 @@ func (s *Server) exportAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filter := bson.M{"workspaceId": wsID}
-	cur, err := s.store.AuditLogs.Find(r.Context(), filter, options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}}).SetLimit(10000))
+	cur, err := s.store.Audit.Find(r.Context(), filter, options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}}).SetLimit(10000))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not load audit logs")
 		return

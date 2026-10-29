@@ -338,6 +338,17 @@ export function BlockRow(props: BlockRowProps) {
         return (
           <div className="border-l-[3px] border-foreground/60 py-0.5 pl-4">
             {renderEditable("text-[15px] leading-[1.7] py-[3px] text-foreground/90")}
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground">—</span>
+              <input
+                value={block.caption ?? ""}
+                onChange={(e) => onUpdate({ caption: e.target.value })}
+                readOnly={readOnly}
+                placeholder={tr("Citation (optional)")}
+                className="h-6 min-w-0 flex-1 bg-transparent text-[11px] italic text-muted-foreground outline-none placeholder:text-muted-foreground/40"
+              />
+            </div>
+            {block.caption && <div className="mt-0.5 text-right text-[11px] italic text-muted-foreground">— {block.caption}</div>}
           </div>
         )
       case "callout": {

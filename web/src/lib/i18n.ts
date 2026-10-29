@@ -1,4 +1,17 @@
-export type Language = "en" | "zh"
+export type Language = "en" | "zh" | "es" | "hi" | "ar" | "pt" | "fr" | "de" | "ja" | "ru"
+
+export const LANGUAGES: { code: Language; label: string; native: string }[] = [
+  { code: "en", label: "English", native: "English" },
+  { code: "zh", label: "Chinese", native: "中文" },
+  { code: "es", label: "Spanish", native: "Español" },
+  { code: "hi", label: "Hindi", native: "हिन्दी" },
+  { code: "ar", label: "Arabic", native: "العربية" },
+  { code: "pt", label: "Portuguese", native: "Português" },
+  { code: "fr", label: "French", native: "Français" },
+  { code: "de", label: "German", native: "Deutsch" },
+  { code: "ja", label: "Japanese", native: "日本語" },
+  { code: "ru", label: "Russian", native: "Русский" },
+]
 
 const LANGUAGE_KEY = "motion.language"
 
@@ -978,6 +991,18 @@ const zh: Record<string, string> = {
   "Top": "顶部",
   "Bottom": "底部",
 }
+
+// Top 10: minimal dictionaries, fallback to English for missing keys (contributions welcome)
+const es: Record<string, string> = { "Save": "Guardar", "Cancel": "Cancelar", "Sign in": "Iniciar sesión", "Create account": "Crear cuenta", "Home": "Inicio", "Settings": "Ajustes", "Search": "Buscar", "New page": "Nueva página", "Welcome back": "Bienvenido de nuevo" }
+const hi: Record<string, string> = { "Save": "सहेजें", "Cancel": "रद्द करें", "Sign in": "साइन इन", "Create account": "खाता बनाएं", "Home": "होम", "Settings": "सेटिंग्स" }
+const ar: Record<string, string> = { "Save": "حفظ", "Cancel": "إلغاء", "Sign in": "تسجيل الدخول", "Home": "الرئيسية" }
+const pt: Record<string, string> = { "Save": "Salvar", "Cancel": "Cancelar", "Sign in": "Entrar", "Home": "Início" }
+const fr: Record<string, string> = { "Save": "Enregistrer", "Cancel": "Annuler", "Sign in": "Se connecter", "Home": "Accueil" }
+const de: Record<string, string> = { "Save": "Speichern", "Cancel": "Abbrechen", "Sign in": "Anmelden", "Home": "Startseite" }
+const ja: Record<string, string> = { "Save": "保存", "Cancel": "キャンセル", "Sign in": "ログイン", "Home": "ホーム" }
+const ru: Record<string, string> = { "Save": "Сохранить", "Cancel": "Отмена", "Sign in": "Войти", "Home": "Главная" }
+
+const dictionaries: Record<Language, Record<string, string>> = { en: {}, zh, es, hi, ar, pt, fr, de, ja, ru }
 const API_ERROR_ZH: Record<string, string> = {
   "page not found": "页面不存在",
   "workspace not found": "工作区不存在",
@@ -1042,23 +1067,41 @@ export function localizeApiError(message: string) {
   return message
 }
 
+const LOCALE_MAP: Record<Language, string> = { en: "en-US", zh: "zh-CN", es: "es-ES", hi: "hi-IN", ar: "ar", pt: "pt-BR", fr: "fr-FR", de: "de-DE", ja: "ja-JP", ru: "ru-RU" }
+const HTML_LANG_MAP: Record<Language, string> = { en: "en", zh: "zh-CN", es: "es", hi: "hi", ar: "ar", pt: "pt", fr: "fr", de: "de", ja: "ja", ru: "ru" }
+
 export function getLanguage(): Language {
   if (typeof localStorage === "undefined") return "en"
-  return localStorage.getItem(LANGUAGE_KEY) === "zh" ? "zh" : "en"
+  const stored = localStorage.getItem(LANGUAGE_KEY) as Language | null
+  if (stored && (LANGUAGES as { code: string }[]).some((l) => l.code === stored)) return stored
+  // Auto-detect from browser on first visit
+  const nav = typeof navigator !== "undefined" ? navigator.language.toLowerCase() : "en"
+  if (nav.startsWith("zh")) return "zh"
+  if (nav.startsWith("es")) return "es"
+  if (nav.startsWith("hi")) return "hi"
+  if (nav.startsWith("ar")) return "ar"
+  if (nav.startsWith("pt")) return "pt"
+  if (nav.startsWith("fr")) return "fr"
+  if (nav.startsWith("de")) return "de"
+  if (nav.startsWith("ja")) return "ja"
+  if (nav.startsWith("ru")) return "ru"
+  return "en"
 }
 
 export function setLanguage(language: Language) {
   localStorage.setItem(LANGUAGE_KEY, language)
-  document.documentElement.lang = language === "zh" ? "zh-CN" : "en"
+  document.documentElement.lang = HTML_LANG_MAP[language] ?? language
+  document.documentElement.dir = language === "ar" ? "rtl" : "ltr"
   window.location.reload()
 }
 
 export function locale() {
-  return getLanguage() === "zh" ? "zh-CN" : "en-US"
+  return LOCALE_MAP[getLanguage()] ?? "en-US"
 }
 
 export function tr(text: string, vars?: Record<string, string | number>) {
-  let value = getLanguage() === "zh" ? (zh[text] ?? text) : text
+  const lang = getLanguage()
+  let value = dictionaries[lang]?.[text] ?? text
   if (vars) {
     for (const [key, replacement] of Object.entries(vars)) {
       value = value.replaceAll(`{${key}}`, String(replacement))
@@ -1068,5 +1111,7 @@ export function tr(text: string, vars?: Record<string, string | number>) {
 }
 
 if (typeof document !== "undefined") {
-  document.documentElement.lang = getLanguage() === "zh" ? "zh-CN" : "en"
+  const lang = getLanguage()
+  document.documentElement.lang = HTML_LANG_MAP[lang] ?? lang
+  document.documentElement.dir = lang === "ar" ? "rtl" : "ltr"
 }

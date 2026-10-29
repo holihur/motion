@@ -6,7 +6,7 @@ import { WorkspaceIcon, isImageIcon } from "@/components/app/workspace-icon"
 import { IntegrationsSettings } from "@/components/app/integrations-settings"
 import { toast } from "sonner"
 import { api, type AccessToken } from "@/lib/api"
-import { getLanguage, setLanguage, tr, type Language } from "@/lib/i18n"
+import { LANGUAGES, getLanguage, setLanguage, tr, type Language } from "@/lib/i18n"
 import { cn, formatRelative, initials } from "@/lib/utils"
 import { useAuthStore } from "@/stores/auth"
 import { useThemeStore, type Theme } from "@/stores/theme"
@@ -816,7 +816,7 @@ function AppearanceSettings() {
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm font-medium">{tr("Language")}</div>
-          <div className="text-xs text-muted-foreground">English / 中文</div>
+          <div className="text-xs text-muted-foreground">{LANGUAGES.map((l) => l.native).slice(0, 3).join(" / ")} · +{LANGUAGES.length - 3}</div>
         </div>
         <select
           value={getLanguage()}
@@ -824,8 +824,9 @@ function AppearanceSettings() {
           className="h-8 rounded-md border bg-background px-2 text-xs outline-none"
           aria-label={tr("Language")}
         >
-          <option value="en">{tr("English")}</option>
-          <option value="zh">{tr("中文")}</option>
+          {LANGUAGES.map((lang) => (
+            <option key={lang.code} value={lang.code}>{lang.native} · {lang.label}</option>
+          ))}
         </select>
       </div>
       <Separator />

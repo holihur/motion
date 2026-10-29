@@ -91,7 +91,7 @@ const API_ERROR_PREFIXES: [RegExp, string][] = [
 
 export function localizeApiError(message: string) {
   if (getLanguage() !== "zh") return message
-  if (zh[message]) return zh[message]
+  if (dictionaryCache["zh"]?.[message]) return dictionaryCache["zh"][message]
   if (API_ERROR_ZH[message]) return API_ERROR_ZH[message]
   for (const [pattern, label] of API_ERROR_PREFIXES) {
     if (pattern.test(message)) return message.replace(pattern, label)

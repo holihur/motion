@@ -357,3 +357,78 @@ func (s *Server) saveWorkspaceAgentConfig(w http.ResponseWriter, r *http.Request
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"skills": req.Skills, "mcpServers": req.MCPServers})
 }
+
+func (s *Server) getTaskTemplates(w http.ResponseWriter, r *http.Request) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	ws, _, err := s.accessibleWorkspace(r, wsID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "workspace not found")
+		return
+	}
+	templates := ws.TaskTemplates
+	if templates == nil {
+		templates = []model.TaskTemplate{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"templates": templates})
+}
+
+func (s *Server) saveTaskTemplates(w http.ResponseWriter, r *http.Request) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	ws, role, err := s.accessibleWorkspace(r, wsID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "workspace not found")
+		return
+	}
+	if !canEdit(role) {
+		writeErr(w, http.StatusForbidden, "you do not have permission to manage task templates")
+		return
+	}
+	var req struct {
+		Templates []model.TaskTemplate `json:"templates"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(req.Templates) > 50 {
+		writeErr(w, http.StatusBadRequest, "too many templates (max 50)")
+		return
+	}
+	for i := range req.Templates {
+		item := &req.Templates[i]
+		item.Name = strings.TrimSpace(item.Name)
+		item.Prompt = strings.TrimSpace(item.Prompt)
+		item.PageID = strings.TrimSpace(item.PageID)
+		item.AgentID = strings.TrimSpace(item.AgentID)
+		if item.Name == "" || item.Prompt == "" {
+			writeErr(w, http.StatusBadRequest, "every template needs a name and a prompt")
+			return
+		}
+		if len([]rune(item.Name)) > 80 || len([]rune(item.Prompt)) > 12000 {
+			writeErr(w, http.StatusBadRequest, "a template is too large")
+			return
+		}
+		if item.ID == "" {
+			item.ID = primitive.NewObjectID().Hex()
+			item.CreatedAt = time.Now().UTC()
+		}
+	}
+	if req.Templates == nil {
+		req.Templates = []model.TaskTemplate{}
+	}
+	if _, err := s.store.Workspaces.UpdateByID(r.Context(), ws.ID, bson.M{"$set": bson.M{
+		"taskTemplates": req.Templates, "updatedAt": time.Now().UTC(),
+	}}); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not save task templates")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"templates": req.Templates})
+}

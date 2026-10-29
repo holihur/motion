@@ -319,6 +319,15 @@ export interface AIChatResponse {
 
 export type AgentMode = "auto" | "approval"
 
+export interface TaskTemplate {
+  id: string
+  name: string
+  prompt: string
+  pageId?: string
+  agentId?: string
+  createdAt: string
+}
+
 export interface AgentSchedule {
   enabled: boolean
   everyHours: number

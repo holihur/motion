@@ -24,6 +24,7 @@ import type {
   PageSummary,
   Paginated,
   User,
+  TaskTemplate,
   Workspace,
 } from "./types"
 
@@ -238,6 +239,12 @@ export const api = {
       request<{ skills: import("./types").WorkspaceSkill[]; mcpServers: import("./types").WorkspaceMCP[] }>(`/workspaces/${id}/agent-config`, {
         method: "PUT",
         body: body(input),
+      }),
+    taskTemplates: (id: string) => request<{ templates: TaskTemplate[] }>(`/workspaces/${id}/task-templates`),
+    saveTaskTemplates: (id: string, templates: TaskTemplate[]) =>
+      request<{ templates: TaskTemplate[] }>(`/workspaces/${id}/task-templates`, {
+        method: "PUT",
+        body: body({ templates }),
       }),
     inviteSuggestions: (id: string) => request<string[]>(`/workspaces/${id}/invite-suggestions`),
     invite: (id: string, email: string, role: "editor" | "viewer") =>

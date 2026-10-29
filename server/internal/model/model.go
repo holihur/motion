@@ -50,8 +50,19 @@ type Workspace struct {
 	InviteHistory []string           `bson:"inviteHistory,omitempty" json:"-"`
 	Skills        []WorkspaceSkill   `bson:"skills,omitempty" json:"skills,omitempty"`
 	MCPServers    []WorkspaceMCP     `bson:"mcpServers,omitempty" json:"mcpServers,omitempty"`
+	TaskTemplates []TaskTemplate     `bson:"taskTemplates,omitempty" json:"taskTemplates,omitempty"`
 	CreatedAt     time.Time          `bson:"createdAt" json:"createdAt"`
 	UpdatedAt     time.Time          `bson:"updatedAt" json:"updatedAt"`
+}
+
+// TaskTemplate is a saved dispatch task shared across the workspace.
+type TaskTemplate struct {
+	ID        string    `bson:"id" json:"id"`
+	Name      string    `bson:"name" json:"name"`
+	Prompt    string    `bson:"prompt" json:"prompt"`
+	PageID    string    `bson:"pageId,omitempty" json:"pageId,omitempty"`
+	AgentID   string    `bson:"agentId,omitempty" json:"agentId,omitempty"`
+	CreatedAt time.Time `bson:"createdAt" json:"createdAt"`
 }
 
 // Block is a single unit of page content. Content is stored as plain text;

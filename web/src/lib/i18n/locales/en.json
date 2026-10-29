@@ -68,5 +68,19 @@
   "Queued…": "Queued…",
   "Running…": "Running…",
   "Retry": "Retry",
-  "{n} proposal(s)": "{n} proposal(s)"
+  "{n} proposal(s)": "{n} proposal(s)",
+  "Any agent": "Any agent",
+  "Manage": "Manage",
+  "New template": "New template",
+  "No templates yet": "No templates yet",
+  "No templates yet — save the current dispatch as a template.": "No templates yet — save the current dispatch as a template.",
+  "One click fills the dispatch bar — shared across this workspace.": "One click fills the dispatch bar — shared across this workspace.",
+  "Recent proposals": "Recent proposals",
+  "Recent runs": "Recent runs",
+  "Run success": "Run success",
+  "Save as template": "Save as template",
+  "Task templates": "Task templates",
+  "Template saved": "Template saved",
+  "Tokens used": "Tokens used",
+  "Use template… ({n})": "Use template… ({n})"
 }

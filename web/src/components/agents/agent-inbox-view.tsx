@@ -11,6 +11,7 @@ import {
   Play,
   Plus,
   RefreshCw,
+  BookmarkPlus,
   RotateCcw,
   ShieldCheck,
   Sparkles,
@@ -19,7 +20,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
-import type { Agent, AgentMode, AgentRun, AIProposal, AuditLog } from "@/lib/types"
+import type { Agent, AgentMode, AgentRun, AIProposal, AuditLog, TaskTemplate } from "@/lib/types"
 import { formatRelative } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 import { WorkspaceIcon } from "@/components/app/workspace-icon"
@@ -52,6 +53,9 @@ export function AgentInboxView() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [runs, setRuns] = useState<AgentRun[]>([])
+  const [templates, setTemplates] = useState<TaskTemplate[]>([])
+  const [templateOpen, setTemplateOpen] = useState(false)
+  const [detailAgent, setDetailAgent] = useState<Agent | null>(null)
   const [auditPage, setAuditPage] = useState(1)
   const [auditHasMore, setAuditHasMore] = useState(false)
   const [auditTotal, setAuditTotal] = useState(0)
@@ -68,13 +72,15 @@ export function AgentInboxView() {
     if (!activeId) return
     setLoading(true)
     try {
-      const [nextProposals, nextAgents, nextAudit, nextRuns] = await Promise.all([
+      const [nextProposals, nextAgents, nextAudit, nextRuns, nextTemplates] = await Promise.all([
         api.proposals.list(activeId),
         api.agents.list(activeId),
         api.audit.list(activeId, 1, 50),
         api.agents.runs(activeId, 50).catch(() => [] as AgentRun[]),
+        api.workspaces.taskTemplates(activeId).catch(() => ({ templates: [] as TaskTemplate[] })),
       ])
       setRuns(nextRuns)
+      setTemplates(nextTemplates.templates ?? [])
       setProposals(nextProposals)
       setAgents(nextAgents)
       setLogs(nextAudit.items)
@@ -257,6 +263,9 @@ export function AgentInboxView() {
             forcedAgent={dispatchAgent}
             onForcedAgentConsumed={() => setDispatchAgent("")}
             onDispatched={() => toast.success(tr("Task dispatched — results will appear here"))}
+            templates={templates}
+            onTemplatesChange={setTemplates}
+            onManageTemplates={() => setTemplateOpen(true)}
           />
 
           <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)} className="mt-5">
@@ -322,7 +331,14 @@ export function AgentInboxView() {
                       const total = (stat?.approved ?? 0) + (stat?.rejected ?? 0)
                       const rate = total > 0 ? Math.round(((stat?.approved ?? 0) / total) * 100) : null
                       return (
-                        <div key={agent.id} className="rounded-xl border bg-card p-4">
+                        <div
+                          key={agent.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setDetailAgent(agent)}
+                          onKeyDown={(e) => { if (e.key === "Enter") setDetailAgent(agent) }}
+                          className="cursor-pointer rounded-xl border bg-card p-4 transition hover:border-brand/30"
+                        >
                           <div className="flex items-start gap-3">
                             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-xl">
                               {agent.icon}
@@ -362,7 +378,7 @@ export function AgentInboxView() {
                               <span key={scope} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">{scope}</span>
                             ))}
                           </div>
-                          <div className="mt-3 flex items-center gap-1.5">
+                          <div className="mt-3 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                             <Button
                               size="sm"
                               className="h-7 gap-1 text-[11px]"
@@ -407,6 +423,24 @@ export function AgentInboxView() {
         onRetry={retryWithReason}
         reviewing={reviewing}
       />
+      <TemplateDialog
+        open={templateOpen}
+        onOpenChange={setTemplateOpen}
+        agents={agents}
+        templates={templates}
+        onSaved={setTemplates}
+      />
+      <AgentDetailDialog
+        agent={detailAgent}
+        runs={runs}
+        proposals={proposals}
+        reviewing={reviewing}
+        onClose={() => setDetailAgent(null)}
+        onOpenProposal={(p) => { setDetailAgent(null); setSelected(p) }}
+        onDispatch={(id) => { setDetailAgent(null); setDispatchAgent(id); setTab("pending") }}
+        onEdit={(a) => { setDetailAgent(null); setAgentDialog({ open: true, agent: a }) }}
+        onDelete={(a) => { setDetailAgent(null); void deleteAgent(a) }}
+      />
       <AgentDialog
         open={agentDialog.open}
         agent={agentDialog.agent}
@@ -422,11 +456,14 @@ export function AgentInboxView() {
 
 /* ---------------- 派活条 ---------------- */
 
-function DispatchBar({ agents, forcedAgent, onForcedAgentConsumed, onDispatched }: {
+function DispatchBar({ agents, forcedAgent, onForcedAgentConsumed, onDispatched, templates, onTemplatesChange, onManageTemplates }: {
   agents: Agent[]
   forcedAgent: string
   onForcedAgentConsumed: () => void
   onDispatched: () => void
+  templates: TaskTemplate[]
+  onTemplatesChange: (t: TaskTemplate[]) => void
+  onManageTemplates: () => void
 }) {
   const activeId = useWorkspaceStore((s) => s.activeId)
   const pages = useWorkspaceStore((s) => s.pages)
@@ -447,6 +484,37 @@ function DispatchBar({ agents, forcedAgent, onForcedAgentConsumed, onDispatched 
   useEffect(() => {
     if (!agentId && enabled.length > 0) setAgentId(enabled[0].id)
   }, [agentId, enabled])
+
+  function applyTemplate(id: string) {
+    const t = templates.find((item) => item.id === id)
+    if (!t) return
+    setPrompt(t.prompt)
+    if (t.agentId && enabled.some((a) => a.id === t.agentId)) setAgentId(t.agentId)
+    setPageId(t.pageId ?? "")
+    document.getElementById("agent-dispatch-input")?.focus()
+  }
+
+  async function saveAsTemplate() {
+    if (!activeId || !prompt.trim()) return
+    setSending(true)
+    try {
+      const next = [...templates, {
+        id: "",
+        name: prompt.trim().slice(0, 24) || tr("Untitled"),
+        prompt: prompt.trim(),
+        pageId: pageId || undefined,
+        agentId: agentId || undefined,
+        createdAt: new Date().toISOString(),
+      }]
+      const saved = await api.workspaces.saveTaskTemplates(activeId, next)
+      onTemplatesChange(saved.templates)
+      toast.success(tr("Template saved"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not save agent"))
+    } finally {
+      setSending(false)
+    }
+  }
 
   async function submit(event?: React.FormEvent) {
     event?.preventDefault()
@@ -496,10 +564,221 @@ function DispatchBar({ agents, forcedAgent, onForcedAgentConsumed, onDispatched 
           {tr("Dispatch")}
         </Button>
       </div>
-      <p className="mt-1.5 text-[11px] leading-4 text-muted-foreground">
-        {tr("Runs in the background — approval-mode results land here for review, auto-mode applies directly.")}
-      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <select
+          value=""
+          onChange={(e) => { if (e.target.value) applyTemplate(e.target.value) }}
+          className="h-7 rounded-md border bg-background px-1.5 text-[11px] text-muted-foreground outline-none"
+        >
+          <option value="">{templates.length ? tr("Use template… ({n})", { n: templates.length }) : tr("No templates yet")}</option>
+          {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        <button
+          type="button"
+          onClick={() => void saveAsTemplate()}
+          disabled={sending || !prompt.trim()}
+          className="flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-40"
+        >
+          <BookmarkPlus className="size-3" /> {tr("Save as template")}
+        </button>
+        <button
+          type="button"
+          onClick={onManageTemplates}
+          className="h-7 rounded-md px-2 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          {tr("Manage")}
+        </button>
+        <span className="ml-auto hidden text-[11px] leading-4 text-muted-foreground md:block">
+          {tr("Runs in the background — approval-mode results land here for review, auto-mode applies directly.")}
+        </span>
+      </div>
     </form>
+  )
+}
+
+/* ---------------- 任务模板管理 ---------------- */
+
+function TemplateDialog({ open, onOpenChange, agents, templates, onSaved }: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  agents: Agent[]
+  templates: TaskTemplate[]
+  onSaved: (t: TaskTemplate[]) => void
+}) {
+  const activeId = useWorkspaceStore((s) => s.activeId)
+  const pages = useWorkspaceStore((s) => s.pages)
+  const [items, setItems] = useState<TaskTemplate[]>([])
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) setItems(templates)
+  }, [open, templates])
+
+  async function save() {
+    if (!activeId || saving) return
+    const cleaned = items.filter((t) => t.name.trim() && t.prompt.trim())
+    setSaving(true)
+    try {
+      const saved = await api.workspaces.saveTaskTemplates(activeId, cleaned.map((t) => ({
+        ...t, name: t.name.trim(), prompt: t.prompt.trim(),
+      })))
+      onSaved(saved.templates)
+      toast.success(tr("Saved"))
+      onOpenChange(false)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not save agent"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90svh] max-w-xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{tr("Task templates")}</DialogTitle>
+          <DialogDescription>{tr("One click fills the dispatch bar — shared across this workspace.")}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          {items.length === 0 && (
+            <div className="rounded-xl border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">
+              {tr("No templates yet — save the current dispatch as a template.")}
+            </div>
+          )}
+          {items.map((t, i) => (
+            <div key={t.id || `new-${i}`} className="space-y-1.5 rounded-xl border p-2.5">
+              <div className="flex gap-1.5">
+                <Input value={t.name} onChange={(e) => setItems((prev) => prev.map((x, k) => (k === i ? { ...x, name: e.target.value } : x)))} placeholder={tr("Name")} className="h-8 flex-1 text-xs" />
+                <Button variant="ghost" size="sm" className="h-8 px-2 text-destructive" onClick={() => setItems((prev) => prev.filter((_, k) => k !== i))}>
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+              <textarea
+                value={t.prompt}
+                onChange={(e) => setItems((prev) => prev.map((x, k) => (k === i ? { ...x, prompt: e.target.value } : x)))}
+                rows={2}
+                placeholder={tr("Task")}
+                className="w-full rounded-md border bg-background px-2 py-1.5 text-xs outline-none focus:border-brand"
+              />
+              <div className="flex gap-1.5">
+                <select value={t.agentId ?? ""} onChange={(e) => setItems((prev) => prev.map((x, k) => (k === i ? { ...x, agentId: e.target.value } : x)))} className="h-7 flex-1 rounded-md border bg-background px-1.5 text-[11px] outline-none">
+                  <option value="">{tr("Any agent")}</option>
+                  {agents.map((a) => <option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+                </select>
+                <select value={t.pageId ?? ""} onChange={(e) => setItems((prev) => prev.map((x, k) => (k === i ? { ...x, pageId: e.target.value } : x)))} className="h-7 flex-1 rounded-md border bg-background px-1.5 text-[11px] outline-none">
+                  <option value="">{tr("Any page")}</option>
+                  {pages.filter((p) => !p.archived).slice(0, 200).map((p) => (
+                    <option key={p.id} value={p.id}>{p.title || tr("Untitled")}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-1"
+            onClick={() => setItems((prev) => [...prev, { id: `new-${Date.now()}`, name: "", prompt: "", createdAt: new Date().toISOString() }])}
+          >
+            <Plus className="size-3.5" /> {tr("New template")}
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>{tr("Cancel")}</Button>
+          <Button onClick={() => void save()} disabled={saving}>
+            {saving && <Loader2 className="size-3.5 animate-spin" />} {tr("Save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/* ---------------- Agent 详情 ---------------- */
+
+function AgentDetailDialog({ agent, runs, proposals, reviewing, onClose, onOpenProposal, onDispatch, onEdit, onDelete }: {
+  agent: Agent | null
+  runs: AgentRun[]
+  proposals: AIProposal[]
+  reviewing: boolean
+  onClose: () => void
+  onOpenProposal: (p: AIProposal) => void
+  onDispatch: (id: string) => void
+  onEdit: (a: Agent) => void
+  onDelete: (a: Agent) => void
+}) {
+  if (!agent) return null
+  const agentRuns = runs.filter((r) => r.agentId === agent.id)
+  const agentProposals = proposals.filter((p) => p.agentId === agent.id)
+  const pending = agentProposals.filter((p) => p.status === "pending").length
+  const done = agentRuns.filter((r) => r.status === "succeeded" || r.status === "failed")
+  const okRate = done.length ? Math.round((agentRuns.filter((r) => r.status === "succeeded").length / done.length) * 100) : null
+  const tokens = agentRuns.reduce((sum, r) => sum + (r.tokens ?? 0), 0)
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="max-h-[90svh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-brand-soft text-lg">{agent.icon}</span>
+            {agent.name}
+          </DialogTitle>
+          <DialogDescription>{agent.description || tr("No description")}</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            [String(pending), tr("Pending")],
+            [okRate === null ? "—" : `${okRate}%`, tr("Run success")],
+            [tokens > 0 ? (tokens > 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens)) : "—", tr("Tokens used")],
+            [String(agentRuns.length), tr("Runs")],
+          ].map(([v, label]) => (
+            <div key={label} className="rounded-xl border bg-muted/20 px-3 py-2 text-center">
+              <div className="text-base font-semibold tabular-nums">{v}</div>
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+            </div>
+          ))}
+        </div>
+        {agent.schedule?.enabled && (
+          <div className="flex items-center gap-1.5 rounded-lg border border-brand/25 bg-brand-soft/20 px-2.5 py-1.5 text-xs">
+            <Clock3 className="size-3.5 text-brand" />
+            {tr("Every {n}h", { n: agent.schedule.everyHours })} · “{agent.schedule.prompt}”
+            {agent.schedule.nextRun ? ` · ${tr("Next run")} ${formatRelative(agent.schedule.nextRun)}` : ""}
+          </div>
+        )}
+        <div className="space-y-1.5">
+          <div className="text-xs font-semibold">{tr("Recent runs")}</div>
+          {agentRuns.length === 0 && <div className="text-[11px] text-muted-foreground">{tr("No runs yet")}</div>}
+          {agentRuns.slice(0, 5).map((r) => (
+            <div key={r.id} className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs">
+              <span className="size-1.5 shrink-0 rounded-full" style={{
+                background: r.status === "succeeded" ? "#10b981" : r.status === "failed" ? "#ef4444" : r.status === "running" ? "#3b82f6" : "#a1a1aa",
+              }} />
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">“{r.prompt}”</span>
+              <span className="shrink-0 text-[10px] text-muted-foreground">{formatRelative(r.createdAt)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-1.5">
+          <div className="text-xs font-semibold">{tr("Recent proposals")}</div>
+          {agentProposals.length === 0 && <div className="text-[11px] text-muted-foreground">{tr("No AI proposals yet.")}</div>}
+          {agentProposals.slice(0, 5).map((p) => (
+            <button key={p.id} type="button" onClick={() => onOpenProposal(p)} className="flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition hover:border-brand/30">
+              <span className={statusClass(p.status)}>{tr(p.status)}</span>
+              <span className="min-w-0 flex-1 truncate font-medium">{p.pageTitle || tr("Untitled")}</span>
+              <span className="shrink-0 text-[10px] text-muted-foreground">{formatRelative(p.createdAt)}</span>
+            </button>
+          ))}
+        </div>
+        <DialogFooter className="gap-1.5">
+          {!agent.isDefault && (
+            <Button variant="ghost" className="mr-auto gap-1 text-destructive hover:text-destructive" onClick={() => onDelete(agent)}>
+              <Trash2 className="size-3.5" /> {tr("Delete")}
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => onEdit(agent)} className="gap-1.5"><Pencil className="size-3.5" /> {tr("Edit")}</Button>
+          <Button onClick={() => onDispatch(agent.id)} disabled={!agent.enabled || reviewing} className="gap-1.5"><Play className="size-3.5" /> {tr("Dispatch")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

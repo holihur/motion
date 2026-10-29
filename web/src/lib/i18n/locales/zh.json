@@ -1009,5 +1009,19 @@
   "Scheduled": "定时",
   "Queued…": "排队中…",
   "Running…": "运行中…",
-  "{n} proposal(s)": "{n} 条提案"
+  "{n} proposal(s)": "{n} 条提案",
+  "Any agent": "任意 Agent",
+  "Manage": "管理",
+  "New template": "新建模板",
+  "No templates yet": "还没有模板",
+  "No templates yet — save the current dispatch as a template.": "还没有模板——可以把当前输入存为模板。",
+  "One click fills the dispatch bar — shared across this workspace.": "一键填入派活条——本工作区共享。",
+  "Recent proposals": "最近的提案",
+  "Recent runs": "最近运行",
+  "Run success": "运行成功率",
+  "Save as template": "存为模板",
+  "Task templates": "任务模板",
+  "Template saved": "模板已保存",
+  "Tokens used": "Token 消耗",
+  "Use template… ({n})": "使用模板…（{n}）"
 }

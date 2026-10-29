@@ -42,7 +42,22 @@ export function createBlock(type: BlockType = "paragraph"): Block {
       : {}),
     ...(type === "jsonVisual"
       ? {
-          text: JSON.stringify({ chart: [{ name: "A", value: 40 }, { name: "B", value: 30 }, { name: "C", value: 30 }], title: "示例：粘贴你的 JSON" }, null, 2),
+          text: JSON.stringify(
+            {
+              direction: "LR",
+              nodes: [
+                { id: "start", label: "开始", x: 100, y: 220, color: "blue", shape: "ellipse" },
+                { id: "step", label: "双击改字", x: 320, y: 220, color: "violet", shape: "rect" },
+                { id: "check", label: "判断条件?", x: 540, y: 220, color: "amber", shape: "diamond" },
+              ],
+              edges: [
+                { from: "start", to: "step" },
+                { from: "step", to: "check", label: "下一步" },
+              ],
+            },
+            null,
+            2,
+          ),
         }
       : {}),
     ...(type === "gantt" ? { table: defaultGanttTable() } : {}),

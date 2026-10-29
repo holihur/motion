@@ -253,6 +253,16 @@ function videoEmbed(value: string) {
       const id = url.pathname.split("/").filter(Boolean).pop()
       if (id && /^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`
     }
+    if (host.includes("bilibili.com")) {
+      const avid = url.searchParams.get("aid")
+      const bvid = url.pathname.match(/(BV\w+)/)?.[1] ?? url.searchParams.get("bvid")
+      if (bvid) return `https://player.bilibili.com/player.html?bvid=${bvid}`
+      if (avid) return `https://player.bilibili.com/player.html?aid=${avid}`
+    }
+    if (host.endsWith("youku.com")) {
+      const id = url.pathname.split("/").filter(Boolean).pop()
+      if (id) return `https://player.youku.com/embed/${id}`
+    }
   } catch {
     return null
   }

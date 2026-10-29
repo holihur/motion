@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Check, ClipboardList, Eye, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
+import { Check, ClipboardList, Eye, GripVertical, Loader2, Pencil, Plus, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import type { Block, FormData, FormField } from "@/lib/types"
@@ -144,7 +144,37 @@ export function FormBlock({
                   <label className="flex items-center gap-1 text-[10px] text-muted-foreground"><input type="checkbox" checked={field.required} onChange={(event) => setField(index, { required: event.target.checked })} /> {tr("Required")}</label>
                   <button type="button" onClick={() => removeField(index)} aria-label={tr("Remove field")} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><X className="size-3.5" /></button>
                 </div>
-                {field.type === "select" && <Input value={(field.options ?? []).join(", ")} onChange={(event) => setField(index, { options: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) })} placeholder={tr("Options, comma separated")} className="h-8 text-xs" />}
+                {field.type === "select" && (
+                  <div className="space-y-1.5">
+                    {(field.options ?? []).map((opt, optIndex) => (
+                      <div key={optIndex} className="flex items-center gap-1.5">
+                        <span className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/50">
+                          <GripVertical className="size-3" />
+                        </span>
+                        <Input value={opt} onChange={(event) => {
+                          const next = [...(field.options ?? [])]
+                          next[optIndex] = event.target.value
+                          setField(index, { options: next })
+                        }} placeholder={`${tr("Option")} ${optIndex + 1}`} className="h-7 flex-1 text-xs" />
+                        <button type="button" onClick={() => setField(index, { options: (field.options ?? []).filter((_, i) => i !== optIndex) })} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><X className="size-3" /></button>
+                        <button type="button" disabled={optIndex === 0} onClick={() => {
+                          const next = [...(field.options ?? [])]
+                          const tmp = next[optIndex]; next[optIndex] = next[optIndex-1]; next[optIndex-1] = tmp
+                          setField(index, { options: next })
+                        }} className="rounded p-1 text-muted-foreground hover:bg-accent disabled:opacity-30">↑</button>
+                        <button type="button" disabled={optIndex === (field.options ?? []).length - 1} onClick={() => {
+                          const next = [...(field.options ?? [])]
+                          const tmp = next[optIndex]; next[optIndex] = next[optIndex+1]; next[optIndex+1] = tmp
+                          setField(index, { options: next })
+                        }} className="rounded p-1 text-muted-foreground hover:bg-accent disabled:opacity-30">↓</button>
+                      </div>
+                    ))}
+                    <div className="flex gap-1.5">
+                      <Input value={(field.options ?? []).join(", ")} onChange={(event) => setField(index, { options: event.target.value.split(",").map((item) => item.trim()).filter(Boolean) })} placeholder={tr("Options, comma separated")} className="h-7 flex-1 text-xs" />
+                      <button type="button" onClick={() => setField(index, { options: [...(field.options ?? []), `${tr("Option")} ${(field.options ?? []).length + 1}`] })} className="rounded border px-2 py-1 text-[10px] hover:bg-accent">+ {tr("Option")}</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             <button type="button" onClick={addField} className="flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="size-3" /> {tr("Add field")}</button>

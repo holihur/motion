@@ -449,8 +449,15 @@ export function EquationBlock({
         <Sigma className="size-3" /> {tr("Equation")}
         <button
           type="button"
+          onClick={() => void navigator.clipboard.writeText(block.text).then(() => toast.success(tr("Copied to clipboard")), () => toast.error(tr("Could not copy")))}
+          className="ml-auto rounded px-1.5 py-0.5 text-[10px] transition hover:bg-accent hover:text-foreground"
+        >
+          {tr("Copy")}
+        </button>
+        <button
+          type="button"
           onClick={() => setEditing((value) => !value)}
-          className="ml-auto rounded px-2 py-0.5 text-[10px] transition hover:bg-accent hover:text-foreground"
+          className="rounded px-2 py-0.5 text-[10px] transition hover:bg-accent hover:text-foreground"
         >
           {editing ? tr("Preview") : tr("Edit source")}
         </button>

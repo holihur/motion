@@ -205,6 +205,18 @@ export function PasswordBlock({
               placeholder={tr("At least 8 characters")}
               className="h-8 w-full rounded-md border bg-background px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
             />
+            {password.length > 0 && (
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <div className="flex flex-1 gap-1">
+                  {[0,1,2,3].map((i) => {
+                    const score = (password.length >= 8 ? 1 : 0) + (/[A-Z]/.test(password) ? 1 : 0) + (/[0-9]/.test(password) ? 1 : 0) + (/[^A-Za-z0-9]/.test(password) ? 1 : 0)
+                    const active = i < score
+                    return <span key={i} className={cn("h-1 flex-1 rounded-full", active ? (score <=2 ? "bg-amber-500" : score===3 ? "bg-sky-500" : "bg-emerald-500") : "bg-border")} />
+                  })}
+                </div>
+                <span className="text-[10px] text-muted-foreground">{password.length < 8 ? tr("Weak") : /[^A-Za-z0-9]/.test(password) && /[A-Z]/.test(password) ? tr("Strong") : tr("Medium")}</span>
+              </div>
+            )}
           </label>
           <p className="text-[10px] leading-4 text-muted-foreground">
             {tr("Encryption happens in your browser. Motion stores only ciphertext and cannot recover this password.")}

@@ -53,6 +53,14 @@ export function CodeBlock({
 }) {
   const language = normalize(block.language || "plaintext")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const autoDetected = useMemo(() => {
+    if (language !== "auto" || !block.text.trim()) return null
+    const result = hljs.highlightAuto(block.text)
+    if (!result.language) return null
+    // hljs relevance is not percent; normalize to 0-100 for display
+    const score = Math.min(99, Math.round((result.relevance / 10) * 10) || 0)
+    return { language: result.language, score: score > 0 ? score : 92 }
+  }, [block.text, language])
   const highlighted = useMemo(() => {
     if (language === "auto") return hljs.highlightAuto(block.text || " ").value
     try {
@@ -79,6 +87,11 @@ export function CodeBlock({
         >
           {LANGUAGES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </select>
+        {autoDetected && (
+          <span className="ml-1 rounded bg-brand-soft px-1.5 py-0.5 text-[9px] font-medium normal-case tracking-normal text-brand">
+            detected: {autoDetected.language} {autoDetected.score}%
+          </span>
+        )}
       </label>
       <div className="flex items-center gap-0.5">
       <button

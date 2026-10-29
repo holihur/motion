@@ -672,7 +672,8 @@ export function BlockRow(props: BlockRowProps) {
           </div>
         )
       }
-      case "diagram":
+      case "diagram": {
+        const zoom = Number(block.align ?? "100") || 100
         return (
           <div className="my-2 overflow-hidden rounded-lg border border-border/80 bg-card">
             <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5">
@@ -680,6 +681,13 @@ export function BlockRow(props: BlockRowProps) {
               <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 Mermaid diagram
               </span>
+              {!diagramEditing && (
+                <div className="ml-auto flex items-center gap-1">
+                  <button type="button" onClick={() => onUpdate({ align: String(Math.max(50, zoom - 10)) })} className="rounded px-1.5 py-0.5 text-[10px] hover:bg-accent">−</button>
+                  <span className="text-[10px] text-muted-foreground">{zoom}%</span>
+                  <button type="button" onClick={() => onUpdate({ align: String(Math.min(200, zoom + 10)) })} className="rounded px-1.5 py-0.5 text-[10px] hover:bg-accent">+</button>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setDiagramEditing((value) => !value)}
@@ -706,7 +714,9 @@ export function BlockRow(props: BlockRowProps) {
             )}
           </div>
         )
-      case "divider":
+      }
+      case "divider": {
+        const style = (block.color as string) || "solid"
         return (
           <div className="py-3">
             <div
@@ -715,12 +725,20 @@ export function BlockRow(props: BlockRowProps) {
               tabIndex={0}
               onKeyDown={deleteDividerFocused}
               onFocus={() => onFocusBlock?.(block.id)}
-              className="rounded-sm py-1 outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+              className="group/divider rounded-sm py-1 outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
             >
-              <hr className="border-border" />
+              <hr className={style === "dashed" ? "border-dashed" : style === "dotted" ? "border-dotted" : "border-solid"} style={{ borderColor: "var(--border)" }} />
+              {!readOnly && (
+                <div className="mt-1 hidden justify-center gap-1 opacity-0 transition-opacity group-hover/divider:opacity-100 group-focus-within/divider:opacity-100 sm:flex">
+                  {["solid","dashed","dotted"].map((s) => (
+                    <button key={s} type="button" onClick={() => onUpdate({ color: s })} className={cn("rounded px-2 py-0.5 text-[10px] capitalize", style===s ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent")}>{s}</button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )
+      }
       case "password":
         return (
           <PasswordBlock

@@ -285,11 +285,23 @@ export function VideoBlock({
   block: Block; readOnly: boolean; autoFocus?: boolean; onUpdate: (patch: Partial<Block>) => void
 }) {
   const [editing, setEditing] = useState(!block.url)
+  const [coverLoaded, setCoverLoaded] = useState(false)
   useEffect(() => { if (!block.url) setEditing(true) }, [block.url])
   if (editing) {
     return <LinkPrompt block={block} kind="video" readOnly={readOnly} autoFocus={autoFocus} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
   }
   const embed = videoEmbed(block.url ?? "")
+  const cover = (() => {
+    try {
+      const u = new URL(block.url ?? "")
+      if (u.hostname.includes("youtube")) {
+        const id = u.searchParams.get("v") ?? ""
+        if (id) return `https://img.youtube.com/vi/${id}/hqdefault.jpg`
+      }
+      if (u.hostname === "youtu.be") return `https://img.youtube.com/vi/${u.pathname.slice(1)}/hqdefault.jpg`
+    } catch {}
+    return ""
+  })()
   return (
     <div className="group relative my-2">
       {embed ? (

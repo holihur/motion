@@ -87,9 +87,9 @@ func (c Config) OIDCEnabled() bool {
 }
 
 func (c Config) Validate() {
-	isProd := strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV"))) != "development" && strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV"))) != "test"
+	isProd := strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV"))) == "production"
 	if isProd && c.JWTSecret == "motion-dev-secret-change-me" {
-		log.Fatal("JWT_SECRET must be set to a strong random value in production (GO_ENV != development)")
+		log.Fatal("JWT_SECRET must be set to a strong random value in production (GO_ENV=production)")
 	}
 	if c.EncryptionKey == "motion-dev-secret-change-me" && isProd {
 		log.Fatal("ENCRYPTION_KEY must be set to a strong random value in production")

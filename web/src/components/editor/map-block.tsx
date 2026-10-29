@@ -3,6 +3,7 @@ import { ExternalLink, Loader2, Map as MapIcon, Search } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import type { Block, MapData, MapProvider } from "@/lib/types"
+import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { Button } from "@/components/ui/button"
@@ -70,6 +71,7 @@ export function MapBlock({
     setDraft({ lat: String(data.lat), lng: String(data.lng), label: data.label ?? "", zoom: String(data.zoom ?? 12) })
   }, [data.lat, data.lng, data.label, data.zoom])
 
+  const [picking, setPicking] = useState(false)
   const provider = data.provider ?? "mapbox"
   const gcj = wgs84ToGcj02(data.lat, data.lng)
   const bd = gcj02ToBd09(gcj.lat, gcj.lng)
@@ -143,6 +145,9 @@ export function MapBlock({
         >
           {PROVIDERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
         </select>
+        {!readOnly && (
+          <button type="button" onClick={() => setPicking((v) => !v)} className={cn("rounded px-2 py-1 text-[10px]", picking ? "bg-brand text-white" : "bg-muted hover:bg-accent")}>{picking ? tr("Picking…") : tr("Pick on map")}</button>
+        )}
         <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{data.label || tr("Untitled location")}</span>
         {provider === "mapbox" && !mapbox && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] text-amber-700 dark:text-amber-300">{tr("Mapbox token not configured")}</span>}
         <a href={openURL} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground">
@@ -150,12 +155,24 @@ export function MapBlock({
         </a>
       </div>
 
-      <div className="relative">
+      <div className="relative" onClick={(e) => {
+        if (!picking || readOnly) return
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+        const x = (e.clientX - rect.left) / rect.width - 0.5
+        const y = (e.clientY - rect.top) / rect.height - 0.5
+        const delta = 360 / Math.pow(2, Math.max(2, Math.min(18, data.zoom ?? 12)))
+        const lat = data.lat - y * delta * 0.6
+        const lng = data.lng + x * delta
+        onUpdate({ map: { ...data, lat, lng } })
+        setPicking(false)
+        toast.success(tr("Map location updated"))
+      }}>
         {provider === "mapbox" && mapbox ? (
-          <img src={src} alt={data.label || "Map"} className="h-[320px] w-full object-cover" loading="lazy" />
+          <img src={src} alt={data.label || "Map"} className={cn("h-[320px] w-full object-cover", picking && "cursor-crosshair ring-2 ring-brand")} loading="lazy" />
         ) : (
-          <iframe src={src} title={data.label || "Map"} loading="lazy" className="h-[320px] w-full border-0" referrerPolicy="no-referrer-when-downgrade" />
+          <iframe src={src} title={data.label || "Map"} loading="lazy" className={cn("h-[320px] w-full border-0", picking && "pointer-events-none")} referrerPolicy="no-referrer-when-downgrade" />
         )}
+        {picking && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-brand/10 text-xs font-medium text-brand">{tr("Click to set location")}</div>}
       </div>
 
       {!readOnly && (

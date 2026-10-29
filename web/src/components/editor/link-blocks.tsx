@@ -150,7 +150,22 @@ export function ColumnsBlock({
   const table = block.table ?? defaultColumnsTable()
   const columns = table.columns.length >= 2 ? table.columns : defaultColumnsTable().columns
   const cells = columns.map((_, index) => table.rows[0]?.[index] ?? "")
+  const widths = columns.map((_, i) => table.widths?.[i] ?? 100 / columns.length)
   const grid = columns.length >= 4 ? "sm:grid-cols-4" : columns.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"
+  function resizeColumn(e: React.MouseEvent, index: number) {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = widths[index]
+    const onMove = (ev: MouseEvent) => {
+      const delta = ((ev.clientX - startX) / window.innerWidth) * 100
+      const next = Math.max(15, Math.min(70, startW + delta * (columns.length / 2)))
+      const rest = (100 - next) / (columns.length - 1)
+      const newWidths = widths.map((w, i) => i === index ? next : rest)
+      onUpdate({ table: { ...table, widths: newWidths } })
+    }
+    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
+    window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp)
+  }
 
   function save(nextCells: string[], nextColumns = columns) {
     onUpdate({ table: { columns: nextColumns, rows: [nextCells], header: false } })
@@ -178,9 +193,12 @@ export function ColumnsBlock({
           </div>
         )}
       </div>
-      <div className={cn("grid grid-cols-1 gap-2", grid)}>
+      <div className={cn("relative grid grid-cols-1 gap-2", grid)}>
         {cells.map((cell, index) => (
-          <div key={index} className="min-w-0 rounded-lg border border-border/50 bg-background/40 p-2">
+          <div key={index} className="relative min-w-0 rounded-lg border border-border/50 bg-background/40 p-2">
+            {!readOnly && index < cells.length - 1 && (
+              <span onMouseDown={(e) => resizeColumn(e as unknown as React.MouseEvent, index)} className="absolute -right-1 top-0 hidden h-full w-1 cursor-col-resize bg-transparent hover:bg-brand/40 sm:block" />
+            )}
             {readOnly ? (
               <div className="whitespace-pre-wrap text-[13px] leading-6">{cell || <span className="text-muted-foreground/50">—</span>}</div>
             ) : (

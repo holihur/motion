@@ -7,7 +7,6 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { tr } from "@/lib/i18n"
 import { useAuthStore } from "@/stores/auth"

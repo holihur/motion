@@ -379,7 +379,7 @@ func (s *Server) runAgent(w http.ResponseWriter, r *http.Request) {
 		"agent.run.queued", "agent", agent.ID.Hex(), "Queued task for "+agent.Name)
 	go s.executeAgentRun(agent, user, setting, prompt, pageHex, run.ID)
 	writeJSON(w, http.StatusAccepted, map[string]any{
-		"runId": runID.Hex(), "agentId": agent.ID.Hex(), "status": "queued",
+		"runId": run.ID.Hex(), "agentId": agent.ID.Hex(), "status": "queued",
 	})
 }
 
@@ -397,7 +397,7 @@ func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting mod
 			UserID: user.ID, WorkspaceID: agent.WorkspaceID,
 			ActorID: agent.ID, ActorName: agent.Name,
 			Type: "agent_failed", Title: "任务失败：" + agent.Name,
-			Body: truncateRunes(prompt, 80) + " — " + msg,
+			Body:   truncateRunes(prompt, 80) + " — " + msg,
 			PageID: pageHex,
 		})
 		s.hub.BroadcastWorkspace(agent.WorkspaceID.Hex(), map[string]any{

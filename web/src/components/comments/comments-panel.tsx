@@ -220,9 +220,11 @@ export function CommentsPanel({
                     currentUserId={user?.id}
                     replyOpen={false}
                     replyBody=""
+                    members={members}
                     pending={pending}
                     onReplyOpen={() => undefined}
                     onReplyChange={() => undefined}
+                    onReplyMentions={() => undefined}
                     onReplySubmit={() => undefined}
                     onResolve={() => void toggleResolved(comment)}
                     onDelete={() => setDeleteTarget(comment)}

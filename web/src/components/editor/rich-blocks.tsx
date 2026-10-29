@@ -472,6 +472,21 @@ export function TocBlock({
   headings: HeadingItem[]
   readOnly: boolean
 }) {
+  const [activeId, setActiveId] = useState<string | null>(null)
+  useEffect(() => {
+    const ids = headings.map((h) => h.id)
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) if (entry.isIntersecting) { setActiveId(entry.target.getAttribute("data-block-id")); break }
+      },
+      { rootMargin: "-40% 0px -55% 0px", threshold: 0 }
+    )
+    ids.forEach((id) => {
+      const el = document.querySelector<HTMLElement>(`[data-block-id="${id}"]`)
+      if (el) observer.observe(el)
+    })
+    return () => observer.disconnect()
+  }, [headings])
   return (
     <div
       id={`block-input-${block.id}`}
@@ -496,13 +511,14 @@ export function TocBlock({
                 if (!readOnly) window.dispatchEvent(new CustomEvent("motion:focus-block", { detail: { id: heading.id, where: "end" } }))
               }}
               className={cn(
-                "flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs text-muted-foreground transition hover:bg-accent hover:text-foreground",
-                heading.level === 1 && "font-medium text-foreground",
+                "flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs transition hover:bg-accent hover:text-foreground",
+                heading.level === 1 && "font-medium",
                 heading.level === 2 && "pl-4",
                 heading.level === 3 && "pl-7 text-[11px]",
+                activeId === heading.id ? "bg-brand-soft font-medium text-brand" : "text-muted-foreground",
               )}
             >
-              <Hash className="size-3 shrink-0 opacity-50" />
+              <Hash className={cn("size-3 shrink-0", activeId === heading.id ? "opacity-100" : "opacity-50")} />
               <span className="truncate">{heading.text || tr("Untitled heading")}</span>
             </button>
           ))}

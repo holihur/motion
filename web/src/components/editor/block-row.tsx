@@ -441,6 +441,19 @@ export function BlockRow(props: BlockRowProps) {
           window.addEventListener("mousemove", onMove)
           window.addEventListener("mouseup", onUp)
         }
+        const sortByColumn = (index: number) => {
+          const current = (table as unknown as { _sortColumn?: number; _sortDir?: "asc"|"desc" })
+          const dir = current._sortColumn === index && current._sortDir === "asc" ? "desc" : "asc"
+          const sorted = [...table.rows].sort((a, b) => {
+            const av = a[index] ?? ""
+            const bv = b[index] ?? ""
+            const an = Number(av), bn = Number(bv)
+            if (!Number.isNaN(an) && !Number.isNaN(bn) && av !== "" && bv !== "") return dir === "asc" ? an - bn : bn - an
+            return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av)
+          })
+          updateTable({ ...table, rows: sorted } as typeof table)
+          // store sort state in a non-persisted way via closure is not persisted; we just sort
+        }
         const focusCell = (rowIndex: number, columnIndex: number) => {
           window.setTimeout(() => {
             document.getElementById(`table-cell-${block.id}-${rowIndex}-${columnIndex}`)?.focus()
@@ -562,6 +575,17 @@ export function BlockRow(props: BlockRowProps) {
                             style={{ textAlign: aligns[columnIndex] }}
                             placeholder={`Column ${columnIndex + 1}`}
                           />
+                          {!readOnly && (
+                            <button
+                              type="button"
+                              onClick={() => sortByColumn(columnIndex)}
+                              aria-label="Sort column"
+                              title="Sort column"
+                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition group-hover/head:text-muted-foreground hover:bg-accent hover:text-foreground"
+                            >
+                              <ArrowUp className="size-3" />
+                            </button>
+                          )}
                           {!readOnly && (
                             <button
                               type="button"

@@ -40,6 +40,11 @@ export function createBlock(type: BlockType = "paragraph"): Block {
           },
         }
       : {}),
+    ...(type === "jsonVisual"
+      ? {
+          text: JSON.stringify({ chart: [{ name: "A", value: 40 }, { name: "B", value: 30 }, { name: "C", value: 30 }], title: "示例：粘贴你的 JSON" }, null, 2),
+        }
+      : {}),
     ...(type === "gantt" ? { table: defaultGanttTable() } : {}),
     ...(type === "chart" ? { table: defaultChartTable(), language: "bar" } : {}),
     ...(type === "columns" ? { table: defaultColumnsTable() } : {}),

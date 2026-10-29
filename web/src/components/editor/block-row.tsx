@@ -61,6 +61,7 @@ import { LexicalBlock } from "@/components/editor/lexical-block"
 import { PasswordBlock } from "@/components/editor/password-block"
 import { CodeBlock } from "@/components/editor/code-block"
 import { DatabaseBlock } from "@/components/editor/database-block"
+import { JsonVisualBlock } from "@/components/editor/json-visual-block"
 import { ChartBlock, GanttBlock } from "@/components/editor/data-blocks"
 import { BarcodeBlock, QRCodeBlock } from "@/components/editor/code-image-blocks"
 import { FormBlock } from "@/components/editor/form-block"
@@ -697,6 +698,8 @@ export function BlockRow(props: BlockRowProps) {
         return <EquationBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "toc":
         return <TocBlock block={block} headings={headings} readOnly={readOnly} />
+      case "jsonVisual":
+        return <JsonVisualBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
       case "database":
         return <DatabaseBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
       case "gantt":

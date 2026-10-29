@@ -35,6 +35,7 @@ export type BlockType =
   | "pageLink"
   | "breadcrumb"
   | "columns"
+  | "jsonVisual"
 
 export interface TableData {
   columns: string[]

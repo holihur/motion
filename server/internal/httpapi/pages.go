@@ -32,6 +32,7 @@ var blockTypes = map[string]bool{
 	"image":          true,
 	"table":          true,
 	"database":       true,
+	"jsonVisual":     true,
 	"diagram":        true,
 	"password":       true,
 	"bookmark":       true,

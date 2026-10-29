@@ -199,13 +199,23 @@ export function BookmarkBlock({
 }) {
   const [editing, setEditing] = useState(!block.url)
   const [iconState, setIconState] = useState<"loading" | "ok" | "error">("loading")
+  const [ogTitle, setOgTitle] = useState<string | null>(null)
   useEffect(() => { if (!block.url) setEditing(true) }, [block.url])
   useEffect(() => { setIconState(faviconFor(block.url ?? "") ? "loading" : "error") }, [block.url])
+  useEffect(() => {
+    if (!block.url || block.text) return
+    const url = block.url
+    // Light OG fetch via microlink fallback; silent fail
+    fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`)
+      .then((r) => r.json())
+      .then((j) => { if (j?.data?.title) setOgTitle(j.data.title) })
+      .catch(() => {})
+  }, [block.url, block.text])
   if (editing) {
     return <LinkPrompt block={block} kind="bookmark" readOnly={readOnly} autoFocus={autoFocus} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
   }
   const url = safeHttpUrl(block.url ?? "")
-  const title = block.text || hostFor(block.url ?? "")
+  const title = block.text || ogTitle || hostFor(block.url ?? "")
   return (
     <div className="group relative my-2">
       <a

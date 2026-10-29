@@ -167,17 +167,38 @@ func (s *Server) downloadFile(w http.ResponseWriter, r *http.Request) {
 	defer stream.Close()
 	meta := stream.GetFile()
 	contentType := "application/octet-stream"
+	var workspaceID primitive.ObjectID
 	if len(meta.Metadata) > 0 {
 		var data struct {
-			ContentType string `bson:"contentType"`
+			ContentType string             `bson:"contentType"`
+			WorkspaceID primitive.ObjectID `bson:"workspaceId"`
 		}
-		if bson.Unmarshal(meta.Metadata, &data) == nil && data.ContentType != "" {
-			contentType = data.ContentType
+		if bson.Unmarshal(meta.Metadata, &data) == nil {
+			if data.ContentType != "" {
+				contentType = data.ContentType
+			}
+			workspaceID = data.WorkspaceID
 		}
 	}
 	if contentType == "application/octet-stream" {
 		if detected := mime.TypeByExtension(filepath.Ext(meta.Name)); detected != "" {
 			contentType = detected
+		}
+	}
+	// Non-image files require workspace membership; images are allowed anonymously for <img> but with private cache
+	if !strings.HasPrefix(strings.ToLower(contentType), "image/") {
+		info := authFrom(r.Context())
+		if info == nil {
+			writeErr(w, http.StatusUnauthorized, "authentication required")
+			return
+		}
+		if workspaceID.IsZero() {
+			writeErr(w, http.StatusForbidden, "file workspace unknown")
+			return
+		}
+		if _, _, err := s.accessibleWorkspaceFor(r.Context(), workspaceID, info.UserID); err != nil {
+			writeErr(w, http.StatusForbidden, "you do not have access to this file")
+			return
 		}
 	}
 	w.Header().Set("Content-Type", contentType)

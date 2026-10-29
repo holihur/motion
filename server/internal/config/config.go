@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -43,7 +44,7 @@ type Config struct {
 }
 
 func Load() Config {
-	return Config{
+	cfg := Config{
 		Port:                env("PORT", "8787"),
 		MongoURI:            env("MONGODB_URI", "mongodb://127.0.0.1:27017"),
 		MongoDB:             env("MONGODB_DB", "motion"),
@@ -78,10 +79,27 @@ func Load() Config {
 		OIDCAllowedDomains:  split(env("OIDC_ALLOWED_DOMAINS", "")),
 		OIDCAutoCreate:      env("OIDC_AUTO_CREATE", "true") == "true",
 	}
+	return cfg
 }
 
 func (c Config) OIDCEnabled() bool {
 	return c.OIDCIssuer != "" && c.OIDCClientID != "" && c.OIDCClientSecret != ""
+}
+
+func (c Config) Validate() {
+	isProd := strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV"))) != "development" && strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV"))) != "test"
+	if isProd && c.JWTSecret == "motion-dev-secret-change-me" {
+		log.Fatal("JWT_SECRET must be set to a strong random value in production (GO_ENV != development)")
+	}
+	if c.EncryptionKey == "motion-dev-secret-change-me" && isProd {
+		log.Fatal("ENCRYPTION_KEY must be set to a strong random value in production")
+	}
+	if c.JWTSecret == c.EncryptionKey && c.JWTSecret != "motion-dev-secret-change-me" && os.Getenv("ALLOW_KEY_REUSE") != "true" {
+		log.Fatal("JWT_SECRET and ENCRYPTION_KEY must be different; set ALLOW_KEY_REUSE=true to override")
+	}
+	if c.JWTSecret == "motion-dev-secret-change-me" || c.EncryptionKey == "motion-dev-secret-change-me" {
+		log.Printf("WARNING: using development secrets; do not expose this instance")
+	}
 }
 
 func env(key, fallback string) string {

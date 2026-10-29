@@ -23,9 +23,7 @@ import (
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
 	cfg := config.Load()
-	if os.Getenv("JWT_SECRET") == "" || os.Getenv("ENCRYPTION_KEY") == "" {
-		slog.Warn("using built-in development secrets; set JWT_SECRET and ENCRYPTION_KEY before exposing this instance")
-	}
+	cfg.Validate()
 
 	for _, arg := range os.Args[1:] {
 		if arg == "-version" || arg == "--version" || arg == "version" {
@@ -69,7 +67,7 @@ func main() {
 		if err := seed.SeedDemo(seedCtx, st); err != nil {
 			slog.Warn("demo seed skipped", "error", err)
 		} else {
-			slog.Info("demo account ready", "email", "demo@motion.app", "password", "demo1234")
+			slog.Info("demo account ready", "email", "demo@motion.app")
 		}
 		cancel()
 	}

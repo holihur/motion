@@ -185,10 +185,28 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		if endpoint := strings.TrimSpace(req.Config["endpoint"]); endpoint != "" {
+			if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
+				endpoint = "https://" + endpoint
+			}
+			if err := validatePublicWebhookURL(endpoint); err != nil {
+				writeErr(w, http.StatusBadRequest, "endpoint "+err.Error())
+				return
+			}
+		}
 	} else if provider == "tencent_cos" {
 		for _, key := range []string{"bucket", "region"} {
 			if strings.TrimSpace(req.Config[key]) == "" {
 				writeErr(w, http.StatusBadRequest, key+" is required")
+				return
+			}
+		}
+		if endpoint := strings.TrimSpace(req.Config["endpoint"]); endpoint != "" {
+			if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
+				endpoint = "https://" + endpoint
+			}
+			if err := validatePublicWebhookURL(endpoint); err != nil {
+				writeErr(w, http.StatusBadRequest, "endpoint "+err.Error())
 				return
 			}
 		}
@@ -199,10 +217,25 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		if endpoint := strings.TrimSpace(req.Config["publicBaseUrl"]); endpoint != "" {
+			if err := validatePublicWebhookURL(endpoint); err != nil {
+				writeErr(w, http.StatusBadRequest, "publicBaseUrl "+err.Error())
+				return
+			}
+		}
 	} else if provider == "s3" {
 		for _, key := range []string{"endpoint", "bucket"} {
 			if strings.TrimSpace(req.Config[key]) == "" {
 				writeErr(w, http.StatusBadRequest, key+" is required")
+				return
+			}
+		}
+		if endpoint := strings.TrimSpace(req.Config["endpoint"]); endpoint != "" {
+			if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
+				endpoint = "https://" + endpoint
+			}
+			if err := validatePublicWebhookURL(endpoint); err != nil {
+				writeErr(w, http.StatusBadRequest, "endpoint "+err.Error())
 				return
 			}
 		}

@@ -317,16 +317,55 @@ export function HomeView() {
             </>
           )}
 
-          <div className="mt-16 flex items-center gap-2.5 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-[11px] text-muted-foreground">
-            <Sparkles className="size-3.5 text-brand" />
-            <span>
-              {tr("Tip: press")} <kbd className="rounded border bg-background px-1 py-0.5 font-sans">{modKey()}</kbd>{" "}
-              <kbd className="rounded border bg-background px-1 py-0.5 font-sans">K</kbd> {tr("to search")}.
-            </span>
-          </div>
+          <HomeFooter />
         </div>
       </div>
     </>
+  )
+}
+
+function HomeFooter() {
+  const [index, setIndex] = useState(0)
+  const tips = useMemo(() => [
+    { icon: Search, text: `${tr("Tip: press")} ${modKey()} + K ${tr("to search")}`, sub: tr("Search across every page in this workspace") },
+    { icon: FilePlus2, text: `${tr("Type / to insert any block")}`, sub: tr("Headings, lists, tables, code and more") },
+    { icon: Star, text: tr("Select text to leave a comment"), sub: tr("Collaborate without leaving the page") },
+  ], [])
+  useEffect(() => {
+    const id = window.setInterval(() => setIndex((i) => (i + 1) % tips.length), 4000)
+    return () => window.clearInterval(id)
+  }, [tips.length])
+  const tip = tips[index]
+  const TipIcon = tip.icon
+  return (
+    <div className="mt-16 overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-muted/40 via-background to-brand-soft/20">
+      <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
+            <TipIcon className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[12px] font-medium">
+              <span className="truncate">{tip.text}</span>
+              <span className="hidden rounded-full bg-brand px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white sm:inline">{tr("Tip")}</span>
+            </div>
+            <div className="truncate text-[11px] text-muted-foreground">{tip.sub}</div>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 text-[10px] text-muted-foreground">
+          <span className="hidden sm:inline">{tr("A calmer place for your thoughts")} — {tr("keep moving.")}</span>
+          <span className="flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-1">
+            <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" /> {tr("All systems operational")}
+          </span>
+        </div>
+      </div>
+      <div className="flex gap-1.5 border-t bg-muted/30 px-4 py-2">
+        {tips.map((_, i) => (
+          <span key={i} className={cn("h-1 rounded-full transition-all", i === index ? "w-6 bg-brand" : "w-1 bg-border") } />
+        ))}
+        <span className="ml-auto hidden text-[10px] text-muted-foreground sm:inline">Motion · {new Date().getFullYear()} · {tr("Beautifully simple, quietly powerful.")}</span>
+      </div>
+    </div>
   )
 }
 

@@ -203,15 +203,63 @@ export function PageTree({
       return <div className="px-3 py-3 text-xs text-muted-foreground">{tr("No pages match “{query}”.", { query })}</div>
     }
     return (
-      <div className="px-2 py-2">
-        <button
-          type="button"
-          onClick={() => void createFirstPage()}
-          className="flex w-full items-center gap-2 rounded-lg border border-dashed border-sidebar-border/90 px-2.5 py-2 text-left text-[13px] text-muted-foreground transition hover:border-brand/40 hover:bg-sidebar-accent/50 hover:text-foreground"
-        >
-          <Plus className="size-3.5" />
-          {tr("Create your first page")}
-        </button>
+      <div className="px-2 py-4">
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed bg-muted/20 px-3 py-6 text-center">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
+            <FileText className="size-5" />
+          </div>
+          <div>
+            <div className="text-sm font-medium">{tr("No pages yet")}</div>
+            <div className="mt-1 text-xs leading-5 text-muted-foreground">{tr("Your workspace is ready. Let’s put the first thought on the page.")}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void createFirstPage()}
+            className="mt-1 flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="size-3.5" />
+            {tr("Create your first page")}
+          </button>
+        </div>
+        <div className="mt-4 space-y-1.5">
+          <div className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">{tr("Start from a template")}</div>
+          {[ 
+            { id: "meeting", icon: "🗓️", title: tr("Meeting notes") },
+            { id: "project", icon: "🚀", title: tr("Project brief") },
+            { id: "weekly", icon: "🧭", title: tr("Weekly review") },
+          ].map((tpl) => (
+            <button
+              key={tpl.id}
+              type="button"
+              onClick={async () => {
+                try {
+                  const mod = await import("@/lib/templates")
+                  const template = mod.PAGE_TEMPLATES.find((t) => t.id === tpl.id)
+                  if (!template) return
+                  const page = await createPage(null)
+                  const blocks = mod.templateBlocks(template)
+                  await api.pages.update(page.id, { title: template.title })
+                  await api.pages.saveBlocks(page.id, blocks)
+                  await refreshPages()
+                  navigate(`/page/${page.id}`)
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : tr("Could not create page from template"))
+                }
+              }}
+              className="flex w-full items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition hover:border-brand/30 hover:bg-accent/40"
+            >
+              <span className="text-sm">{tpl.icon}</span>
+              <span className="text-xs font-medium">{tpl.title}</span>
+              <Plus className="ml-auto size-3 text-muted-foreground" />
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 rounded-lg bg-brand-soft/30 px-2.5 py-2 text-[11px] leading-5 text-muted-foreground">
+          <div className="font-medium text-foreground">{tr("A 60-second tour")}</div>
+          <div>1. {tr("Type / to insert any block")}</div>
+          <div>2. {tr("Select text to leave a comment")}</div>
+          <div>3. {tr("Ask Motion AI to summarize or edit")}</div>
+        </div>
       </div>
     )
   }

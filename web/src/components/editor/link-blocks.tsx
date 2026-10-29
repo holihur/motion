@@ -104,19 +104,38 @@ export function PageLinkBlock({
 
 export function BreadcrumbBlock({ block, breadcrumb }: { block: Block; breadcrumb: { id: string; title: string; icon: string }[] }) {
   const navigate = useNavigate()
+  const pages = useWorkspaceStore((s) => s.pages)
   const chain = breadcrumb.length > 0 ? breadcrumb : []
   return (
     <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
       <button type="button" onClick={() => navigate("/")} className="rounded px-1 py-0.5 hover:bg-accent hover:text-foreground">{tr("Home")}</button>
-      {chain.map((item) => (
-        <span key={item.id} className="flex min-w-0 items-center gap-1">
-          <ChevronRight className="size-3 shrink-0 opacity-50" />
-          <button type="button" onClick={() => navigate(`/page/${item.id}`)} className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 hover:bg-accent hover:text-foreground">
-            {item.icon ? <span>{item.icon}</span> : <FileText className="size-3" />}
-            <span className="max-w-[180px] truncate">{pageTitle(item.title)}</span>
-          </button>
-        </span>
-      ))}
+      {chain.map((item, index) => {
+        const isCurrent = index === chain.length - 1
+        const children = pages.filter((p) => p.parentId === item.id && !p.archived).slice(0, 8)
+        return (
+          <span key={item.id} className="flex min-w-0 items-center gap-1">
+            <ChevronRight className="size-3 shrink-0 opacity-50" />
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" onClick={() => navigate(`/page/${item.id}`)} className={cn("flex min-w-0 items-center gap-1 rounded px-1 py-0.5 hover:bg-accent hover:text-foreground", isCurrent && "bg-accent font-medium text-foreground")}> 
+                  {item.icon ? <span>{item.icon}</span> : <FileText className="size-3" />}
+                  <span className="max-w-[180px] truncate">{pageTitle(item.title)}</span>
+                </button>
+              </PopoverTrigger>
+              {children.length > 0 && (
+                <PopoverContent align="start" className="w-56 p-1">
+                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{pageTitle(item.title)} · {tr("Children")}</div>
+                  {children.map((child) => (
+                    <button key={child.id} type="button" onClick={() => navigate(`/page/${child.id}`)} className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-accent">
+                      <span>{child.icon || "📄"}</span><span className="truncate">{pageTitle(child.title)}</span>
+                    </button>
+                  ))}
+                </PopoverContent>
+              )}
+            </Popover>
+          </span>
+        )
+      })}
     </div>
   )
 }

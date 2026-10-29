@@ -1296,6 +1296,9 @@ export function PageEditor() {
           )}
         </div>
       )}
+      {pageLocked && (
+        <div className="pointer-events-none absolute inset-0 z-[5] bg-foreground/[0.04]" aria-hidden />
+      )}
 
       {page.archived && (
         <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-100">

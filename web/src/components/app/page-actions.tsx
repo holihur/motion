@@ -82,6 +82,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const [groups, setGroups] = useState<PublishGroup[]>([])
   const importRef = useRef<HTMLInputElement>(null)
   const locked = Boolean(page.locked)
+  const [unlockConfirm, setUnlockConfirm] = useState(false)
 
   const isCurrent = location.pathname === `/page/${page.id}`
   const hasStorage = ["s3", "aliyun_oss", "qiniu", "tencent_cos"].some((provider) => enabledProviders.has(provider))
@@ -150,13 +151,30 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   }
 
   async function onToggleLock() {
+    if (locked) {
+      setUnlockConfirm(true)
+      return
+    }
     try {
-      const updated = locked ? await api.pages.unlock(page.id) : await api.pages.lock(page.id)
+      const updated = await api.pages.lock(page.id)
       useWorkspaceStore.getState().patchSummary(page.id, { locked: updated.locked })
       window.dispatchEvent(new CustomEvent("motion:page-lock", {
         detail: { id: page.id, locked: updated.locked, lockedByName: updated.lockedByName },
       }))
-      toast.success(updated.locked ? tr("Page locked") : tr("Page unlocked"))
+      toast.success(tr("Page locked"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not change page lock"))
+    }
+  }
+  async function confirmUnlock() {
+    try {
+      const updated = await api.pages.unlock(page.id)
+      useWorkspaceStore.getState().patchSummary(page.id, { locked: updated.locked })
+      window.dispatchEvent(new CustomEvent("motion:page-lock", {
+        detail: { id: page.id, locked: updated.locked, lockedByName: updated.lockedByName },
+      }))
+      setUnlockConfirm(false)
+      toast.success(tr("Page unlocked"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not change page lock"))
     }
@@ -411,6 +429,18 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
         onOpenChange={(open) => setStructure(open ? "merge" : null)}
         onDone={refreshStructure}
       />
+      <Dialog open={unlockConfirm} onOpenChange={setUnlockConfirm}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{tr("Unlock page?")}</DialogTitle>
+            <DialogDescription>{tr("This page is locked to prevent accidents. Unlock it to edit.")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setUnlockConfirm(false)}>{tr("Cancel")}</Button>
+            <Button onClick={() => void confirmUnlock()}>{tr("Unlock")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

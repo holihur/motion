@@ -110,6 +110,8 @@ const zh: Record<string, string> = {
   "Page options": "页面选项",
   "Collapse": "收起",
   "Expand": "展开",
+  "Unlock page?": "解锁页面？",
+  "This page is locked to prevent accidents. Unlock it to edit.": "此页面已锁定以防止误操作，解锁后即可编辑。",
   "Could not create page": "无法创建页面",
   "Account menu": "账号菜单",
   "Ops console": "Ops 控制台",

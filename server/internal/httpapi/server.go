@@ -276,6 +276,8 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("pages:read")).Get("/notifications", s.listNotifications)
 			r.With(s.requireScope("pages:read")).Post("/notifications/{notificationID}/read", s.readNotification)
 			r.With(s.requireScope("pages:read")).Post("/notifications/read-all", s.readAllNotifications)
+			r.With(s.requireScope("pages:read")).Get("/notifications/prefs", s.getNotifyPrefs)
+			r.With(s.requireScope("pages:read")).Put("/notifications/prefs", s.saveNotifyPrefs)
 			r.With(s.requireScope("pages:read")).Get("/proposals/{proposalID}", s.getProposal)
 			r.With(s.requireScope("pages:write")).Post("/proposals/{proposalID}/approve", s.approveProposal)
 			r.With(s.requireScope("pages:write")).Post("/proposals/{proposalID}/reject", s.rejectProposal)

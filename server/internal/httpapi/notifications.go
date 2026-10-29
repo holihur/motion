@@ -21,6 +21,9 @@ func (s *Server) notifyUser(ctx context.Context, n model.Notification) {
 	if n.UserID.IsZero() || n.WorkspaceID.IsZero() {
 		return
 	}
+	if !s.notifyAllowed(ctx, n.UserID, n.Type) {
+		return
+	}
 	n.ID = primitive.NewObjectID()
 	n.CreatedAt = time.Now().UTC()
 	if _, err := s.store.Notifications.InsertOne(ctx, n); err != nil {
@@ -203,4 +206,81 @@ func (s *Server) notifyCommentReply(ctx context.Context, page model.Page, parent
 		Body: "在「" + title + "」：" + truncateRunes(reply.Body, 120),
 		PageID: page.ID.Hex(), BlockID: reply.BlockID, CommentID: reply.ID.Hex(),
 	})
+}
+// notifyAllowed checks the recipient's preferences (default: all enabled).
+func (s *Server) notifyAllowed(ctx context.Context, userID primitive.ObjectID, kind string) bool {
+	var user model.User
+	if err := s.store.Users.FindOne(ctx, bson.M{"_id": userID}).Decode(&user); err != nil {
+		return true
+	}
+	if user.NotifyPrefs == nil {
+		return true
+	}
+	pref := user.NotifyPrefs
+	switch kind {
+	case "mention":
+		return pref.Mention == nil || *pref.Mention
+	case "comment_reply":
+		return pref.Reply == nil || *pref.Reply
+	case "agent_done", "agent_failed":
+		return pref.AgentDone == nil || *pref.AgentDone
+	default:
+		return true
+	}
+}
+
+// GET /notifications/prefs
+func (s *Server) getNotifyPrefs(w http.ResponseWriter, r *http.Request) {
+	userID := currentUserID(r)
+	var user model.User
+	if err := s.store.Users.FindOne(r.Context(), bson.M{"_id": userID}).Decode(&user); err != nil {
+		writeErr(w, http.StatusUnauthorized, "account no longer exists")
+		return
+	}
+	prefs := model.NotifyPrefs{}
+	if user.NotifyPrefs != nil {
+		prefs = *user.NotifyPrefs
+	}
+	writeJSON(w, http.StatusOK, prefsWithDefaults(prefs))
+}
+
+func prefsWithDefaults(prefs model.NotifyPrefs) map[string]bool {
+	on := func(b *bool) bool { return b == nil || *b }
+	return map[string]bool{
+		"mention":   on(prefs.Mention),
+		"reply":     on(prefs.Reply),
+		"agentDone": on(prefs.AgentDone),
+		"browser":   prefs.Browser != nil && *prefs.Browser,
+	}
+}
+
+// PUT /notifications/prefs
+func (s *Server) saveNotifyPrefs(w http.ResponseWriter, r *http.Request) {
+	userID := currentUserID(r)
+	var req map[string]bool
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	boolPtr := func(b bool) *bool { v := b; return &v }
+	prefs := model.NotifyPrefs{}
+	if v, ok := req["mention"]; ok {
+		prefs.Mention = boolPtr(v)
+	}
+	if v, ok := req["reply"]; ok {
+		prefs.Reply = boolPtr(v)
+	}
+	if v, ok := req["agentDone"]; ok {
+		prefs.AgentDone = boolPtr(v)
+	}
+	if v, ok := req["browser"]; ok {
+		prefs.Browser = boolPtr(v)
+	}
+	if _, err := s.store.Users.UpdateByID(r.Context(), userID, bson.M{"$set": bson.M{
+		"notifyPrefs": prefs, "updatedAt": time.Now().UTC(),
+	}}); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not save preferences")
+		return
+	}
+	writeJSON(w, http.StatusOK, prefsWithDefaults(prefs))
 }

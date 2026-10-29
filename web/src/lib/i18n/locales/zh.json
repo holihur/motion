@@ -1034,5 +1034,18 @@
   "No notifications — @ someone to try it out.": "暂无通知——@ 一下同事试试。",
   "Notifications": "站内信",
   "Someone @ mentioned you": "有人 @ 了你",
-  "You have a new notification": "你有一条新通知"
+  "You have a new notification": "你有一条新通知",
+  "Agent tasks": "Agent 任务",
+  "Also pop a system notification": "同时弹系统通知",
+  "Blocked by the browser — allow notifications in site settings": "被浏览器拦截——请在站点设置里允许通知",
+  "Browser notification": "浏览器通知",
+  "Mentions": "@提及",
+  "No members match “{query}”": "没有匹配的成员 “{query}”",
+  "Replies": "评论回复",
+  "Reply… (type @ to mention)": "回复…（输入 @ 提及）",
+  "Type to filter members": "输入筛选成员",
+  "When someone @ mentions you in pages or comments": "有人在页面或评论里 @ 你时",
+  "When someone replies to your comment": "有人回复你的评论时",
+  "When your dispatched or scheduled agent task finishes": "你派发/定时的 Agent 任务完成时",
+  "Write a comment… (type @ to mention)": "写评论…（输入 @ 提及成员）"
 }

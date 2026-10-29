@@ -1564,6 +1564,7 @@ export function PageEditor() {
             open
             onOpenChange={setCommentsOpen}
             pageId={page.id}
+            members={members}
             comments={comments}
             loading={commentsLoading}
             readOnly={readOnly}
@@ -1579,6 +1580,7 @@ export function PageEditor() {
         <Suspense fallback={null}>
           <CommentComposer
             open
+            members={members}
             onOpenChange={(value) => {
               setComposerOpen(value)
               if (!value) {

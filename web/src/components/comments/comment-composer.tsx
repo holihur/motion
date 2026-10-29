@@ -6,6 +6,8 @@ import { tr } from "@/lib/i18n"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { markOnboardingStep } from "@/lib/onboarding"
 import { Button } from "@/components/ui/button"
+import { MentionTextarea } from "@/components/comments/mention-input"
+import type { Member } from "@/lib/types"
 import {
   Dialog,
   DialogContent,
@@ -28,18 +30,24 @@ export function CommentComposer({
   pageId,
   selection,
   onCreated,
+  members = [],
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   pageId: string
   selection: CommentSelection | null
   onCreated: () => void
+  members?: Member[]
 }) {
   const [body, setBody] = useState("")
+  const [mentionIds, setMentionIds] = useState<string[]>([])
   const [pending, setPending] = useState(false)
 
   useEffect(() => {
-    if (open) setBody("")
+    if (open) {
+      setBody("")
+      setMentionIds([])
+    }
   }, [open])
 
   async function submit(event: React.FormEvent) {
@@ -53,6 +61,7 @@ export function CommentComposer({
         startOffset: selection.startOffset,
         endOffset: selection.endOffset,
         body: body.trim(),
+        mentions: mentionIds,
       })
       markOnboardingStep("comment")
       toast.success(tr("Comment added"))
@@ -80,11 +89,15 @@ export function CommentComposer({
           </div>
         )}
         <form onSubmit={submit} className="space-y-3">
-          <textarea
+          <MentionTextarea
             autoFocus
+            members={members}
             value={body}
-            onChange={(event) => setBody(event.target.value)}
-            placeholder={tr("Write a comment…")}
+            onChange={(value, ids) => {
+              setBody(value)
+              setMentionIds(ids)
+            }}
+            placeholder={tr("Write a comment… (type @ to mention)")}
             rows={4}
             className="w-full resize-none rounded-lg border bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
             onKeyDown={(event) => {

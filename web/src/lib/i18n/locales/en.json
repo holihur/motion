@@ -93,5 +93,18 @@
   "No notifications — @ someone to try it out.": "No notifications — @ someone to try it out.",
   "Notifications": "Notifications",
   "Someone @ mentioned you": "Someone @ mentioned you",
-  "You have a new notification": "You have a new notification"
+  "You have a new notification": "You have a new notification",
+  "Agent tasks": "Agent tasks",
+  "Also pop a system notification": "Also pop a system notification",
+  "Blocked by the browser — allow notifications in site settings": "Blocked by the browser — allow notifications in site settings",
+  "Browser notification": "Browser notification",
+  "Mentions": "Mentions",
+  "No members match “{query}”": "No members match “{query}”",
+  "Replies": "Replies",
+  "Reply… (type @ to mention)": "Reply… (type @ to mention)",
+  "Type to filter members": "Type to filter members",
+  "When someone @ mentions you in pages or comments": "When someone @ mentions you in pages or comments",
+  "When someone replies to your comment": "When someone replies to your comment",
+  "When your dispatched or scheduled agent task finishes": "When your dispatched or scheduled agent task finishes",
+  "Write a comment… (type @ to mention)": "Write a comment… (type @ to mention)"
 }

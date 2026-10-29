@@ -14,8 +14,17 @@ type User struct {
 	OIDCIssuer  string             `bson:"oidcIssuer,omitempty" json:"-"`
 	OIDCSubject string             `bson:"oidcSubject,omitempty" json:"-"`
 	IsAdmin     bool               `bson:"isAdmin,omitempty" json:"isAdmin"`
+	NotifyPrefs *NotifyPrefs       `bson:"notifyPrefs,omitempty" json:"notifyPrefs,omitempty"`
 	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
 	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
+}
+
+// NotifyPrefs controls in-app notification delivery. Nil = all enabled.
+type NotifyPrefs struct {
+	Mention   *bool `bson:"mention,omitempty" json:"mention,omitempty"`
+	Reply     *bool `bson:"reply,omitempty" json:"reply,omitempty"`
+	AgentDone *bool `bson:"agentDone,omitempty" json:"agentDone,omitempty"`
+	Browser   *bool `bson:"browser,omitempty" json:"browser,omitempty"`
 }
 
 type Member struct {
@@ -250,6 +259,7 @@ type Comment struct {
 	AuthorID    primitive.ObjectID  `bson:"authorId" json:"authorId"`
 	AuthorName  string              `bson:"authorName" json:"authorName"`
 	ParentID    *primitive.ObjectID `bson:"parentId,omitempty" json:"parentId,omitempty"`
+	Mentions    []string            `bson:"mentions,omitempty" json:"mentions,omitempty"`
 	Resolved    bool                `bson:"resolved" json:"resolved"`
 	CreatedAt   time.Time           `bson:"createdAt" json:"createdAt"`
 	UpdatedAt   time.Time           `bson:"updatedAt" json:"updatedAt"`

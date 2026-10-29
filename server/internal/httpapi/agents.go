@@ -393,6 +393,13 @@ func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting mod
 		}})
 		s.writeAudit(ctx, agent.WorkspaceID, user.ID, user.Name, agent.ID, agent.Name,
 			"agent.run.failed", "agent", agent.ID.Hex(), "Task failed: "+msg)
+		s.notifyUser(ctx, model.Notification{
+			UserID: user.ID, WorkspaceID: agent.WorkspaceID,
+			ActorID: agent.ID, ActorName: agent.Name,
+			Type: "agent_failed", Title: "任务失败：" + agent.Name,
+			Body: truncateRunes(prompt, 80) + " — " + msg,
+			PageID: pageHex,
+		})
 		s.hub.BroadcastWorkspace(agent.WorkspaceID.Hex(), map[string]any{
 			"type": "agent-run", "workspaceId": agent.WorkspaceID.Hex(),
 			"action": "failed", "runId": runID.Hex(), "agentId": agent.ID.Hex(), "error": msg,
@@ -462,6 +469,24 @@ func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting mod
 		"proposalIds": proposalIDs, "actions": len(actions),
 		"tokens": runner.LastUsage.TotalTokens,
 	}})
+	{
+		body := truncateRunes(prompt, 80)
+		if agent.Mode == "approval" {
+			if len(proposals) > 0 {
+				body += fmt.Sprintf(" — %d 条提案待审", len(proposals))
+			} else {
+				body += " — 无需改动"
+			}
+		} else if len(proposals) > 0 {
+			body += " — 已自动应用"
+		}
+		s.notifyUser(ctx, model.Notification{
+			UserID: user.ID, WorkspaceID: agent.WorkspaceID,
+			ActorID: agent.ID, ActorName: agent.Name,
+			Type: "agent_done", Title: "任务完成：" + agent.Name, Body: body,
+			PageID: pageHex,
+		})
+	}
 	s.writeAudit(ctx, agent.WorkspaceID, user.ID, user.Name, agent.ID, agent.Name,
 		"agent.run", "agent", agent.ID.Hex(),
 		fmt.Sprintf("Ran %s (%d actions, %d proposals)", agent.Name, len(actions), len(proposals)))

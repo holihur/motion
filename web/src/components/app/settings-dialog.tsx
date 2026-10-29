@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { WorkspaceAgentSettings } from "@/components/app/workspace-agent-settings"
 import { WorkspaceIcon, isImageIcon } from "@/components/app/workspace-icon"
 import { IntegrationsSettings } from "@/components/app/integrations-settings"
+import { NotificationSettings } from "@/components/app/notifications"
 import { toast } from "sonner"
 import { api, type AccessToken } from "@/lib/api"
 import { LANGUAGES, getLanguage, setLanguage, tr, type Language } from "@/lib/i18n"
@@ -130,6 +131,7 @@ function ProfileSettings() {
           {tr("Save changes")}
         </Button>
       </div>
+      <NotificationSettings />
     </form>
   )
 }

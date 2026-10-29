@@ -2,7 +2,8 @@ import { useMemo, useState } from "react"
 import { CheckCheck, MessageSquare, MessageSquareReply, RotateCcw, Send, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
-import type { Comment } from "@/lib/types"
+import type { Comment, Member } from "@/lib/types"
+import { MentionInput } from "@/components/comments/mention-input"
 import { cn, formatRelative, initials } from "@/lib/utils"
 import { useAuthStore } from "@/stores/auth"
 import { tr } from "@/lib/i18n"
@@ -30,6 +31,7 @@ export function CommentsPanel({
   loadingMore = false,
   onLoadMore,
   onReload,
+  members = [],
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -42,10 +44,12 @@ export function CommentsPanel({
   loadingMore?: boolean
   onLoadMore?: () => void
   onReload: () => void
+  members?: Member[]
 }) {
   const user = useAuthStore((state) => state.user)
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [replyBody, setReplyBody] = useState("")
+  const [replyMentions, setReplyMentions] = useState<string[]>([])
   const [showResolved, setShowResolved] = useState(false)
   const [pending, setPending] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Comment | null>(null)
@@ -78,8 +82,10 @@ export function CommentsPanel({
         endOffset: 0,
         body: replyBody.trim(),
         parentId: rootId,
+        mentions: replyMentions,
       })
       setReplyBody("")
+      setReplyMentions([])
       setReplyTo(null)
       onReload()
     } catch (error) {
@@ -173,10 +179,13 @@ export function CommentsPanel({
                 currentUserId={user?.id}
                 replyOpen={replyTo === comment.id}
                 replyBody={replyBody}
+                members={members}
+                onReplyMentions={setReplyMentions}
                 pending={pending}
                 onReplyOpen={() => {
                   setReplyTo(replyTo === comment.id ? null : comment.id)
                   setReplyBody("")
+                  setReplyMentions([])
                 }}
                 onReplyChange={setReplyBody}
                 onReplySubmit={() => void submitReply(comment.id)}
@@ -278,6 +287,8 @@ function Thread({
   currentUserId?: string
   replyOpen: boolean
   replyBody: string
+  members: Member[]
+  onReplyMentions: (ids: string[]) => void
   pending: boolean
   onReplyOpen: () => void
   onReplyChange: (value: string) => void
@@ -359,10 +370,14 @@ function Thread({
 
       {replyOpen && !readOnly && (
         <div className="mt-2 flex items-center gap-1.5">
-          <input
+          <MentionInput
             autoFocus
+            members={members}
             value={replyBody}
-            onChange={(event) => onReplyChange(event.target.value)}
+            onChange={(value, ids) => {
+              onReplyChange(value)
+              onReplyMentions(ids)
+            }}
             onKeyDown={(event) => {
               if (isImeKeyEvent(event)) return
               if (event.key === "Enter") {
@@ -370,7 +385,7 @@ function Thread({
                 onReplySubmit()
               }
             }}
-            placeholder={tr("Reply…")}
+            placeholder={tr("Reply… (type @ to mention)")}
             className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
           />
           <Button size="icon-sm" onClick={onReplySubmit} disabled={!replyBody.trim() || pending} aria-label={tr("Send reply")}>

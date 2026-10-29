@@ -76,6 +76,7 @@ type createCommentRequest struct {
 	StartOffset int                      `json:"startOffset"`
 	EndOffset   int                      `json:"endOffset"`
 	Body        string                   `json:"body"`
+	Mentions    []string                 `json:"mentions"`
 	ParentID    *string                  `json:"parentId"`
 	Annotation  *model.CommentAnnotation `json:"annotation"`
 }
@@ -112,6 +113,19 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now().UTC()
+	mentionIDs := map[string]bool{}
+	for _, hex := range req.Mentions {
+		if id, err := primitive.ObjectIDFromHex(strings.TrimSpace(hex)); err == nil && id != currentUserID(r) {
+			mentionIDs[id.Hex()] = true
+		}
+		if len(mentionIDs) >= 20 {
+			break
+		}
+	}
+	mentions := make([]string, 0, len(mentionIDs))
+	for hex := range mentionIDs {
+		mentions = append(mentions, hex)
+	}
 	comment := model.Comment{
 		ID:          primitive.NewObjectID(),
 		PageID:      pageID,
@@ -124,6 +138,7 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		Body:        req.Body,
 		AuthorID:    currentUserID(r),
 		AuthorName:  "",
+		Mentions:    mentions,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
@@ -188,8 +203,30 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		"pageId": pageID.Hex(), "pageTitle": page.Title, "commentId": comment.ID.Hex(),
 		"author": name, "body": comment.Body, "quote": comment.Quote,
 	})
+	notified := map[string]bool{}
+	for _, hex := range mentions {
+		if uid, err := primitive.ObjectIDFromHex(hex); err == nil {
+			if _, _, err := s.accessibleWorkspaceFor(r.Context(), page.WorkspaceID, uid); err == nil {
+				notified[hex] = true
+				title := strings.TrimSpace(page.Title)
+				if title == "" {
+					title = "Untitled"
+				}
+				uidCopy := uid
+				go s.notifyUser(context.Background(), model.Notification{
+					UserID: uidCopy, WorkspaceID: page.WorkspaceID,
+					ActorID: comment.AuthorID, ActorName: name,
+					Type: "mention", Title: name + " 在评论中 @了你",
+					Body: "在「" + title + "」：" + truncateRunes(comment.Body, 120),
+					PageID: page.ID.Hex(), BlockID: comment.BlockID, CommentID: comment.ID.Hex(),
+				})
+			}
+		}
+	}
 	if hasParent {
-		go s.notifyCommentReply(context.Background(), page, parent, comment, name)
+		if _, dup := notified[parent.AuthorID.Hex()]; !dup {
+			go s.notifyCommentReply(context.Background(), page, parent, comment, name)
+		}
 	}
 	writeJSON(w, http.StatusCreated, comment)
 }

@@ -127,11 +127,19 @@ export interface Block {
   locked?: boolean
 }
 
+export interface NotifyPrefs {
+  mention: boolean
+  reply: boolean
+  agentDone: boolean
+  browser: boolean
+}
+
 export interface User {
   id: string
   name: string
   email: string
   isAdmin?: boolean
+  notifyPrefs?: NotifyPrefs
   createdAt: string
   updatedAt: string
 }
@@ -282,7 +290,7 @@ export interface Notification {
   workspaceId: string
   actorId?: string
   actorName: string
-  type: "mention" | "comment_reply"
+  type: "mention" | "comment_reply" | "agent_done" | "agent_failed"
   title: string
   body?: string
   pageId?: string
@@ -306,6 +314,7 @@ export interface Comment {
   authorId: string
   authorName: string
   parentId?: string
+  mentions?: string[]
   resolved: boolean
   createdAt: string
   updatedAt: string

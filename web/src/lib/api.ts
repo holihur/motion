@@ -25,6 +25,7 @@ import type {
   Paginated,
   User,
   Notification,
+  NotifyPrefs,
   TaskTemplate,
   Workspace,
 } from "./types"
@@ -304,6 +305,9 @@ export const api = {
     list: (limit = 50) => request<{ items: Notification[]; unread: number }>(`/notifications?limit=${limit}`),
     read: (id: string) => request<{ ok: boolean }>(`/notifications/${id}/read`, { method: "POST" }),
     readAll: () => request<{ ok: boolean }>("/notifications/read-all", { method: "POST" }),
+    prefs: () => request<NotifyPrefs>("/notifications/prefs"),
+    savePrefs: (prefs: Partial<NotifyPrefs>) =>
+      request<NotifyPrefs>("/notifications/prefs", { method: "PUT", body: body(prefs) }),
   },
   ops: {
     settings: (opsToken: string) => request<OpsSettings>("/ops/settings", {}, opsToken),
@@ -572,6 +576,7 @@ export const api = {
         endOffset: number
         body: string
         parentId?: string
+        mentions?: string[]
         annotation?: { x: number; y: number; width: number; height: number }
       },
     ) => request<Comment>(`/pages/${id}/comments`, { method: "POST", body: body(input) }),

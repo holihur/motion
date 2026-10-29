@@ -54,6 +54,7 @@ type Settings struct {
 	AIDailyTokenBudget int       `bson:"aiDailyTokenBudget" json:"aiDailyTokenBudget"`
 	AdminEmails        []string  `bson:"adminEmails" json:"adminEmails"`
 	TrashRetentionDays int       `bson:"trashRetentionDays" json:"trashRetentionDays"`
+	WatermarkEnabled   bool      `bson:"watermarkEnabled,omitempty" json:"watermarkEnabled,omitempty"`
 	OIDC               OIDC      `bson:"oidc" json:"oidc"`
 	Maps               Maps      `bson:"maps,omitempty" json:"maps"`
 	Update             Update    `bson:"update" json:"update"`

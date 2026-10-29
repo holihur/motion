@@ -50,6 +50,18 @@
 - 没有 `embedweb` tag 时前端从 `web/dist` 读取，便于开发
 - GitHub Actions：Go test、前端 typecheck/build、Playwright E2E（2 shard 并行）、Release、GHCR 镜像
 
+## 国际化
+
+- 支持 Top 10 语言：`en/zh/es/hi/ar/pt/fr/de/ja/ru`，`en` 默认兜底
+- 文案全量 `943 key` 落 `web/src/lib/i18n/locales/*.json`，`en+zh` 外其余按需动态 `import()` 切块（首屏 `en` 仅 `2KB`）
+- `pnpm i18n:check` 以 `zh.json` 为基线校验缺漏，CI 在 `typecheck` 后执行
+- `ar` 自动 `dir=rtl`，`LANGUAGES` 统一 `native/label`，`LanguageToggle` 下拉全量
+
+## 块系统
+
+- 30+ `BlockType`（段落/标题/列表/表格/代码/图片/文件 PDF 预览/图表等）均一轮增强：`table` 排序/`toc` 高亮/`columns` 拖拽/`map` 点选/`password` 强度/`callout` 图标/`qrcode` 批量/`paste` 智能感知等
+- `block-row 1269→1190` 抽 `useTableBlock`，`docagent 1241→990` 抽 `markdown.go`，`page-editor 1713→1640` 抽 `page-helpers/page-save` 等
+
 ## API 版本
 
 - 稳定入口：`/api/v1/...`

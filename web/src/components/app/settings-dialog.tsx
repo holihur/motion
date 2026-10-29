@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Check, Copy, ImagePlus, KeyRound, LogOut, Sparkles, TerminalSquare, Trash2 } from "lucide-react"
+import { Bot, Building2, Check, Code2, Copy, ImagePlus, KeyRound, LogOut, Palette, Plug, Sparkles, TerminalSquare, Trash2, UserRound } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { WorkspaceAgentSettings } from "@/components/app/workspace-agent-settings"
 import { WorkspaceIcon, isImageIcon } from "@/components/app/workspace-icon"
@@ -33,47 +33,72 @@ const WORKSPACE_ICONS = ["🧭", "🌊", "🚀", "🌱", "🔥", "🌸", "📚",
 export function SettingsDialog() {
   const open = useUIStore((state) => state.settingsOpen)
   const setOpen = useUIStore((state) => state.setSettingsOpen)
+  const sections = [
+    { value: "profile", label: tr("Profile"), description: tr("Name and account"), icon: UserRound },
+    { value: "workspace", label: tr("Workspace"), description: tr("Members and identity"), icon: Building2 },
+    { value: "agent", label: tr("Agent"), description: tr("Skills and MCP"), icon: Bot },
+    { value: "integrations", label: tr("Integrations"), description: tr("Publish and webhooks"), icon: Plug },
+    { value: "ai", label: tr("AI"), description: tr("Provider and models"), icon: Sparkles },
+    { value: "developer", label: tr("Developer"), description: tr("Tokens and API"), icon: Code2 },
+    { value: "appearance", label: tr("Appearance"), description: tr("Theme and language"), icon: Palette },
+  ] as const
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-h-[90svh] max-w-2xl gap-0 overflow-y-auto p-0">
-        <DialogHeader className="border-b px-6 py-5">
-          <DialogTitle>{tr("Settings")}</DialogTitle>
-          <DialogDescription>{tr("Your workspace, your rules.")}</DialogDescription>
-        </DialogHeader>
-        <Tabs defaultValue="profile" className="flex min-h-[360px] flex-col">
-          <div className="px-6 pt-4">
-            <TabsList className="h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
-              <TabsTrigger value="profile" className="data-[state=active]:bg-muted">{tr("Profile")}</TabsTrigger>
-              <TabsTrigger value="workspace" className="data-[state=active]:bg-muted">{tr("Workspace")}</TabsTrigger>
-              <TabsTrigger value="agent" className="data-[state=active]:bg-muted">{tr("Agent")}</TabsTrigger>
-              <TabsTrigger value="integrations" className="data-[state=active]:bg-muted">{tr("Integrations")}</TabsTrigger>
-              <TabsTrigger value="ai" className="data-[state=active]:bg-muted">{tr("AI")}</TabsTrigger>
-            <TabsTrigger value="developer" className="data-[state=active]:bg-muted">{tr("Developer")}</TabsTrigger>
-            <TabsTrigger value="appearance" className="data-[state=active]:bg-muted">{tr("Appearance")}</TabsTrigger>
+      <DialogContent className="flex max-h-[92svh] w-[calc(100vw-1.5rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:h-[min(720px,88svh)]">
+        <Tabs defaultValue="profile" orientation="vertical" className="flex min-h-0 flex-1 flex-col sm:flex-row">
+          <aside className="flex shrink-0 flex-col border-b bg-muted/35 sm:w-64 sm:border-b-0 sm:border-r">
+            <DialogHeader className="px-5 pb-4 pt-5 text-left">
+              <DialogTitle className="text-base tracking-tight">{tr("Settings")}</DialogTitle>
+              <DialogDescription className="text-[11px] leading-4">{tr("Your workspace, your rules.")}</DialogDescription>
+            </DialogHeader>
+            <TabsList className="!flex h-auto w-full shrink-0 flex-row !justify-start gap-1 overflow-x-auto bg-transparent px-3 pb-3 pt-0 sm:flex-col sm:items-stretch sm:overflow-visible sm:px-3">
+              {sections.map((section) => {
+                const Icon = section.icon
+                return (
+                  <TabsTrigger
+                    key={section.value}
+                    value={section.value}
+                    className="group h-auto min-w-fit justify-start gap-2.5 rounded-lg border border-transparent px-3 py-2 text-left text-xs font-medium text-muted-foreground transition data-[state=active]:border-border/60 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm hover:bg-background/60 hover:text-foreground sm:w-full"
+                  >
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-background/80 text-muted-foreground shadow-sm transition group-data-[state=active]:bg-brand-soft group-data-[state=active]:text-brand">
+                      <Icon className="size-3.5" />
+                    </span>
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">{section.label}</span>
+                      <span className="hidden truncate text-[10px] font-normal text-muted-foreground/70 sm:block">{section.description}</span>
+                    </span>
+                  </TabsTrigger>
+                )
+              })}
             </TabsList>
-          </div>
-          <div className="flex-1 px-6 pb-6 pt-2">
-            <TabsContent value="profile">
-              <ProfileSettings />
-            </TabsContent>
-            <TabsContent value="workspace">
-              <WorkspaceSettings />
-            </TabsContent>
-            <TabsContent value="agent">
-              <WorkspaceAgentSettings />
-            </TabsContent>
-            <TabsContent value="integrations">
-              <IntegrationsSettings />
-            </TabsContent>
-            <TabsContent value="ai">
-              <AISettings />
-            </TabsContent>
-            <TabsContent value="developer">
-              <DeveloperSettings />
-            </TabsContent>
-            <TabsContent value="appearance">
-              <AppearanceSettings />
-            </TabsContent>
+            <div className="mt-auto hidden px-5 pb-5 pt-4 text-[10px] text-muted-foreground/60 sm:block">
+              Motion · {tr("Settings")}
+            </div>
+          </aside>
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-2xl px-5 py-5 sm:px-8 sm:py-7">
+              <TabsContent value="profile" className="mt-0 focus-visible:outline-none">
+                <ProfileSettings />
+              </TabsContent>
+              <TabsContent value="workspace" className="mt-0 focus-visible:outline-none">
+                <WorkspaceSettings />
+              </TabsContent>
+              <TabsContent value="agent" className="mt-0 focus-visible:outline-none">
+                <WorkspaceAgentSettings />
+              </TabsContent>
+              <TabsContent value="integrations" className="mt-0 focus-visible:outline-none">
+                <IntegrationsSettings />
+              </TabsContent>
+              <TabsContent value="ai" className="mt-0 focus-visible:outline-none">
+                <AISettings />
+              </TabsContent>
+              <TabsContent value="developer" className="mt-0 focus-visible:outline-none">
+                <DeveloperSettings />
+              </TabsContent>
+              <TabsContent value="appearance" className="mt-0 focus-visible:outline-none">
+                <AppearanceSettings />
+              </TabsContent>
+            </div>
           </div>
         </Tabs>
       </DialogContent>
@@ -106,14 +131,15 @@ function ProfileSettings() {
 
   return (
     <form onSubmit={save} className="space-y-6 pt-2">
-      <div className="flex items-center gap-4">
-        <Avatar className="size-14 text-lg">
-          <AvatarFallback className="text-base">{initials(user?.name ?? "M")}</AvatarFallback>
+      <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-gradient-to-br from-brand-soft/45 via-background to-background p-4">
+        <Avatar className="size-14 text-lg shadow-sm ring-2 ring-background">
+          <AvatarFallback className="bg-brand-soft text-base font-semibold text-brand">{initials(user?.name ?? "M")}</AvatarFallback>
         </Avatar>
-        <div>
-          <div className="text-sm font-medium">{user?.name}</div>
-          <div className="text-xs text-muted-foreground">{user?.email}</div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold">{user?.name}</div>
+          <div className="truncate text-xs text-muted-foreground">{user?.email}</div>
         </div>
+        <span className="shrink-0 rounded-full border border-border/70 bg-background/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{tr("Account")}</span>
       </div>
       <Separator />
       <div className="grid gap-4 sm:grid-cols-2">

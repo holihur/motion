@@ -573,6 +573,7 @@ export const api = {
         layoutId?: string
         isLayout?: boolean
         favorite?: boolean
+        watermark?: boolean
         archived?: boolean
         parentId?: string | null
       },

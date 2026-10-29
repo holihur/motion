@@ -30,7 +30,7 @@ RUN apk add --no-cache ca-certificates tzdata \
     && addgroup -S motion && adduser -S -G motion motion
 COPY --from=build /out/motion /usr/local/bin/motion
 USER motion
-ENV PORT=8787 SEED_DEMO=false
+ENV PORT=8787 SEED_DEMO=false GO_ENV=production
 EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=3s --start-period=15s \
   CMD wget -qO- "http://127.0.0.1:${PORT}/api/health" >/dev/null || exit 1

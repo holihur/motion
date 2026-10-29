@@ -15,11 +15,11 @@ import (
 )
 
 type AuthInfo struct {
-	UserID   primitive.ObjectID
-	Method   string // "jwt" or "pat"
-	TokenID  primitive.ObjectID
-	Scopes   map[string]bool
-	Expires  *time.Time
+	UserID  primitive.ObjectID
+	Method  string // "jwt" or "pat"
+	TokenID primitive.ObjectID
+	Scopes  map[string]bool
+	Expires *time.Time
 }
 
 const authInfoKey ctxKey = "authInfo"

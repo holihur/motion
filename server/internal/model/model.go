@@ -93,7 +93,7 @@ type DatabaseColumn struct {
 }
 
 type DatabaseData struct {
-	Columns  []DatabaseColumn     `bson:"columns" json:"columns"`
+	Columns  []DatabaseColumn    `bson:"columns" json:"columns"`
 	Rows     []map[string]string `bson:"rows" json:"rows"`
 	ViewMode string              `bson:"viewMode,omitempty" json:"viewMode,omitempty"` // table, board
 	GroupBy  string              `bson:"groupBy,omitempty" json:"groupBy,omitempty"`
@@ -155,90 +155,90 @@ type FormSubmission struct {
 }
 
 type Block struct {
-	ID          string        `bson:"id" json:"id"`
-	Type        string        `bson:"type" json:"type"`
-	Text        string     `bson:"text" json:"text"`
-	Rich        string     `bson:"rich,omitempty" json:"rich,omitempty"`
-	Checked     bool       `bson:"checked,omitempty" json:"checked,omitempty"`
-	Language    string     `bson:"language,omitempty" json:"language,omitempty"`
-	Color       string     `bson:"color,omitempty" json:"color,omitempty"`
-	Icon        string     `bson:"icon,omitempty" json:"icon,omitempty"`
-	TextColor   string     `bson:"textColor,omitempty" json:"textColor,omitempty"`
-	BGColor     string     `bson:"bgColor,omitempty" json:"bgColor,omitempty"`
-	Align       string     `bson:"align,omitempty" json:"align,omitempty"`
-	Width       string     `bson:"width,omitempty" json:"width,omitempty"`
-	URL         string     `bson:"url,omitempty" json:"url,omitempty"`
-	Caption     string     `bson:"caption,omitempty" json:"caption,omitempty"`
-	Ciphertext  string     `bson:"ciphertext,omitempty" json:"ciphertext,omitempty"`
-	Salt        string     `bson:"salt,omitempty" json:"salt,omitempty"`
-	IV          string     `bson:"iv,omitempty" json:"iv,omitempty"`
-	Table        *TableData         `bson:"table,omitempty" json:"table,omitempty"`
-	Database     *DatabaseData      `bson:"database,omitempty" json:"database,omitempty"`
-	Form         *FormData          `bson:"form,omitempty" json:"form,omitempty"`
-	Map          *MapData           `bson:"map,omitempty" json:"map,omitempty"`
-	Poll         *PollData          `bson:"poll,omitempty" json:"poll,omitempty"`
+	ID           string            `bson:"id" json:"id"`
+	Type         string            `bson:"type" json:"type"`
+	Text         string            `bson:"text" json:"text"`
+	Rich         string            `bson:"rich,omitempty" json:"rich,omitempty"`
+	Checked      bool              `bson:"checked,omitempty" json:"checked,omitempty"`
+	Language     string            `bson:"language,omitempty" json:"language,omitempty"`
+	Color        string            `bson:"color,omitempty" json:"color,omitempty"`
+	Icon         string            `bson:"icon,omitempty" json:"icon,omitempty"`
+	TextColor    string            `bson:"textColor,omitempty" json:"textColor,omitempty"`
+	BGColor      string            `bson:"bgColor,omitempty" json:"bgColor,omitempty"`
+	Align        string            `bson:"align,omitempty" json:"align,omitempty"`
+	Width        string            `bson:"width,omitempty" json:"width,omitempty"`
+	URL          string            `bson:"url,omitempty" json:"url,omitempty"`
+	Caption      string            `bson:"caption,omitempty" json:"caption,omitempty"`
+	Ciphertext   string            `bson:"ciphertext,omitempty" json:"ciphertext,omitempty"`
+	Salt         string            `bson:"salt,omitempty" json:"salt,omitempty"`
+	IV           string            `bson:"iv,omitempty" json:"iv,omitempty"`
+	Table        *TableData        `bson:"table,omitempty" json:"table,omitempty"`
+	Database     *DatabaseData     `bson:"database,omitempty" json:"database,omitempty"`
+	Form         *FormData         `bson:"form,omitempty" json:"form,omitempty"`
+	Map          *MapData          `bson:"map,omitempty" json:"map,omitempty"`
+	Poll         *PollData         `bson:"poll,omitempty" json:"poll,omitempty"`
 	Translations map[string]string `bson:"translations,omitempty" json:"translations,omitempty"`
-	LineNumbers bool       `bson:"lineNumbers,omitempty" json:"lineNumbers,omitempty"`
-	Indent      int        `bson:"indent,omitempty" json:"indent,omitempty"`
-	Collapsed   bool       `bson:"collapsed,omitempty" json:"collapsed,omitempty"`
-	Locked      bool       `bson:"locked,omitempty" json:"locked,omitempty"`
+	LineNumbers  bool              `bson:"lineNumbers,omitempty" json:"lineNumbers,omitempty"`
+	Indent       int               `bson:"indent,omitempty" json:"indent,omitempty"`
+	Collapsed    bool              `bson:"collapsed,omitempty" json:"collapsed,omitempty"`
+	Locked       bool              `bson:"locked,omitempty" json:"locked,omitempty"`
 }
 
 type Page struct {
-	ID             primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
-	WorkspaceID    primitive.ObjectID  `bson:"workspaceId" json:"workspaceId"`
-	ParentID       *primitive.ObjectID `bson:"parentId,omitempty" json:"parentId,omitempty"`
-	ShareOverrides []ShareOverride     `bson:"shareOverrides,omitempty" json:"shareOverrides,omitempty"`
-	Watermark      bool                `bson:"watermark,omitempty" json:"watermark,omitempty"`
-	Title          string              `bson:"title" json:"title"`
-	Icon         string              `bson:"icon" json:"icon"`
-	Cover        string              `bson:"cover" json:"cover"`
-	Theme        string              `bson:"theme,omitempty" json:"theme,omitempty"`
-	LayoutID     string              `bson:"layoutId,omitempty" json:"layoutId,omitempty"`
-	IsLayout     bool                `bson:"isLayout,omitempty" json:"isLayout,omitempty"`
-	Blocks       []Block             `bson:"blocks" json:"blocks,omitempty"`
-	BlocksRev    int64               `bson:"blocksRev,omitempty" json:"blocksRev,omitempty"`
-	Text         string              `bson:"text" json:"-"`
-	Role         string              `bson:"-" json:"role,omitempty"`
-	Favorite     bool                `bson:"favorite" json:"favorite"`
-	Archived     bool                `bson:"archived" json:"archived"`
-	Locked       bool                `bson:"locked,omitempty" json:"locked"`
-	LockedByName string              `bson:"lockedByName,omitempty" json:"lockedByName,omitempty"`
-	LockedAt     *time.Time          `bson:"lockedAt,omitempty" json:"lockedAt,omitempty"`
-	Order        float64             `bson:"order" json:"order"`
-	CreatedBy    primitive.ObjectID  `bson:"createdBy" json:"createdBy"`
-	CreatedAt    time.Time           `bson:"createdAt" json:"createdAt"`
-	UpdatedAt    time.Time           `bson:"updatedAt" json:"updatedAt"`
-	ArchivedAt   *time.Time          `bson:"archivedAt,omitempty" json:"archivedAt,omitempty"`
-	PublicSlug   string               `bson:"publicSlug,omitempty" json:"publicSlug,omitempty"`
-	PublicPasswordHash string         `bson:"publicPasswordHash,omitempty" json:"-"`
-	PublicExpiresAt    *time.Time     `bson:"publicExpiresAt,omitempty" json:"publicExpiresAt,omitempty"`
-	PublicViews        int64          `bson:"publicViews,omitempty" json:"publicViews,omitempty"`
-	PublicComment      bool           `bson:"publicComment,omitempty" json:"publicComment,omitempty"`
+	ID                 primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
+	WorkspaceID        primitive.ObjectID  `bson:"workspaceId" json:"workspaceId"`
+	ParentID           *primitive.ObjectID `bson:"parentId,omitempty" json:"parentId,omitempty"`
+	ShareOverrides     []ShareOverride     `bson:"shareOverrides,omitempty" json:"shareOverrides,omitempty"`
+	Watermark          bool                `bson:"watermark,omitempty" json:"watermark,omitempty"`
+	Title              string              `bson:"title" json:"title"`
+	Icon               string              `bson:"icon" json:"icon"`
+	Cover              string              `bson:"cover" json:"cover"`
+	Theme              string              `bson:"theme,omitempty" json:"theme,omitempty"`
+	LayoutID           string              `bson:"layoutId,omitempty" json:"layoutId,omitempty"`
+	IsLayout           bool                `bson:"isLayout,omitempty" json:"isLayout,omitempty"`
+	Blocks             []Block             `bson:"blocks" json:"blocks,omitempty"`
+	BlocksRev          int64               `bson:"blocksRev,omitempty" json:"blocksRev,omitempty"`
+	Text               string              `bson:"text" json:"-"`
+	Role               string              `bson:"-" json:"role,omitempty"`
+	Favorite           bool                `bson:"favorite" json:"favorite"`
+	Archived           bool                `bson:"archived" json:"archived"`
+	Locked             bool                `bson:"locked,omitempty" json:"locked"`
+	LockedByName       string              `bson:"lockedByName,omitempty" json:"lockedByName,omitempty"`
+	LockedAt           *time.Time          `bson:"lockedAt,omitempty" json:"lockedAt,omitempty"`
+	Order              float64             `bson:"order" json:"order"`
+	CreatedBy          primitive.ObjectID  `bson:"createdBy" json:"createdBy"`
+	CreatedAt          time.Time           `bson:"createdAt" json:"createdAt"`
+	UpdatedAt          time.Time           `bson:"updatedAt" json:"updatedAt"`
+	ArchivedAt         *time.Time          `bson:"archivedAt,omitempty" json:"archivedAt,omitempty"`
+	PublicSlug         string              `bson:"publicSlug,omitempty" json:"publicSlug,omitempty"`
+	PublicPasswordHash string              `bson:"publicPasswordHash,omitempty" json:"-"`
+	PublicExpiresAt    *time.Time          `bson:"publicExpiresAt,omitempty" json:"publicExpiresAt,omitempty"`
+	PublicViews        int64               `bson:"publicViews,omitempty" json:"publicViews,omitempty"`
+	PublicComment      bool                `bson:"publicComment,omitempty" json:"publicComment,omitempty"`
 }
 
 // PageSummary is the lightweight shape used by the sidebar tree.
 type PageSummary struct {
-	ID        primitive.ObjectID  `bson:"_id" json:"id"`
-	ParentID  *primitive.ObjectID `bson:"parentId,omitempty" json:"parentId,omitempty"`
-	Title     string              `bson:"title" json:"title"`
-	Icon      string              `bson:"icon" json:"icon"`
-	Cover     string              `bson:"cover" json:"cover"`
-	Theme     string              `bson:"theme,omitempty" json:"theme,omitempty"`
-	LayoutID  string              `bson:"layoutId,omitempty" json:"layoutId,omitempty"`
-	IsLayout  bool                `bson:"isLayout,omitempty" json:"isLayout,omitempty"`
-	Favorite  bool                `bson:"favorite" json:"favorite"`
-	Archived  bool                `bson:"archived" json:"archived"`
-	Locked    bool                `bson:"locked,omitempty" json:"locked"`
-	Order     float64             `bson:"order" json:"order"`
-	UpdatedAt time.Time           `bson:"updatedAt" json:"updatedAt"`
-	PublicSlug string              `bson:"publicSlug,omitempty" json:"publicSlug,omitempty"`
-	PublicExpiresAt *time.Time     `bson:"publicExpiresAt,omitempty" json:"publicExpiresAt,omitempty"`
-	PublicViews int64              `bson:"publicViews,omitempty" json:"publicViews,omitempty"`
-	PublicComment bool             `bson:"publicComment,omitempty" json:"publicComment,omitempty"`
-	PublicLocked bool              `bson:"-" json:"publicLocked,omitempty"`
-	Text      string              `bson:"text,omitempty" json:"-"`
-	Snippet   string              `bson:"-" json:"snippet,omitempty"`
+	ID              primitive.ObjectID  `bson:"_id" json:"id"`
+	ParentID        *primitive.ObjectID `bson:"parentId,omitempty" json:"parentId,omitempty"`
+	Title           string              `bson:"title" json:"title"`
+	Icon            string              `bson:"icon" json:"icon"`
+	Cover           string              `bson:"cover" json:"cover"`
+	Theme           string              `bson:"theme,omitempty" json:"theme,omitempty"`
+	LayoutID        string              `bson:"layoutId,omitempty" json:"layoutId,omitempty"`
+	IsLayout        bool                `bson:"isLayout,omitempty" json:"isLayout,omitempty"`
+	Favorite        bool                `bson:"favorite" json:"favorite"`
+	Archived        bool                `bson:"archived" json:"archived"`
+	Locked          bool                `bson:"locked,omitempty" json:"locked"`
+	Order           float64             `bson:"order" json:"order"`
+	UpdatedAt       time.Time           `bson:"updatedAt" json:"updatedAt"`
+	PublicSlug      string              `bson:"publicSlug,omitempty" json:"publicSlug,omitempty"`
+	PublicExpiresAt *time.Time          `bson:"publicExpiresAt,omitempty" json:"publicExpiresAt,omitempty"`
+	PublicViews     int64               `bson:"publicViews,omitempty" json:"publicViews,omitempty"`
+	PublicComment   bool                `bson:"publicComment,omitempty" json:"publicComment,omitempty"`
+	PublicLocked    bool                `bson:"-" json:"publicLocked,omitempty"`
+	Text            string              `bson:"text,omitempty" json:"-"`
+	Snippet         string              `bson:"-" json:"snippet,omitempty"`
 }
 
 type APIToken struct {
@@ -361,23 +361,23 @@ type Agent struct {
 
 // AgentRun records one agent task execution (manual dispatch or scheduled).
 type AgentRun struct {
-	ID          primitive.ObjectID   `bson:"_id,omitempty" json:"id"`
-	WorkspaceID primitive.ObjectID   `bson:"workspaceId" json:"workspaceId"`
-	AgentID     primitive.ObjectID   `bson:"agentId" json:"agentId"`
-	AgentName   string               `bson:"agentName" json:"agentName"`
-	ActorID     primitive.ObjectID   `bson:"actorId" json:"actorId"`
-	ActorName   string               `bson:"actorName" json:"actorName"`
-	Prompt      string               `bson:"prompt" json:"prompt"`
-	PageID      string               `bson:"pageId,omitempty" json:"pageId,omitempty"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	WorkspaceID primitive.ObjectID `bson:"workspaceId" json:"workspaceId"`
+	AgentID     primitive.ObjectID `bson:"agentId" json:"agentId"`
+	AgentName   string             `bson:"agentName" json:"agentName"`
+	ActorID     primitive.ObjectID `bson:"actorId" json:"actorId"`
+	ActorName   string             `bson:"actorName" json:"actorName"`
+	Prompt      string             `bson:"prompt" json:"prompt"`
+	PageID      string             `bson:"pageId,omitempty" json:"pageId,omitempty"`
 	Scheduled   bool               `bson:"scheduled,omitempty" json:"scheduled,omitempty"`
-	Status      string               `bson:"status" json:"status"` // queued, running, succeeded, failed
+	Status      string             `bson:"status" json:"status"` // queued, running, succeeded, failed
 	ProposalIDs []string           `bson:"proposalIds,omitempty" json:"proposalIds,omitempty"`
-	Actions     int                  `bson:"actions,omitempty" json:"actions,omitempty"`
-	Tokens      int64                `bson:"tokens,omitempty" json:"tokens,omitempty"`
-	Error       string               `bson:"error,omitempty" json:"error,omitempty"`
-	CreatedAt   time.Time            `bson:"createdAt" json:"createdAt"`
-	StartedAt   *time.Time           `bson:"startedAt,omitempty" json:"startedAt,omitempty"`
-	FinishedAt  *time.Time           `bson:"finishedAt,omitempty" json:"finishedAt,omitempty"`
+	Actions     int                `bson:"actions,omitempty" json:"actions,omitempty"`
+	Tokens      int64              `bson:"tokens,omitempty" json:"tokens,omitempty"`
+	Error       string             `bson:"error,omitempty" json:"error,omitempty"`
+	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
+	StartedAt   *time.Time         `bson:"startedAt,omitempty" json:"startedAt,omitempty"`
+	FinishedAt  *time.Time         `bson:"finishedAt,omitempty" json:"finishedAt,omitempty"`
 }
 
 // AgentSchedule runs an agent task periodically. NextRun is maintained by the server.
@@ -392,41 +392,41 @@ type AgentSchedule struct {
 }
 
 type AIProposal struct {
-	ID          primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
-	WorkspaceID primitive.ObjectID  `bson:"workspaceId" json:"workspaceId"`
-	PageID      primitive.ObjectID  `bson:"pageId" json:"pageId"`
-	AgentID     primitive.ObjectID  `bson:"agentId" json:"agentId"`
-	AgentName   string              `bson:"agentName" json:"agentName"`
-	ActorID     primitive.ObjectID  `bson:"actorId" json:"actorId"`
-	ActorName   string              `bson:"actorName" json:"actorName"`
+	ID           primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
+	WorkspaceID  primitive.ObjectID  `bson:"workspaceId" json:"workspaceId"`
+	PageID       primitive.ObjectID  `bson:"pageId" json:"pageId"`
+	AgentID      primitive.ObjectID  `bson:"agentId" json:"agentId"`
+	AgentName    string              `bson:"agentName" json:"agentName"`
+	ActorID      primitive.ObjectID  `bson:"actorId" json:"actorId"`
+	ActorName    string              `bson:"actorName" json:"actorName"`
 	PageTitle    string              `bson:"pageTitle" json:"pageTitle"`
 	Prompt       string              `bson:"prompt,omitempty" json:"prompt,omitempty"`
 	RejectReason string              `bson:"rejectReason,omitempty" json:"rejectReason,omitempty"`
-	Before      *Page               `bson:"before,omitempty" json:"before,omitempty"`
-	After       Page                `bson:"after" json:"after"`
-	Created     bool                `bson:"created,omitempty" json:"created,omitempty"`
-	Status      string              `bson:"status" json:"status"` // pending, approved, rejected
-	CreatedAt   time.Time           `bson:"createdAt" json:"createdAt"`
-	ReviewedAt  *time.Time          `bson:"reviewedAt,omitempty" json:"reviewedAt,omitempty"`
-	ReviewedBy  *primitive.ObjectID `bson:"reviewedBy,omitempty" json:"reviewedBy,omitempty"`
+	Before       *Page               `bson:"before,omitempty" json:"before,omitempty"`
+	After        Page                `bson:"after" json:"after"`
+	Created      bool                `bson:"created,omitempty" json:"created,omitempty"`
+	Status       string              `bson:"status" json:"status"` // pending, approved, rejected
+	CreatedAt    time.Time           `bson:"createdAt" json:"createdAt"`
+	ReviewedAt   *time.Time          `bson:"reviewedAt,omitempty" json:"reviewedAt,omitempty"`
+	ReviewedBy   *primitive.ObjectID `bson:"reviewedBy,omitempty" json:"reviewedBy,omitempty"`
 }
 
 // Notification is an in-app inbox message (@mention, comment reply, ...).
 type Notification struct {
-	ID          primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
-	UserID      primitive.ObjectID  `bson:"userId" json:"-"`
-	WorkspaceID primitive.ObjectID  `bson:"workspaceId" json:"workspaceId"`
-	ActorID     primitive.ObjectID  `bson:"actorId,omitempty" json:"actorId,omitempty"`
-	ActorName   string              `bson:"actorName" json:"actorName"`
-	Type        string              `bson:"type" json:"type"` // mention, comment_reply
-	Title       string              `bson:"title" json:"title"`
-	Body        string              `bson:"body,omitempty" json:"body,omitempty"`
-	PageID      string              `bson:"pageId,omitempty" json:"pageId,omitempty"`
-	BlockID     string              `bson:"blockId,omitempty" json:"blockId,omitempty"`
-	CommentID   string              `bson:"commentId,omitempty" json:"commentId,omitempty"`
-	Read        bool                `bson:"read" json:"read"`
-	CreatedAt   time.Time           `bson:"createdAt" json:"createdAt"`
-	ReadAt      *time.Time          `bson:"readAt,omitempty" json:"readAt,omitempty"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	UserID      primitive.ObjectID `bson:"userId" json:"-"`
+	WorkspaceID primitive.ObjectID `bson:"workspaceId" json:"workspaceId"`
+	ActorID     primitive.ObjectID `bson:"actorId,omitempty" json:"actorId,omitempty"`
+	ActorName   string             `bson:"actorName" json:"actorName"`
+	Type        string             `bson:"type" json:"type"` // mention, comment_reply
+	Title       string             `bson:"title" json:"title"`
+	Body        string             `bson:"body,omitempty" json:"body,omitempty"`
+	PageID      string             `bson:"pageId,omitempty" json:"pageId,omitempty"`
+	BlockID     string             `bson:"blockId,omitempty" json:"blockId,omitempty"`
+	CommentID   string             `bson:"commentId,omitempty" json:"commentId,omitempty"`
+	Read        bool               `bson:"read" json:"read"`
+	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
+	ReadAt      *time.Time         `bson:"readAt,omitempty" json:"readAt,omitempty"`
 }
 
 type AuditLog struct {

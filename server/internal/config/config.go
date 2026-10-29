@@ -88,10 +88,10 @@ func (c Config) OIDCEnabled() bool {
 
 func (c Config) Validate() {
 	isProd := strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV"))) == "production"
-	if isProd && c.JWTSecret == "motion-dev-secret-change-me" {
+	if isProd && placeholderSecret(c.JWTSecret) {
 		log.Fatal("JWT_SECRET must be set to a strong random value in production (GO_ENV=production)")
 	}
-	if c.EncryptionKey == "motion-dev-secret-change-me" && isProd {
+	if isProd && placeholderSecret(c.EncryptionKey) {
 		log.Fatal("ENCRYPTION_KEY must be set to a strong random value in production")
 	}
 	if c.JWTSecret == c.EncryptionKey && c.JWTSecret != "motion-dev-secret-change-me" && os.Getenv("ALLOW_KEY_REUSE") != "true" {
@@ -100,6 +100,11 @@ func (c Config) Validate() {
 	if c.JWTSecret == "motion-dev-secret-change-me" || c.EncryptionKey == "motion-dev-secret-change-me" {
 		log.Printf("WARNING: using development secrets; do not expose this instance")
 	}
+}
+
+func placeholderSecret(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	return value == "" || value == "motion-dev-secret-change-me" || strings.HasPrefix(value, "change-me")
 }
 
 func env(key, fallback string) string {

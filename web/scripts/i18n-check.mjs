@@ -2,13 +2,15 @@ import fs from "node:fs"
 import path from "node:path"
 
 const localesDir = path.resolve("src/lib/i18n/locales")
-const files = fs.readdirSync(localesDir).filter((f) => f.endsWith(".json"))
+const files = fs.readdirSync(localesDir).filter((file) => file.endsWith(".json"))
 if (files.length === 0) {
   console.error("No locale files found")
   process.exit(1)
 }
-let zhKeys = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(localesDir, "zh.json"), "utf8"))))
+
+const zhKeys = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(localesDir, "zh.json"), "utf8"))))
 let hasError = false
+
 for (const file of files) {
   if (file === "en.json") continue
   const dict = JSON.parse(fs.readFileSync(path.join(localesDir, file), "utf8"))
@@ -25,8 +27,38 @@ for (const file of files) {
     }
   }
 }
+
+// Ensure every statically written tr("...") key exists in zh.json. This catches
+// new UI copy that would otherwise silently fall back to English forever.
+const sourceFiles = []
+function walk(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) walk(full)
+    else if (/\.(ts|tsx)$/.test(entry.name)) sourceFiles.push(full)
+  }
+}
+walk(path.resolve("src"))
+
+const trPattern = /\btr\(\s*"((?:\\.|[^"\\])*)"/g
+const missing = new Set()
+for (const file of sourceFiles) {
+  const source = fs.readFileSync(file, "utf8")
+  for (const match of source.matchAll(trPattern)) {
+    let key = match[1]
+    try {
+      key = JSON.parse(`"${key}"`)
+    } catch {}
+    if (!zhKeys.has(key)) missing.add(key)
+  }
+}
+for (const key of [...missing].sort()) {
+  console.error(`[source] missing zh translation: ${key}`)
+  hasError = true
+}
+
 if (hasError) {
-  console.error("i18n check failed: missing keys")
+  console.error("i18n check failed")
   process.exit(1)
 }
 console.log(`i18n check passed: ${zhKeys.size} keys across ${files.length} locales`)

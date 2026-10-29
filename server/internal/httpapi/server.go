@@ -186,9 +186,12 @@ func (s *Server) Router() http.Handler {
 	r.Get("/api/readyz", s.readyz)
 	r.Get("/api/healthz", s.healthz)
 	r.HandleFunc("/mcp", s.mcpEndpoint)
-	// SCIM 2.0 stub (enterprise provisioning)
-	r.Get("/scim/v2/Users", s.scimUsers)
-	r.Get("/scim/v2/Users/{id}", s.scimUserByID)
+	// SCIM 2.0 enterprise provisioning is instance-wide and must use the Ops token.
+	r.Group(func(r chi.Router) {
+		r.Use(s.requireOpsToken)
+		r.Get("/scim/v2/Users", s.scimUsers)
+		r.Get("/scim/v2/Users/{id}", s.scimUserByID)
+	})
 	r.Get("/p/{slug}", s.servePublicPage)
 	r.Post("/p/{slug}/unlock", s.unlockPublicPage)
 	r.Get("/p/{slug}/comments", s.listPublicComments)
@@ -203,7 +206,9 @@ func (s *Server) Router() http.Handler {
 		r.Get("/auth/oidc/callback", s.oidcCallback)
 		r.Post("/auth/oidc/exchange", s.oidcExchange)
 		r.Get("/ws", s.websocket)
-		r.Get("/files/{fileID}", s.downloadFile)
+		// Optional auth: images may be loaded anonymously by <img>, while other
+		// attachments still require a valid session and workspace membership.
+		r.With(s.optionalAuthenticate).Get("/files/{fileID}", s.downloadFile)
 
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireOpsToken)
@@ -340,29 +345,53 @@ type ctxKey string
 
 const userIDKey ctxKey = "userID"
 
+func (s *Server) authInfoFromRequest(r *http.Request) (AuthInfo, error) {
+	raw := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if isPersonalToken(raw) {
+		return s.authenticatePAT(r, raw)
+	}
+	userID, err := s.tokens.Parse(raw)
+	if err != nil {
+		return AuthInfo{}, errInvalidToken
+	}
+	return jwtAuth(userID), nil
+}
+
 func (s *Server) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		header := r.Header.Get("Authorization")
-		if !strings.HasPrefix(header, "Bearer ") {
+		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
 			writeErr(w, http.StatusUnauthorized, "missing bearer token")
 			return
 		}
-		raw := strings.TrimPrefix(header, "Bearer ")
-		var info AuthInfo
-		if isPersonalToken(raw) {
-			pat, err := s.authenticatePAT(r, raw)
-			if err != nil {
-				writeErr(w, http.StatusUnauthorized, err.Error())
-				return
-			}
-			info = pat
-		} else {
-			userID, err := s.tokens.Parse(raw)
-			if err != nil {
-				writeErr(w, http.StatusUnauthorized, "invalid or expired token")
-				return
-			}
-			info = jwtAuth(userID)
+		info, err := s.authInfoFromRequest(r)
+		if err != nil {
+			writeErr(w, http.StatusUnauthorized, err.Error())
+			return
+		}
+		ctx := withUserID(r.Context(), info.UserID)
+		ctx = withAuthInfo(ctx, info)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// optionalAuthenticate attaches auth information when a bearer token is present
+// but does not reject anonymous requests. This lets <img> tags load images while
+// non-image attachments can still enforce workspace membership.
+func (s *Server) optionalAuthenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		header := r.Header.Get("Authorization")
+		if header == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !strings.HasPrefix(header, "Bearer ") {
+			writeErr(w, http.StatusUnauthorized, "invalid authorization header")
+			return
+		}
+		info, err := s.authInfoFromRequest(r)
+		if err != nil {
+			writeErr(w, http.StatusUnauthorized, err.Error())
+			return
 		}
 		ctx := withUserID(r.Context(), info.UserID)
 		ctx = withAuthInfo(ctx, info)

@@ -26,7 +26,7 @@ import { toast } from "sonner"
 import katex from "katex"
 import "katex/dist/katex.min.css"
 import type { Block } from "@/lib/types"
-import { api } from "@/lib/api"
+import { api, getToken } from "@/lib/api"
 import { tr } from "@/lib/i18n"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { cn } from "@/lib/utils"
@@ -205,23 +205,13 @@ export function BookmarkBlock({
 }) {
   const [editing, setEditing] = useState(!block.url)
   const [iconState, setIconState] = useState<"loading" | "ok" | "error">("loading")
-  const [ogTitle, setOgTitle] = useState<string | null>(null)
   useEffect(() => { if (!block.url) setEditing(true) }, [block.url])
   useEffect(() => { setIconState(faviconFor(block.url ?? "") ? "loading" : "error") }, [block.url])
-  useEffect(() => {
-    if (!block.url || block.text) return
-    const url = block.url
-    // Light OG fetch via microlink fallback; silent fail
-    fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`)
-      .then((r) => r.json())
-      .then((j) => { if (j?.data?.title) setOgTitle(j.data.title) })
-      .catch(() => {})
-  }, [block.url, block.text])
   if (editing) {
     return <LinkPrompt block={block} kind="bookmark" readOnly={readOnly} autoFocus={autoFocus} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
   }
   const url = safeHttpUrl(block.url ?? "")
-  const title = block.text || ogTitle || hostFor(block.url ?? "")
+  const title = block.text || hostFor(block.url ?? "")
   return (
     <div className="group relative my-2">
       <a
@@ -318,24 +308,23 @@ export function VideoBlock({
 }) {
   const [editing, setEditing] = useState(!block.url)
   const [coverLoaded, setCoverLoaded] = useState(false)
-  useEffect(() => { if (!block.url) setEditing(true) }, [block.url])
-  if (editing) {
-    return <LinkPrompt block={block} kind="video" readOnly={readOnly} autoFocus={autoFocus} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
-  }
+  const [playing, setPlaying] = useState(false)
+  const rawUrl = block.url ?? ""
   const startAt = (() => {
     const m = /^t=(\d+)$/.exec((block.language ?? "").trim())
     return m ? Number(m[1]) : 0
   })()
-  const embedBase = videoEmbed(block.url ?? "")
+  const embedBase = videoEmbed(rawUrl)
   const embed = embedBase && startAt > 0
     ? (embedBase.includes("youtube-nocookie") ? `${embedBase}${embedBase.includes("?") ? "&" : "?"}start=${startAt}`
       : embedBase.includes("vimeo.com") ? `${embedBase}#t=${startAt}s`
       : embedBase.includes("bilibili.com") ? `${embedBase}${embedBase.includes("?") ? "&" : "?"}t=${startAt}`
       : embedBase)
     : embedBase
+  useEffect(() => { if (!block.url) setEditing(true) }, [block.url])
   const cover = (() => {
     try {
-      const u = new URL(block.url ?? "")
+      const u = new URL(rawUrl)
       if (u.hostname.includes("youtube")) {
         const id = u.searchParams.get("v") ?? ""
         if (id) return `https://img.youtube.com/vi/${id}/hqdefault.jpg`
@@ -344,21 +333,39 @@ export function VideoBlock({
     } catch {}
     return ""
   })()
+  useEffect(() => {
+    setPlaying(false)
+    setCoverLoaded(false)
+  }, [rawUrl])
+  if (editing) {
+    return <LinkPrompt block={block} kind="video" readOnly={readOnly} autoFocus={autoFocus} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
+  }
   return (
     <div className="group relative my-2">
       {embed ? (
         <div className="overflow-hidden rounded-xl border border-border/80 bg-black">
-          <iframe
-            src={embed}
-            title={block.caption || "Embedded video"}
-            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowFullScreen
-            loading="lazy"
-            className="aspect-video w-full"
-          />
+          {cover && !playing ? (
+            <button type="button" onClick={() => setPlaying(true)} className="relative block aspect-video w-full overflow-hidden bg-black" aria-label={tr("Play video")}>
+              <img src={cover} alt="" loading="lazy" onLoad={() => setCoverLoaded(true)} onError={() => setCoverLoaded(false)} className={cn("h-full w-full object-cover transition-opacity", coverLoaded ? "opacity-100" : "opacity-0")} />
+              <span className="absolute inset-0 flex items-center justify-center">
+                <span className="flex size-14 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-sm transition group-hover:scale-105">
+                  <Play className="ml-0.5 size-6 fill-current" />
+                </span>
+              </span>
+            </button>
+          ) : (
+            <iframe
+              src={embed}
+              title={block.caption || "Embedded video"}
+              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowFullScreen
+              loading="lazy"
+              className="aspect-video w-full"
+            />
+          )}
         </div>
       ) : (
-        <a href={safeHttpUrl(block.url ?? "")?.toString() ?? "#"} target="_blank" rel="noreferrer noopener" className="flex items-center gap-3 rounded-xl border px-3.5 py-3 text-xs hover:bg-accent/30">
+        <a href={safeHttpUrl(rawUrl)?.toString() ?? "#"} target="_blank" rel="noreferrer noopener" className="flex items-center gap-3 rounded-xl border px-3.5 py-3 text-xs hover:bg-accent/30">
           <Play className="size-4 text-brand" />
           <span className="min-w-0 flex-1 truncate">{block.caption || block.url}</span>
           <ArrowUpRight className="size-3.5 text-muted-foreground" />
@@ -460,20 +467,48 @@ export function FileBlock({
 }) {
   const [editing, setEditing] = useState(!block.url)
   const [pdfExpanded, setPdfExpanded] = useState(false)
+  const [blobUrl, setBlobUrl] = useState("")
+  const [fileError, setFileError] = useState("")
+  const rawUrl = block.url ?? ""
+  const name = block.text || block.url?.split("/").filter(Boolean).pop() || tr("Attachment")
+  const isPdf = (() => {
+    const value = `${name} ${rawUrl}`.toLowerCase()
+    return value.includes(".pdf")
+  })()
+  const visual = fileVisual(name)
+  const FileIcon = visual.Icon
   useEffect(() => { if (!block.url) setEditing(true) }, [block.url])
+  useEffect(() => {
+    setBlobUrl("")
+    setFileError("")
+    if (editing || !rawUrl.startsWith("/api/files/")) return
+    let alive = true
+    let objectUrl = ""
+    const token = getToken()
+    fetch(rawUrl, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(response.status === 401 ? tr("Attachment access denied") : `HTTP ${response.status}`)
+        return response.blob()
+      })
+      .then((blob) => {
+        if (!alive) return
+        objectUrl = URL.createObjectURL(blob)
+        setBlobUrl(objectUrl)
+      })
+      .catch((error) => {
+        if (alive) setFileError(error instanceof Error ? error.message : tr("Could not load attachment"))
+      })
+    return () => {
+      alive = false
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [editing, rawUrl])
   if (editing) {
     return <LinkPrompt block={block} kind="file" readOnly={readOnly} autoFocus={autoFocus} workspaceId={workspaceId} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
   }
-  const name = block.text || block.url?.split("/").filter(Boolean).pop() || tr("Attachment")
-  const visual = fileVisual(name)
-  const FileIcon = visual.Icon
-  const rawUrl = block.url ?? ""
-  const isPdf = (() => {
-    const v = `${name} ${rawUrl}`.toLowerCase()
-    return v.includes(".pdf")
-  })()
-  const href = rawUrl.startsWith("/") ? rawUrl : safeHttpUrl(rawUrl)?.toString() ?? "#"
-  const iframeSrc = rawUrl.startsWith("/") ? rawUrl : safeHttpUrl(rawUrl)?.toString() ?? rawUrl
+  const externalHref = rawUrl.startsWith("/") ? rawUrl : safeHttpUrl(rawUrl)?.toString() ?? "#"
+  const href = blobUrl || externalHref
+  const iframeSrc = blobUrl || (rawUrl.startsWith("/") ? "about:blank" : safeHttpUrl(rawUrl)?.toString() ?? "about:blank")
   return (
     <div className="group relative my-2">
       <a
@@ -504,7 +539,8 @@ export function FileBlock({
         </button>
         <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
       </a>
-      {isPdf && rawUrl && (
+      {fileError && <div className="mt-1.5 rounded-md bg-destructive/5 px-2 py-1 text-[11px] text-destructive">{fileError}</div>}
+      {isPdf && rawUrl && !fileError && (
         <div className="mt-2 overflow-hidden rounded-xl border border-border/80 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-1.5">
             <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">

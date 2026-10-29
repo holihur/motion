@@ -69,8 +69,8 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 func sanitizeDatabase(db *model.DatabaseData) *model.DatabaseData {
 	if db == nil {
 		return &model.DatabaseData{
-			Columns: []model.DatabaseColumn{{ID: "col1", Name: "Name", Type: "text"}, {ID: "col2", Name: "Status", Type: "status", Options: []string{"Todo", "Doing", "Done"}}, {ID: "col3", Name: "Date", Type: "date"}},
-			Rows:    []map[string]string{{}, {}},
+			Columns:  []model.DatabaseColumn{{ID: "col1", Name: "Name", Type: "text"}, {ID: "col2", Name: "Status", Type: "status", Options: []string{"Todo", "Doing", "Done"}}, {ID: "col3", Name: "Date", Type: "date"}},
+			Rows:     []map[string]string{{}, {}},
 			ViewMode: "table",
 		}
 	}
@@ -129,4 +129,29 @@ func sanitizeDatabase(db *model.DatabaseData) *model.DatabaseData {
 	}
 	groupBy := truncateRunes(db.GroupBy, 40)
 	return &model.DatabaseData{Columns: cols, Rows: rows, ViewMode: mode, GroupBy: groupBy}
+}
+
+func sanitizeTranslations(in map[string]string) map[string]string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]string, 20)
+	for key, value := range in {
+		key = strings.TrimSpace(key)
+		if key == "" || len(key) > 16 {
+			continue
+		}
+		value = truncateRunes(strings.TrimSpace(value), 5000)
+		if value == "" {
+			continue
+		}
+		out[key] = value
+		if len(out) >= 20 {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

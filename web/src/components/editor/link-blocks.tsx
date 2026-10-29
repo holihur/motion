@@ -205,7 +205,8 @@ export function ColumnsBlock({
   }
 
   function save(nextCells: string[], nextColumns = columns) {
-    onUpdate({ table: { columns: nextColumns, rows: [nextCells], header: false } })
+    const nextWidths = nextColumns.map((_, index) => widths[index] ?? 100 / nextColumns.length)
+    onUpdate({ table: { columns: nextColumns, rows: [nextCells], header: false, widths: nextWidths } })
   }
   function setCell(index: number, value: string) {
     save(cells.map((cell, cellIndex) => (cellIndex === index ? value : cell)))

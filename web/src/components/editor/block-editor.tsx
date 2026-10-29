@@ -15,7 +15,7 @@ import { markOnboardingStep } from "@/lib/onboarding"
 import { caretOffset, caretRect, focusBlockById, setCaret } from "@/lib/caret"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { BlockRow } from "@/components/editor/block-row"
-import { SlashMenu, type SlashState } from "@/components/editor/slash-menu"
+import { SlashMenu, flattenSlashCommands, type SlashState } from "@/components/editor/slash-menu"
 import { VirtualBlockList } from "@/components/editor/virtual-block-list"
 import type { HeadingItem } from "@/components/editor/rich-blocks"
 import { defaultChartTable, defaultGanttTable } from "@/components/editor/data-blocks"
@@ -166,6 +166,9 @@ export function BlockEditor({
     ),
     [slash?.query, isLayout, hasContentPlaceholder],
   )
+  // The slash menu renders commands grouped by category. Keep keyboard
+  // selection in the same order so Enter always chooses the highlighted item.
+  const orderedCommands = useMemo(() => flattenSlashCommands(commands), [commands])
 
   useEffect(() => {
     function onInsert() {
@@ -455,24 +458,24 @@ export function BlockEditor({
     if (slash && slash.blockId === block.id) {
       if (event.key === "ArrowDown") {
         event.preventDefault()
-        if (commands.length > 0) {
-          setSlash({ ...slash, selected: (slash.selected + 1) % commands.length })
+        if (orderedCommands.length > 0) {
+          setSlash({ ...slash, selected: (slash.selected + 1) % orderedCommands.length })
         }
         return
       }
       if (event.key === "ArrowUp") {
         event.preventDefault()
-        if (commands.length > 0) {
+        if (orderedCommands.length > 0) {
           setSlash({
             ...slash,
-            selected: (slash.selected - 1 + commands.length) % commands.length,
+            selected: (slash.selected - 1 + orderedCommands.length) % orderedCommands.length,
           })
         }
         return
       }
       if (event.key === "Enter") {
         event.preventDefault()
-        const command = commands[slash.selected]
+        const command = orderedCommands[slash.selected]
         if (command) applyCommand(command)
         return
       }

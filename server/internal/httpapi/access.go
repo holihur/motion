@@ -72,14 +72,19 @@ func (s *Server) accessiblePageFor(ctx context.Context, pageID, userID primitive
 	if err := s.store.Pages.FindOne(ctx, bson.M{"_id": pageID}).Decode(&page); err != nil {
 		return model.Page{}, "", err
 	}
-	_, role, err := s.accessibleWorkspaceFor(ctx, page.WorkspaceID, userID)
+	ws, role, err := s.accessibleWorkspaceFor(ctx, page.WorkspaceID, userID)
 	if err != nil {
 		return model.Page{}, "", err
 	}
-	// Page-level shareOverrides take precedence (none = revoked)
+	// The workspace owner always retains access to every page in their workspace.
+	if role == roleOwner {
+		return page, roleOwner, nil
+	}
+	// Page-level shareOverrides take precedence (none = revoked), but they can
+	// never be used to lock the workspace owner out of their own page.
 	uid := userID.Hex()
 	for _, o := range page.ShareOverrides {
-		if o.UserID == uid {
+		if o.UserID == uid && o.UserID != ws.OwnerID.Hex() {
 			if o.Role == "none" {
 				return model.Page{}, "", mongo.ErrNoDocuments
 			}

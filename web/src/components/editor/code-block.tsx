@@ -53,22 +53,21 @@ export function CodeBlock({
 }) {
   const language = normalize(block.language || "plaintext")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const autoDetected = useMemo(() => {
-    if (language !== "auto" || !block.text.trim()) return null
-    const result = hljs.highlightAuto(block.text)
-    if (!result.language) return null
-    // hljs relevance is not percent; normalize to 0-100 for display
-    const score = Math.min(99, Math.round((result.relevance / 10) * 10) || 0)
-    return { language: result.language, score: score > 0 ? score : 92 }
-  }, [block.text, language])
+  const autoHighlight = useMemo(
+    () => (language === "auto" ? hljs.highlightAuto(block.text || " ") : null),
+    [block.text, language],
+  )
+  const autoDetected = language === "auto" && block.text.trim() && autoHighlight?.language
+    ? { language: autoHighlight.language }
+    : null
   const highlighted = useMemo(() => {
-    if (language === "auto") return hljs.highlightAuto(block.text || " ").value
+    if (autoHighlight) return autoHighlight.value
     try {
       return hljs.highlight(block.text || " ", { language, ignoreIllegals: true }).value
     } catch {
       return hljs.highlightAuto(block.text || " ").value
     }
-  }, [block.text, language])
+  }, [autoHighlight, block.text, language])
 
   useEffect(() => {
     if (autoFocus) textareaRef.current?.focus()
@@ -89,7 +88,7 @@ export function CodeBlock({
         </select>
         {autoDetected && (
           <span className="ml-1 rounded bg-brand-soft px-1.5 py-0.5 text-[9px] font-medium normal-case tracking-normal text-brand">
-            detected: {autoDetected.language} {autoDetected.score}%
+            {tr("detected: {language}", { language: autoDetected.language })}
           </span>
         )}
       </label>

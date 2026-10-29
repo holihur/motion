@@ -4,6 +4,7 @@ import {
   CloudUpload,
   Copy,
   Download,
+  Droplets,
   GitBranch,
   Bug,
   BookOpen,
@@ -215,6 +216,21 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     }
   }
 
+  async function onToggleWatermark() {
+    try {
+      const next = !page.watermark
+      const updated = await api.pages.update(page.id, { watermark: next })
+      const enabled = updated.watermark ?? next
+      useWorkspaceStore.getState().patchSummary(page.id, { watermark: enabled })
+      window.dispatchEvent(new CustomEvent("motion:page-meta", {
+        detail: { id: page.id, patch: { watermark: enabled } },
+      }))
+      toast.success(enabled ? tr("Watermark enabled") : tr("Watermark disabled"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not change watermark"))
+    }
+  }
+
   async function onImportFile(file: File) {
     try {
       const lower = file.name.toLowerCase()
@@ -363,6 +379,9 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           {!readOnly && <DropdownMenuItem onSelect={onToggleLock}>
             {locked ? <LockOpen /> : <LockKeyhole />}
             {locked ? tr("Unlock page") : tr("Lock page")}
+          </DropdownMenuItem>}
+          {!readOnly && <DropdownMenuItem onSelect={onToggleWatermark}>
+            <Droplets /> {page.watermark ? tr("Disable watermark") : tr("Enable watermark")}
           </DropdownMenuItem>}
           {!readOnly && <DropdownMenuSeparator />}
           {!readOnly && !locked && <DropdownMenuItem onSelect={openRename}>

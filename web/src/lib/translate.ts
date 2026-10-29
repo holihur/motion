@@ -17,16 +17,15 @@ export type LangCode = typeof LANGS[number]["code"]
 
 export const TRANSLATE_LANGS = LANGS
 
-// Best-effort: try AI translate, fallback to prefix marker
-export async function translateText(text: string, target: LangCode): Promise<string> {
+// Return null when AI translation is unavailable instead of storing a fake
+// "[LANG] original" marker as if it were a real translation.
+export async function translateText(text: string, target: LangCode): Promise<string | null> {
   if (!text.trim()) return text
   try {
-    // Use BYOK AI if configured; prompt is lightweight
     const res = await api.ai.chat({ message: `Translate the following to ${target} (only output translation, keep formatting):\n\n${text}` })
     if (res.reply && res.reply.trim().length > 1) return res.reply.trim()
   } catch {}
-  // fallback: simple marker (preserves CI without AI key)
-  return `[${target.toUpperCase()}] ${text}`
+  return null
 }
 
 /** 改写选中文本：无专用后端，复用通用 AI chat（BYOK），失败抛错。 */

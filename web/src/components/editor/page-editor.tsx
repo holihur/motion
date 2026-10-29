@@ -33,7 +33,6 @@ import type { Block, Comment, Member, Page } from "@/lib/types"
 import { applyBlockSync, diffBlocks } from "@/lib/blocks"
 import { cn, initials, uid } from "@/lib/utils"
 import { caretOffset, focusBlockById, setCaret } from "@/lib/caret"
-import { usePageSave } from "@/components/editor/page-save"
 import { SaveIndicator, rangeFromOffsets } from "@/components/editor/page-helpers"
 import { Breadcrumbs } from "@/components/editor/page-breadcrumbs"
 import { MobileToolButton } from "@/components/editor/mobile-tools"
@@ -421,6 +420,7 @@ export function PageEditor() {
       }
       if (patch.icon !== undefined) setIcon(patch.icon)
       if (patch.cover !== undefined) setCover(patch.cover)
+      if (patch.watermark !== undefined) setPage((current) => (current ? { ...current, watermark: patch.watermark } : current))
       if (patch.theme !== undefined) setPage((current) => (current ? { ...current, theme: patch.theme } : current))
       if (patch.layoutId !== undefined) setPage((current) => (current ? { ...current, layoutId: patch.layoutId } : current))
       if ((patch as { isLayout?: boolean }).isLayout !== undefined) setPage((current) => (current ? { ...current, isLayout: (patch as { isLayout?: boolean }).isLayout } : current))
@@ -662,7 +662,8 @@ export function PageEditor() {
             setTitle(patch.title)
           }
           if (patch.icon !== undefined) setIcon(patch.icon)
-          if (patch.cover !== undefined) setCover(patch.cover)
+              if (patch.cover !== undefined) setCover(patch.cover)
+          if (patch.watermark !== undefined) setPage((current) => (current ? { ...current, watermark: patch.watermark } : current))
           if (patch.theme !== undefined) setPage((current) => (current ? { ...current, theme: patch.theme } : current))
           if ((patch as { layoutId?: string }).layoutId !== undefined) setPage((current) => (current ? { ...current, layoutId: (patch as { layoutId?: string }).layoutId } : current))
           if (patch.favorite !== undefined) {
@@ -1221,7 +1222,7 @@ export function PageEditor() {
   if (loading || (page && page.id !== pageId)) {
     return (
       <div className="flex h-full flex-col">
-        <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
+      <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
           <SidebarToggle />
           <Skeleton className="ml-1 h-4 w-40" />
         </header>
@@ -1241,7 +1242,7 @@ export function PageEditor() {
   if (error || !page) {
     return (
       <div className="flex h-full flex-col">
-        <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
+      <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
           <SidebarToggle />
         </header>
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
@@ -1262,7 +1263,16 @@ export function PageEditor() {
   }
 
   return (
-    <div className="flex h-full flex-col" style={pageThemeStyle(page.theme ?? summary?.theme)}>
+    <div className="relative flex h-full flex-col" style={pageThemeStyle(page.theme ?? summary?.theme)}>
+      {page?.watermark && (
+        <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
+          <div className="flex h-full w-full -rotate-12 flex-wrap content-center justify-center gap-x-16 gap-y-12 opacity-[0.045] select-none">
+            {Array.from({ length: 24 }).map((_, index) => (
+              <span key={index} className="text-2xl font-semibold tracking-[0.3em] text-foreground">{tr("Motion")}</span>
+            ))}
+          </div>
+        </div>
+      )}
       <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
         <SidebarToggle />
         <Breadcrumbs page={page} title={title} icon={icon} />

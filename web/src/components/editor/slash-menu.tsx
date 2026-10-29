@@ -5,14 +5,28 @@ import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 import { isImeKeyEvent } from "@/lib/keyboard"
 
-const CATEGORY_ORDER = ["基础", "媒体", "高级", "导入"] as const
+const CATEGORY_ORDER = ["Basic", "Media", "Advanced", "Import"] as const
 const CATEGORY_MAP: Record<string, string> = {
-  paragraph: "基础", heading1: "基础", heading2: "基础", heading3: "基础", bulleted: "基础", numbered: "基础", todo: "基础", quote: "基础", callout: "基础", code: "基础", divider: "基础", toc: "基础",
-  image: "媒体", video: "媒体", embed: "媒体", bookmark: "媒体", file: "媒体", map: "媒体", equation: "媒体",
-  table: "高级", database: "高级", jsonVisual: "高级", diagram: "高级", gantt: "高级", chart: "高级", columns: "高级", toggle: "高级", toggleHeading1: "高级", toggleHeading2: "高级", toggleHeading3: "高级", pageLink: "高级", breadcrumb: "高级", form: "高级", poll: "高级", qrcode: "高级", barcode: "高级", password: "高级", content: "高级",
+  paragraph: "Basic", heading1: "Basic", heading2: "Basic", heading3: "Basic", bulleted: "Basic", numbered: "Basic", todo: "Basic", quote: "Basic", callout: "Basic", code: "Basic", divider: "Basic", toc: "Basic",
+  image: "Media", video: "Media", embed: "Media", bookmark: "Media", file: "Media", map: "Media", equation: "Media",
+  table: "Advanced", database: "Advanced", jsonVisual: "Advanced", diagram: "Advanced", gantt: "Advanced", chart: "Advanced", columns: "Advanced", toggle: "Advanced", toggleHeading1: "Advanced", toggleHeading2: "Advanced", toggleHeading3: "Advanced", pageLink: "Advanced", breadcrumb: "Advanced", form: "Advanced", poll: "Advanced", qrcode: "Advanced", barcode: "Advanced", password: "Advanced", content: "Advanced",
 }
 const SHORTCUTS: Record<string, string> = {
-  heading1: "# + 空格", heading2: "## + 空格", heading3: "### + 空格", bulleted: "- + 空格", numbered: "1. + 空格", todo: "[] + 空格", quote: "> + 空格", code: "``` + 空格", divider: "---", table: "/table",
+  heading1: "# + Space", heading2: "## + Space", heading3: "### + Space", bulleted: "- + Space", numbered: "1. + Space", todo: "[] + Space", quote: "> + Space", code: "``` + Space", divider: "---", table: "/table",
+}
+
+export function groupSlashCommands(commands: SlashCommand[]): [string, SlashCommand[]][] {
+  const map = new Map<string, SlashCommand[]>()
+  for (const category of CATEGORY_ORDER) map.set(category, [])
+  for (const command of commands) {
+    const category = CATEGORY_MAP[command.type] ?? "Advanced"
+    map.get(category)!.push(command)
+  }
+  return Array.from(map.entries()).filter(([, list]) => list.length > 0)
+}
+
+export function flattenSlashCommands(commands: SlashCommand[]): SlashCommand[] {
+  return groupSlashCommands(commands).flatMap(([, list]) => list)
 }
 
 export interface SlashState {
@@ -48,20 +62,8 @@ export function SlashMenu({
     if (state.mode === "insert") searchRef.current?.focus()
   }, [state.mode])
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, SlashCommand[]>()
-    for (const cat of CATEGORY_ORDER) map.set(cat, [])
-    for (const cmd of commands) {
-      const cat = CATEGORY_MAP[cmd.type] ?? "高级"
-      map.get(cat)!.push(cmd)
-    }
-    return Array.from(map.entries()).filter(([, list]) => list.length > 0)
-  }, [commands])
-  const flatIndexMap = useMemo(() => {
-    const arr: SlashCommand[] = []
-    for (const [, list] of grouped) arr.push(...list)
-    return arr
-  }, [grouped])
+  const grouped = useMemo(() => groupSlashCommands(commands), [commands])
+  const flatIndexMap = useMemo(() => grouped.flatMap(([, list]) => list), [grouped])
 
   useEffect(() => {
     const node = listRef.current?.querySelector<HTMLElement>(`[data-index="${state.selected}"]`)
@@ -146,7 +148,7 @@ export function SlashMenu({
           ) : (
             grouped.map(([category, list]) => (
               <div key={category} className="mb-2 last:mb-0">
-                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">{category}</div>
+                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">{tr(category)}</div>
                 {list.map((command) => {
                   const Icon = command.icon
                   const globalIndex = flatIndexMap.indexOf(command)

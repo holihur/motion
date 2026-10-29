@@ -133,6 +133,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
   ENCRYPTION_KEY="$(head -c 48 /dev/urandom | base64 | tr -d '\n=' | tr '/+' '_-')"
   cat > "$ENV_FILE" <<EOF
 PORT=${PORT}
+GO_ENV=production
 MONGODB_URI=${MONGO_URI}
 MONGODB_DB=motion
 APP_NAME=Motion
@@ -147,6 +148,7 @@ AUTO_UPDATE=${AUTO_UPDATE}
 EOF
 else
   sed -i "s#^PORT=.*#PORT=${PORT}#" "$ENV_FILE"
+  grep -q '^GO_ENV=' "$ENV_FILE" || echo "GO_ENV=production" >> "$ENV_FILE"
   sed -i "s#^MONGODB_URI=.*#MONGODB_URI=${MONGO_URI}#" "$ENV_FILE"
   grep -q '^ADMIN_EMAILS=' "$ENV_FILE" || echo "ADMIN_EMAILS=${ADMIN_EMAIL}" >> "$ENV_FILE"
   if grep -q '^OPS_TOKEN=' "$ENV_FILE"; then

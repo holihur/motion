@@ -19,6 +19,7 @@ services:
       MONGODB_URI: mongodb://mongo:27017
       MONGODB_DB: motion
       PORT: "8787"
+      GO_ENV: "${GO_ENV:-production}"
       SEED_DEMO: "false"
       ALLOW_SIGNUP: "true"
       ADMIN_EMAILS: "${ADMIN_EMAILS:-}"

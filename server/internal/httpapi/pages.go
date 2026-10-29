@@ -274,6 +274,11 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 		updates["watermark"] = wm
 	}
 	if value, ok := raw["shareOverrides"]; ok {
+		ws, role, err := s.accessibleWorkspaceFor(r.Context(), page.WorkspaceID, currentUserID(r))
+		if err != nil || role != roleOwner {
+			writeErr(w, http.StatusForbidden, "only the workspace owner can change page sharing")
+			return
+		}
 		var overrides []model.ShareOverride
 		if err := json.Unmarshal(value, &overrides); err != nil {
 			writeErr(w, http.StatusBadRequest, "invalid share overrides")
@@ -282,12 +287,20 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 		if len(overrides) > 50 {
 			overrides = overrides[:50]
 		}
+		members := map[string]bool{ws.OwnerID.Hex(): true}
+		for _, member := range ws.Members {
+			members[member.UserID.Hex()] = true
+		}
 		cleaned := make([]model.ShareOverride, 0, len(overrides))
 		seen := map[string]bool{}
 		for _, o := range overrides {
 			o.UserID = strings.TrimSpace(o.UserID)
 			o.Role = strings.TrimSpace(o.Role)
 			if o.UserID == "" || seen[o.UserID] {
+				continue
+			}
+			// The owner can never be overridden, and targets must belong to this workspace.
+			if o.UserID == ws.OwnerID.Hex() || !members[o.UserID] {
 				continue
 			}
 			if o.Role != "editor" && o.Role != "viewer" && o.Role != "none" {
@@ -577,6 +590,8 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		if len(b.Language) > 40 {
 			b.Language = b.Language[:40]
 		}
+		b.Icon = truncateRunes(strings.TrimSpace(b.Icon), 8)
+		b.Translations = sanitizeTranslations(b.Translations)
 		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" || b.Type == "columns" {
 			b.Table = sanitizeTable(b.Table)
 		}
@@ -724,6 +739,8 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 		if len(b.Language) > 40 {
 			b.Language = b.Language[:40]
 		}
+		b.Icon = truncateRunes(strings.TrimSpace(b.Icon), 8)
+		b.Translations = sanitizeTranslations(b.Translations)
 		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" || b.Type == "columns" {
 			b.Table = sanitizeTable(b.Table)
 		}

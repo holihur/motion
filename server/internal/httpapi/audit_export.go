@@ -39,14 +39,27 @@ func (s *Server) exportAudit(w http.ResponseWriter, r *http.Request) {
 		if v, ok := raw["createdAt"].(primitive.DateTime); ok {
 			createdAt = v.Time().UTC().Format("2006-01-02T15:04:05Z")
 		}
-		actor := stringField(raw, "actorName")
-		action := stringField(raw, "action")
-		targetType := stringField(raw, "targetType")
-		targetID := stringField(raw, "targetId")
-		summary := stringField(raw, "summary")
+		actor := csvSafe(stringField(raw, "actorName"))
+		action := csvSafe(stringField(raw, "action"))
+		targetType := csvSafe(stringField(raw, "targetType"))
+		targetID := csvSafe(stringField(raw, "targetId"))
+		summary := csvSafe(stringField(raw, "summary"))
 		_ = cw.Write([]string{createdAt, actor, action, targetType, targetID, summary})
 	}
 	cw.Flush()
+}
+
+// csvSafe prevents spreadsheet formula injection when exported fields start
+// with a character that Excel/Sheets would interpret as a formula.
+func csvSafe(value string) string {
+	if value == "" {
+		return value
+	}
+	switch value[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + value
+	}
+	return value
 }
 
 func stringField(m bson.M, key string) string {

@@ -37,7 +37,6 @@ type opsSettingsView struct {
 	AIDailyTokenBudget int           `json:"aiDailyTokenBudget"`
 	AdminEmails        []string      `json:"adminEmails"`
 	TrashRetentionDays int           `json:"trashRetentionDays"`
-	WatermarkEnabled   bool          `json:"watermarkEnabled"`
 	OIDC               opsOIDCView   `json:"oidc"`
 	Maps               site.Maps     `json:"maps"`
 	Update             opsUpdateView `json:"update"`
@@ -51,7 +50,6 @@ func opsView(settings site.Settings) opsSettingsView {
 		AIDailyTokenBudget: settings.AIDailyTokenBudget,
 		AdminEmails:        append([]string{}, settings.AdminEmails...),
 		TrashRetentionDays: settings.TrashRetentionDays,
-		WatermarkEnabled:   settings.WatermarkEnabled,
 		OIDC: opsOIDCView{
 			Enabled: settings.OIDC.Enabled, Issuer: settings.OIDC.Issuer,
 			ClientID: settings.OIDC.ClientID, RedirectURL: settings.OIDC.RedirectURL,
@@ -99,7 +97,6 @@ type opsSettingsRequest struct {
 	AIDailyTokenBudget *int              `json:"aiDailyTokenBudget"`
 	AdminEmails        *[]string         `json:"adminEmails"`
 	TrashRetentionDays *int              `json:"trashRetentionDays"`
-	WatermarkEnabled   *bool             `json:"watermarkEnabled"`
 	OIDC               *opsOIDCRequest   `json:"oidc"`
 	Maps               *site.Maps        `json:"maps"`
 	Update             *opsUpdateRequest `json:"update"`
@@ -166,10 +163,6 @@ func (s *Server) saveOpsSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		settings.TrashRetentionDays = days
 	}
-	if req.WatermarkEnabled != nil {
-		settings.WatermarkEnabled = *req.WatermarkEnabled
-	}
-
 	if req.Maps != nil {
 		settings.Maps = site.Maps{
 			MapboxToken:   strings.TrimSpace(req.Maps.MapboxToken),

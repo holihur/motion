@@ -219,12 +219,17 @@ export function BlockRow(props: BlockRowProps) {
   const [diagramZoom, setDiagramZoom] = useState(false)
   const [longFolded, setLongFolded] = useState(true)
   const [calloutFolded, setCalloutFolded] = useState(false)
+  const [tableSort, setTableSort] = useState<{ column: number; dir: "asc" | "desc" } | null>(null)
 
   useEffect(() => {
     const el = editableRef.current
     if (!el) return
     if (el.innerText !== block.text) el.innerText = block.text
   }, [block.text, block.type])
+
+  useEffect(() => {
+    setTableSort(null)
+  }, [block.id])
 
   function handleOver(event: React.DragEvent) {
     event.preventDefault()
@@ -394,17 +399,19 @@ export function BlockRow(props: BlockRowProps) {
         return (
           <div className={cn("border-l-[3px] py-0.5 pl-4", block.color === "brand" ? "border-brand/70" : block.color === "green" ? "border-emerald-500/70" : block.color === "red" ? "border-red-500/70" : block.color === "sky" ? "border-sky-500/70" : "border-foreground/60")}>
             {renderEditable("text-[15px] leading-[1.7] py-[3px] text-foreground/90")}
-            <div className="mt-1 flex items-center gap-1.5">
-              <span className="text-[10px] text-muted-foreground">—</span>
-              <input
-                value={block.caption ?? ""}
-                onChange={(e) => onUpdate({ caption: e.target.value })}
-                readOnly={readOnly}
-                placeholder={tr("Citation (optional)")}
-                className="h-6 min-w-0 flex-1 bg-transparent text-[11px] italic text-muted-foreground outline-none placeholder:text-muted-foreground/40"
-              />
-            </div>
-            {block.caption && <div className="mt-0.5 text-right text-[11px] italic text-muted-foreground">— {block.caption}</div>}
+            {readOnly ? (
+              block.caption ? <div className="mt-1 text-right text-[11px] italic text-muted-foreground">— {block.caption}</div> : null
+            ) : (
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="text-[10px] text-muted-foreground">—</span>
+                <input
+                  value={block.caption ?? ""}
+                  onChange={(e) => onUpdate({ caption: e.target.value })}
+                  placeholder={tr("Citation (optional)")}
+                  className="h-6 min-w-0 flex-1 bg-transparent text-[11px] italic text-muted-foreground outline-none placeholder:text-muted-foreground/40"
+                />
+              </div>
+            )}
           </div>
         )
       case "callout": {
@@ -456,13 +463,21 @@ export function BlockRow(props: BlockRowProps) {
       case "table": {
         const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, copyTable, downloadCSV } = useTableBlock(block, onUpdate)
         const sortByColumn = (index: number) => {
+          const dir: "asc" | "desc" = tableSort?.column === index && tableSort.dir === "asc" ? "desc" : "asc"
           const sorted = [...table.rows].sort((a, b) => {
             const av = a[index] ?? ""
             const bv = b[index] ?? ""
-            const an = Number(av), bn = Number(bv)
-            if (!Number.isNaN(an) && !Number.isNaN(bn) && av !== "" && bv !== "") return av.localeCompare(bv)
-            return av.localeCompare(bv)
+            const an = Number(av)
+            const bn = Number(bv)
+            let cmp: number
+            if (av.trim() !== "" && bv.trim() !== "" && !Number.isNaN(an) && !Number.isNaN(bn)) {
+              cmp = an - bn
+            } else {
+              cmp = av.localeCompare(bv, undefined, { numeric: true })
+            }
+            return dir === "asc" ? cmp : -cmp
           })
+          setTableSort({ column: index, dir })
           updateTable({ ...table, rows: sorted })
         }
         const focusCell = (rowIndex: number, columnIndex: number) => {
@@ -595,7 +610,7 @@ export function BlockRow(props: BlockRowProps) {
                               title={tr("Sort column")}
                               className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/head:text-muted-foreground hover:bg-accent hover:text-foreground"
                             >
-                              <ArrowUp className="size-3" />
+                              {tableSort?.column === columnIndex && tableSort.dir === "desc" ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" />}
                             </button>
                           )}
                           {!readOnly && (
@@ -1004,7 +1019,7 @@ export function BlockRow(props: BlockRowProps) {
               <div key={code} className="flex items-start gap-1.5 py-0.5 text-xs">
                 <span className="rounded bg-brand px-1 py-0.5 text-[10px] font-mono text-white">{code}</span>
                 <span className="flex-1 leading-5">{val as string}</span>
-                {!readOnly && <button type="button" onClick={() => { onUpdate({ text: val as string } as any); toast.success(tr("Applied")) }} className="shrink-0 rounded bg-background px-1.5 py-0.5 text-[10px] hover:bg-accent">{tr("Apply")}</button>}
+                {!readOnly && <button type="button" onClick={() => { onUpdate({ text: val as string, rich: "" } as any); toast.success(tr("Applied")) }} className="shrink-0 rounded bg-background px-1.5 py-0.5 text-[10px] hover:bg-accent">{tr("Apply")}</button>}
                 <button type="button" onClick={() => void navigator.clipboard.writeText(val as string).then(()=>toast.success(tr("Copied")))} className="shrink-0 rounded px-1 py-0.5 text-[10px] hover:bg-accent"><Copy className="size-3" /></button>
               </div>
             ))}
@@ -1414,8 +1429,12 @@ function BlockMenu({
           <DropdownMenuSubContent className="w-44">
             {TRANSLATE_LANGS.map((l) => (
               <DropdownMenuItem key={l.code} onSelect={async () => {
-                const t = tr("Translating..."); toast.info(t)
+                toast.info(tr("Translating..."))
                 const out = await translateText(block.text || block.caption || "", l.code as any)
+                if (!out) {
+                  toast.error(tr("Could not translate this block. Configure AI in Settings first."))
+                  return
+                }
                 const next = { ...(block.translations ?? {}), [l.code]: out }
                 onUpdate({ translations: next } as any)
                 toast.success(`${l.label} ✓`)

@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -91,31 +92,51 @@ func (s *Server) listIntegrations(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-func validatePublicWebhookURL(raw string) error {
+func validateEndpointURL(raw string, allowPrivate bool) error {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Hostname() == "" {
 		return errors.New("URL must be an http(s) URL")
 	}
-	if host := parsed.Hostname(); net.ParseIP(host) == nil {
-		ips, err := net.LookupIP(host)
-		if err != nil {
-			return nil
+	ips := []net.IP{}
+	if ip := net.ParseIP(parsed.Hostname()); ip != nil {
+		ips = append(ips, ip)
+	} else {
+		resolved, err := net.LookupIP(parsed.Hostname())
+		if err != nil || len(resolved) == 0 {
+			return errors.New("URL host could not be resolved")
 		}
-		for _, ip := range ips {
-			if ip.IsLoopback() {
-				continue
-			}
-			if ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
+		ips = resolved
+	}
+	for _, ip := range ips {
+		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() || ip.IsMulticast() {
+			return errors.New("URL points to a link-local or reserved address")
+		}
+		if ip.IsLoopback() || ip.IsPrivate() {
+			if !allowPrivate {
 				return errors.New("URL points to a private network")
 			}
 		}
-		return nil
-	}
-	ip := net.ParseIP(parsed.Hostname())
-	if ip != nil && !ip.IsLoopback() && (ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()) {
-		return errors.New("URL points to a private network")
 	}
 	return nil
+}
+
+// allowPrivateIntegrations keeps local development and self-hosted webhooks
+// working while defaulting to public-only in production. Storage endpoints are
+// handled separately because self-hosted MinIO/S3 commonly lives on a private
+// network.
+func allowPrivateIntegrations() bool {
+	if strings.ToLower(strings.TrimSpace(os.Getenv("GO_ENV"))) != "production" {
+		return true
+	}
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("ALLOW_PRIVATE_INTEGRATIONS")), "true")
+}
+
+func validatePublicWebhookURL(raw string) error {
+	return validateEndpointURL(raw, allowPrivateIntegrations())
+}
+
+func validateStorageEndpoint(raw string) error {
+	return validateEndpointURL(raw, true)
 }
 
 func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
@@ -190,7 +211,7 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 			if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
 				endpoint = "https://" + endpoint
 			}
-			if err := validatePublicWebhookURL(endpoint); err != nil {
+			if err := validateStorageEndpoint(endpoint); err != nil {
 				writeErr(w, http.StatusBadRequest, "endpoint "+err.Error())
 				return
 			}
@@ -206,7 +227,7 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 			if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
 				endpoint = "https://" + endpoint
 			}
-			if err := validatePublicWebhookURL(endpoint); err != nil {
+			if err := validateStorageEndpoint(endpoint); err != nil {
 				writeErr(w, http.StatusBadRequest, "endpoint "+err.Error())
 				return
 			}
@@ -235,7 +256,7 @@ func (s *Server) saveIntegration(w http.ResponseWriter, r *http.Request) {
 			if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
 				endpoint = "https://" + endpoint
 			}
-			if err := validatePublicWebhookURL(endpoint); err != nil {
+			if err := validateStorageEndpoint(endpoint); err != nil {
 				writeErr(w, http.StatusBadRequest, "endpoint "+err.Error())
 				return
 			}

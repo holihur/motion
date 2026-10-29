@@ -64,7 +64,7 @@ export function DatabaseBlock({
 
   function addColumn() {
     const id = uid()
-    commit({ columns: [...db.columns, { id, name: `Field ${db.columns.length + 1}`, type: "text" }] })
+    commit({ columns: [...db.columns, { id, name: `${tr("Field")} ${db.columns.length + 1}`, type: "text" }] })
   }
 
   function removeColumn(colId: string) {
@@ -76,22 +76,28 @@ export function DatabaseBlock({
   }
 
   if (viewMode === "board") {
-    const groupCol = db.columns.find((c) => c.id === groupBy) ?? db.columns[1]
+    const groupCol = db.columns.find((c) => c.id === groupBy) ?? db.columns[0]
+    const groupId = groupCol?.id ?? ""
     const groups = new Map<string, typeof filtered>()
-    const opts = groupCol?.options?.length ? groupCol.options : Array.from(new Set(filtered.map((r) => r[groupCol.id] || "No status")))
-    for (const o of opts) groups.set(o, [])
-    if (!opts.length) groups.set("All", filtered)
-    else for (const r of filtered) groups.set(r[groupCol.id] || opts[0], [...(groups.get(r[groupCol.id] || opts[0]) ?? []), r])
+    const explicit = groupCol?.options?.length ? groupCol.options : []
+    const actual = Array.from(new Set(filtered.map((r) => r[groupId] ?? "").filter(Boolean)))
+    const groupKeys = Array.from(new Set([...explicit, ...actual]))
+    for (const key of groupKeys) groups.set(key, [])
+    if (groupKeys.length === 0) groups.set(tr("No status"), [])
+    for (const row of filtered) {
+      const key = row[groupId] || groupKeys[0] || tr("No status")
+      groups.set(key, [...(groups.get(key) ?? []), row])
+    }
     return (
       <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
         <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px]">
-          <span className="flex items-center gap-1 font-medium text-muted-foreground"><Kanban className="size-3" /> Database — Board</span>
+          <span className="flex items-center gap-1 font-medium text-muted-foreground"><Kanban className="size-3" /> {tr("Database")} — {tr("Board")}</span>
           <div className="ml-auto flex items-center gap-1">
             <select value={groupBy} onChange={(e) => { setGroupBy(e.target.value); commit({ groupBy: e.target.value }) }} className="h-6 rounded border bg-background px-1 text-[11px]">
               {db.columns.filter((c) => c.type === "select" || c.type === "status").map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <button type="button" onClick={() => { setViewMode("table"); commit({ viewMode: "table" }) }} className="rounded bg-accent px-2 py-1 text-[11px]">Table</button>
-            <button type="button" onClick={() => { setViewMode("board"); commit({ viewMode: "board" }) }} className="rounded bg-brand px-2 py-1 text-[11px] text-white">Board</button>
+            <button type="button" onClick={() => { setViewMode("table"); commit({ viewMode: "table" }) }} className="rounded bg-accent px-2 py-1 text-[11px]">{tr("Table")}</button>
+            <button type="button" onClick={() => { setViewMode("board"); commit({ viewMode: "board" }) }} className="rounded bg-brand px-2 py-1 text-[11px] text-white">{tr("Board")}</button>
           </div>
         </div>
         <div className="flex gap-2 overflow-x-auto p-2">
@@ -106,7 +112,7 @@ export function DatabaseBlock({
                     ))}
                   </div>
                 ))}
-                {!readOnly && <button type="button" onClick={addRow} className="flex w-full items-center justify-center gap-1 rounded border border-dashed py-1.5 text-xs text-muted-foreground hover:bg-accent"><Plus className="size-3" /> Add</button>}
+                {!readOnly && <button type="button" onClick={addRow} className="flex w-full items-center justify-center gap-1 rounded border border-dashed py-1.5 text-xs text-muted-foreground hover:bg-accent"><Plus className="size-3" /> {tr("Add")}</button>}
               </div>
             </div>
           ))}
@@ -118,7 +124,7 @@ export function DatabaseBlock({
   return (
     <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px]">
-        <span className="flex items-center gap-1 font-medium text-muted-foreground"><Table2 className="size-3" /> Database</span>
+        <span className="flex items-center gap-1 font-medium text-muted-foreground"><Table2 className="size-3" /> {tr("Database")}</span>
         <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">{tr("{n} rows", { n: filtered.length })}</span>
         <button
           type="button"
@@ -142,7 +148,7 @@ export function DatabaseBlock({
             <Filter className="size-3 text-muted-foreground" />
             <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={tr("Filter...")} className="h-5 w-24 bg-transparent text-[11px] outline-none" />
           </div>
-          <button type="button" onClick={() => { setViewMode("board"); commit({ viewMode: "board" }) }} className="rounded px-2 py-1 hover:bg-accent">Board</button>
+          <button type="button" onClick={() => { setViewMode("board"); commit({ viewMode: "board" }) }} className="rounded px-2 py-1 hover:bg-accent">{tr("Board")}</button>
           {!readOnly && <button type="button" onClick={addRow} className="rounded px-2 py-1 hover:bg-accent"><Plus className="size-3" /></button>}
           {!readOnly && <button type="button" onClick={addColumn} className="rounded px-2 py-1 hover:bg-accent"><Settings2 className="size-3" /></button>}
         </div>
@@ -199,7 +205,7 @@ export function DatabaseBlock({
           </tbody>
         </table>
       </div>
-      {!readOnly && <div className="border-t border-border/60 p-1.5"><button type="button" onClick={addRow} className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent"><Plus className="size-3" /> Add row</button></div>}
+      {!readOnly && <div className="border-t border-border/60 p-1.5"><button type="button" onClick={addRow} className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent"><Plus className="size-3" /> {tr("Add row")}</button></div>}
     </div>
   )
 }

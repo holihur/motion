@@ -1023,5 +1023,8 @@
   "Task templates": "任务模板",
   "Template saved": "模板已保存",
   "Tokens used": "Token 消耗",
-  "Use template… ({n})": "使用模板…（{n}）"
+  "Use template… ({n})": "使用模板…（{n}）",
+  "Leaderboard": "排行榜",
+  "Sends as": "实际发送",
+  "Variables, replaced on send": "变量，发送时替换"
 }

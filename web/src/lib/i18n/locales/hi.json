@@ -1023,5 +1023,8 @@
   "Task templates": "Task templates",
   "Template saved": "Template saved",
   "Tokens used": "Tokens used",
-  "Use template… ({n})": "Use template… ({n})"
+  "Use template… ({n})": "Use template… ({n})",
+  "Leaderboard": "Leaderboard",
+  "Sends as": "Sends as",
+  "Variables, replaced on send": "Variables, replaced on send"
 }

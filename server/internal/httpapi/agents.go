@@ -402,6 +402,21 @@ func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting mod
 	_, _ = s.store.AgentRuns.UpdateByID(ctx, runID, bson.M{"$set": bson.M{
 		"status": "running", "startedAt": now,
 	}})
+	// Expand template variables at execution time (runs store the raw prompt).
+	pageTitle, workspaceName := "", ""
+	if strings.TrimSpace(pageHex) != "" {
+		if pageID, err := primitive.ObjectIDFromHex(strings.TrimSpace(pageHex)); err == nil {
+			var page model.Page
+			if err := s.store.Pages.FindOne(ctx, bson.M{"_id": pageID}).Decode(&page); err == nil {
+				pageTitle = page.Title
+			}
+		}
+	}
+	var ws model.Workspace
+	if err := s.store.Workspaces.FindOne(ctx, bson.M{"_id": agent.WorkspaceID}).Decode(&ws); err == nil {
+		workspaceName = ws.Name
+	}
+	prompt = expandTemplateVars(prompt, pageTitle, workspaceName)
 	key := ""
 	if setting.KeyCipher != "" {
 		var err error
@@ -523,6 +538,23 @@ func (s *Server) listAgentRuns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, runs)
+}
+
+// expandTemplateVars replaces {date} {time} {datetime} {weekday} {page}
+// {workspace} in task prompts. Stored prompts keep the raw variables so
+// retries and schedules re-expand at execution time.
+func expandTemplateVars(prompt, pageTitle, workspaceName string) string {
+	now := time.Now()
+	weekdays := []string{"周日", "周一", "周二", "周三", "周四", "周五", "周六"}
+	r := strings.NewReplacer(
+		"{date}", now.Format("2006-01-02"),
+		"{time}", now.Format("15:04"),
+		"{datetime}", now.Format("2006-01-02 15:04"),
+		"{weekday}", weekdays[int(now.Weekday())],
+		"{page}", pageTitle,
+		"{workspace}", workspaceName,
+	)
+	return r.Replace(prompt)
 }
 
 // StartAgentScheduler periodically runs agents with an enabled schedule.

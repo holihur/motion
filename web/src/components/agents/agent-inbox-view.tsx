@@ -13,6 +13,7 @@ import {
   RefreshCw,
   BookmarkPlus,
   RotateCcw,
+  Trophy,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -25,6 +26,7 @@ import { formatRelative } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 import { WorkspaceIcon } from "@/components/app/workspace-icon"
 import { useWorkspaceStore } from "@/stores/workspace"
+import { TEMPLATE_VARS, expandTemplateVars, hasTemplateVars } from "@/lib/template-vars"
 import { SidebarToggle } from "@/components/app/sidebar-toggle"
 import { diffBlocks, ProposalDialog } from "@/components/agents/proposal-dialog"
 import { Button } from "@/components/ui/button"
@@ -323,7 +325,8 @@ export function AgentInboxView() {
               />
             </TabsContent>
             <TabsContent value="agents" className="pt-4">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <Leaderboard agents={agents} runs={runs} stats={stats} onOpen={(a) => setDetailAgent(a)} />
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {loading && agents.length === 0
                   ? [0, 1].map((item) => <Skeleton key={item} className="h-36 rounded-xl" />)
                   : agents.map((agent) => {
@@ -485,6 +488,11 @@ function DispatchBar({ agents, forcedAgent, onForcedAgentConsumed, onDispatched,
     if (!agentId && enabled.length > 0) setAgentId(enabled[0].id)
   }, [agentId, enabled])
 
+  const workspaces = useWorkspaceStore((st) => st.workspaces)
+  const workspaceName = workspaces.find((w) => w.id === activeId)?.name ?? ""
+  const pageTitle = pages.find((p) => p.id === pageId)?.title ?? ""
+  const preview = hasTemplateVars(prompt) ? expandTemplateVars(prompt, { pageTitle, workspaceName }) : ""
+
   function applyTemplate(id: string) {
     const t = templates.find((item) => item.id === id)
     if (!t) return
@@ -588,6 +596,11 @@ function DispatchBar({ agents, forcedAgent, onForcedAgentConsumed, onDispatched,
         >
           {tr("Manage")}
         </button>
+        {preview && preview !== prompt && (
+          <span className="w-full rounded-md bg-muted/50 px-2 py-1 text-[11px] leading-4 text-muted-foreground">
+            {tr("Sends as")}: {preview.length > 120 ? preview.slice(0, 120) + "…" : preview}
+          </span>
+        )}
         <span className="ml-auto hidden text-[11px] leading-4 text-muted-foreground md:block">
           {tr("Runs in the background — approval-mode results land here for review, auto-mode applies directly.")}
         </span>
@@ -639,6 +652,15 @@ function TemplateDialog({ open, onOpenChange, agents, templates, onSaved }: {
           <DialogTitle>{tr("Task templates")}</DialogTitle>
           <DialogDescription>{tr("One click fills the dispatch bar — shared across this workspace.")}</DialogDescription>
         </DialogHeader>
+        <div className="flex flex-wrap items-center gap-1 rounded-lg bg-muted/40 px-2.5 py-2 text-[11px] text-muted-foreground">
+          <span>{tr("Variables, replaced on send")}:</span>
+          {TEMPLATE_VARS.map((v) => (
+            <code key={v.key} title={v.desc} className="cursor-pointer rounded bg-background px-1.5 py-0.5 font-mono hover:text-foreground" onClick={() => setItems((prev) => {
+              if (prev.length === 0) return [...prev, { id: `new-${Date.now()}`, name: "", prompt: v.key + " ", createdAt: new Date().toISOString() }]
+              return prev.map((x, k) => (k === prev.length - 1 ? { ...x, prompt: (x.prompt ? x.prompt + " " : "") + v.key } : x))
+            })}>{v.key}</code>
+          ))}
+        </div>
         <div className="space-y-2">
           {items.length === 0 && (
             <div className="rounded-xl border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">
@@ -848,6 +870,53 @@ function RunsList({ runs, loading, reviewing, onRetry }: {
             </Button>
           )}
         </div>
+      ))}
+    </div>
+  )
+}
+
+/* ---------------- Agent 对比榜 ---------------- */
+
+function Leaderboard({ agents, runs, stats, onOpen }: {
+  agents: Agent[]
+  runs: AgentRun[]
+  stats: Map<string, { pending: number; approved: number; rejected: number; lastAt: string }>
+  onOpen: (a: Agent) => void
+}) {
+  const rows = useMemo(() => agents.map((a) => {
+    const mine = runs.filter((r) => r.agentId === a.id)
+    const done = mine.filter((r) => r.status === "succeeded" || r.status === "failed")
+    const ok = mine.filter((r) => r.status === "succeeded").length
+    const tokens = mine.reduce((sum, r) => sum + (r.tokens ?? 0), 0)
+    const stat = stats.get(a.id) ?? stats.get(a.name)
+    return {
+      agent: a,
+      runs: mine.length,
+      rate: done.length ? Math.round((ok / done.length) * 100) : null,
+      tokens,
+      pending: stat?.pending ?? 0,
+    }
+  }).sort((x, y) => y.runs - x.runs), [agents, runs, stats])
+  if (agents.length < 2) return null
+  return (
+    <div className="overflow-hidden rounded-xl border bg-card">
+      <div className="flex items-center gap-1.5 border-b border-border/60 px-3 py-2 text-xs font-semibold">
+        <Trophy className="size-3.5 text-amber-500" /> {tr("Leaderboard")}
+      </div>
+      {rows.map(({ agent, runs: n, rate, tokens, pending }) => (
+        <button
+          key={agent.id}
+          type="button"
+          onClick={() => onOpen(agent)}
+          className="flex w-full items-center gap-2.5 border-b px-3 py-2 text-left text-xs transition last:border-b-0 hover:bg-accent/40"
+        >
+          <span className="text-base">{agent.icon}</span>
+          <span className="min-w-0 flex-1 truncate font-medium">{agent.name}</span>
+          {pending > 0 && <span className="rounded-full bg-amber-500/15 px-1.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">{pending}</span>}
+          <span className="hidden w-16 text-right tabular-nums text-muted-foreground sm:block">{n} {tr("Runs").toLowerCase()}</span>
+          <span className="w-14 text-right font-semibold tabular-nums">{rate === null ? "—" : `${rate}%`}</span>
+          <span className="w-16 text-right tabular-nums text-muted-foreground">{tokens > 1000 ? `${(tokens / 1000).toFixed(1)}k` : tokens}</span>
+        </button>
       ))}
     </div>
   )

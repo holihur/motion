@@ -958,6 +958,7 @@ const zh: Record<string, string> = {
   "Webhook replay queued": "Webhook 重放已排队",
   "Could not replay webhook": "无法重放 Webhook",
   "Replay": "重放",
+  "PDF Preview": "PDF 预览",
   "Resize sidebar": "调整侧边栏宽度",
   "This version matches the current page.": "此版本与当前页面一致。",
   "Compared with this version": "与此版本相比",

@@ -349,6 +349,7 @@ export function FileBlock({
   block: Block; readOnly: boolean; autoFocus?: boolean; workspaceId?: string; onUpdate: (patch: Partial<Block>) => void
 }) {
   const [editing, setEditing] = useState(!block.url)
+  const [pdfExpanded, setPdfExpanded] = useState(false)
   useEffect(() => { if (!block.url) setEditing(true) }, [block.url])
   if (editing) {
     return <LinkPrompt block={block} kind="file" readOnly={readOnly} autoFocus={autoFocus} workspaceId={workspaceId} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
@@ -356,13 +357,20 @@ export function FileBlock({
   const name = block.text || block.url?.split("/").filter(Boolean).pop() || tr("Attachment")
   const visual = fileVisual(name)
   const FileIcon = visual.Icon
+  const rawUrl = block.url ?? ""
+  const isPdf = (() => {
+    const v = `${name} ${rawUrl}`.toLowerCase()
+    return v.includes(".pdf")
+  })()
+  const href = rawUrl.startsWith("/") ? rawUrl : safeHttpUrl(rawUrl)?.toString() ?? "#"
+  const iframeSrc = rawUrl.startsWith("/") ? rawUrl : safeHttpUrl(rawUrl)?.toString() ?? rawUrl
   return (
     <div className="group relative my-2">
       <a
-        href={safeHttpUrl(block.url ?? "")?.toString() ?? "#"}
+        href={href}
         target="_blank"
         rel="noreferrer noopener"
-        download
+        download={!isPdf ? name : undefined}
         className="flex items-center gap-3 rounded-xl border border-border/80 bg-card px-3.5 py-3 transition hover:border-brand/40 hover:bg-accent/25"
       >
         <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", visual.className)}>
@@ -370,10 +378,36 @@ export function FileBlock({
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-medium">{name}</span>
-          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{block.caption || hostFor(block.url ?? "")}</span>
+          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{block.caption || hostFor(rawUrl)}</span>
         </span>
         <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
       </a>
+      {isPdf && rawUrl && (
+        <div className="mt-2 overflow-hidden rounded-xl border border-border/80 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b bg-muted/40 px-3 py-1.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+              <FileText className="size-3.5" /> {tr("PDF Preview")}
+            </span>
+            <div className="flex items-center gap-1">
+              <a href={href} target="_blank" rel="noreferrer noopener" className="rounded px-2 py-1 text-[11px] hover:bg-accent">
+                {tr("Open")}
+              </a>
+              <a href={href} download={name} className="rounded px-2 py-1 text-[11px] hover:bg-accent">
+                {tr("Download")}
+              </a>
+              <button type="button" onClick={() => setPdfExpanded((v) => !v)} className="rounded px-2 py-1 text-[11px] hover:bg-accent">
+                {pdfExpanded ? tr("Collapse") : tr("Expand")}
+              </button>
+            </div>
+          </div>
+          <iframe
+            src={iframeSrc}
+            title={name}
+            loading="lazy"
+            className={cn("w-full bg-white", pdfExpanded ? "h-[800px]" : "h-[480px]")}
+          />
+        </div>
+      )}
       {!readOnly && <CardActions onEdit={() => setEditing(true)} />}
     </div>
   )

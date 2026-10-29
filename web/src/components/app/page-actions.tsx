@@ -41,6 +41,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -431,18 +434,25 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           <DropdownMenuItem onSelect={() => void onCopyLink()}>
             <Link2 /> {tr("Copy link")}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void onExport()}>
-            <Download /> {tr("Export as Markdown")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void exportFile("html")}>
-            <FileCode2 /> {tr("Export as HTML")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void exportFile("pdf")}>
-            <FileText /> {tr("Export as PDF")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void exportFile("docx")}>
-            <FileType2 /> {tr("Export as Word")}
-          </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Download /> {tr("Export")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-52">
+              <DropdownMenuItem onSelect={() => void onExport()}>
+                <Download /> {tr("Export as Markdown")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void exportFile("html")}>
+                <FileCode2 /> {tr("Export as HTML")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void exportFile("pdf")}>
+                <FileText /> {tr("Export as PDF")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void exportFile("docx")}>
+                <FileType2 /> {tr("Export as Word")}
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           {!readOnly && !locked && <DropdownMenuItem onSelect={() => { setPublicSlug(page.publicSlug ?? null); setPublishOpen(true) }}>
             <Globe /> {publicSlug || page.publicSlug ? tr("Published to web") : tr("Publish to web")}
             {(publicSlug || page.publicSlug) && <span className="ml-auto size-1.5 rounded-full bg-emerald-500" />}

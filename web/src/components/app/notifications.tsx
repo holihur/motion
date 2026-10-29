@@ -88,7 +88,9 @@ export function useNotifications() {
 export function NotificationBell() {
   const { items, unread, markRead, markAllRead } = useNotifications()
   const [open, setOpen] = useState(false)
+  const [filter, setFilter] = useState<"" | Notification["type"]>("")
   const navigate = useNavigate()
+  const shown = filter ? items.filter((n) => n.type === filter) : items
 
   function openNotification(n: Notification) {
     if (!n.read) void markRead(n.id)
@@ -134,13 +136,25 @@ export function NotificationBell() {
               )}
             </DialogTitle>
           </DialogHeader>
+          <div className="flex flex-wrap gap-1">
+            {([["", tr("All")], ["mention", "@"], ["comment_reply", tr("Replies")], ["agent_done", "Agent"]] as const).map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setFilter(v)}
+                className={filter === v ? "rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-medium text-brand" : "rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-accent"}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="space-y-1.5">
-            {items.length === 0 && (
+            {shown.length === 0 && (
               <div className="rounded-xl border border-dashed px-4 py-10 text-center text-xs text-muted-foreground">
-                {tr("No notifications — @ someone to try it out.")}
+                {items.length === 0 ? tr("No notifications — @ someone to try it out.") : tr("Nothing under this filter.")}
               </div>
             )}
-            {items.map((n) => (
+            {shown.map((n) => (
               <button
                 key={n.id}
                 type="button"

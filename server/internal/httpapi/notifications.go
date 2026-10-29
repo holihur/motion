@@ -34,6 +34,13 @@ func (s *Server) notifyUser(ctx context.Context, n model.Notification) {
 		"userId": n.UserID.Hex(), "notificationId": n.ID.Hex(),
 		"kind": n.Type, "title": n.Title,
 	}, "")
+	// 外发：配了 webhook 集成（含企微机器人）的工作区自动收到，可用 notification.* 订阅。
+	s.webhooks.Emit(ctx, n.WorkspaceID, "notification.created", map[string]any{
+		"notificationId": n.ID.Hex(), "userId": n.UserID.Hex(),
+		"kind": n.Type, "title": n.Title, "body": n.Body,
+		"pageId": n.PageID, "blockId": n.BlockID, "commentId": n.CommentID,
+		"actor": n.ActorName,
+	})
 }
 
 // extractMentionIDs returns mentioned user ids from a block's lexical rich state.

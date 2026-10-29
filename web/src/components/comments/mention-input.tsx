@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react"
+import type React from "react"
 import type { Member } from "@/lib/types"
 import { tr } from "@/lib/i18n"
 import { initials } from "@/lib/utils"
@@ -236,4 +237,32 @@ export function MentionInput({ members, value, onChange, ...rest }: {
       )}
     </div>
   )
+}
+
+/** 把 body 里的 @成员名 高亮（精确匹配，最长优先）。 */
+export function renderMentionBody(body: string, members: Member[]): React.ReactNode[] {
+  const names = [...new Set(members.map((m) => m.name).filter(Boolean) as string[])].sort((a, b) => b.length - a.length)
+  if (names.length === 0 || !body.includes("@")) return [body]
+  const out: React.ReactNode[] = []
+  let rest = body
+  let k = 0
+  while (rest) {
+    const at = rest.indexOf("@")
+    if (at < 0) {
+      out.push(rest)
+      break
+    }
+    const hit = names.find((n) => rest.startsWith(n, at + 1))
+    if (!hit) {
+      out.push(rest.slice(0, at + 1))
+      rest = rest.slice(at + 1)
+      continue
+    }
+    if (at > 0) out.push(rest.slice(0, at))
+    out.push(
+      <span key={k++} className="rounded bg-brand-soft px-0.5 font-medium text-brand">@{hit}</span>,
+    )
+    rest = rest.slice(at + 1 + hit.length)
+  }
+  return out
 }

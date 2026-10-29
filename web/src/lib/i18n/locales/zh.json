@@ -1047,5 +1047,6 @@
   "When someone @ mentions you in pages or comments": "有人在页面或评论里 @ 你时",
   "When someone replies to your comment": "有人回复你的评论时",
   "When your dispatched or scheduled agent task finishes": "你派发/定时的 Agent 任务完成时",
-  "Write a comment… (type @ to mention)": "写评论…（输入 @ 提及成员）"
+  "Write a comment… (type @ to mention)": "写评论…（输入 @ 提及成员）",
+  "Nothing under this filter.": "这个筛选下没有通知。"
 }

@@ -3,7 +3,7 @@ import { CheckCheck, MessageSquare, MessageSquareReply, RotateCcw, Send, Trash2,
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import type { Comment, Member } from "@/lib/types"
-import { MentionInput } from "@/components/comments/mention-input"
+import { MentionInput, renderMentionBody } from "@/components/comments/mention-input"
 import { cn, formatRelative, initials } from "@/lib/utils"
 import { useAuthStore } from "@/stores/auth"
 import { tr } from "@/lib/i18n"
@@ -272,9 +272,11 @@ function Thread({
   currentUserId,
   replyOpen,
   replyBody,
+  members,
   pending,
   onReplyOpen,
   onReplyChange,
+  onReplyMentions,
   onReplySubmit,
   onResolve,
   onDelete,
@@ -317,7 +319,7 @@ function Thread({
             <span className="truncate text-xs font-medium">{comment.authorName || "Someone"}</span>
             <span className="shrink-0 text-[10px] text-muted-foreground">{formatRelative(comment.createdAt)}</span>
           </div>
-          <p className="mt-1 whitespace-pre-wrap text-[13px] leading-5">{comment.body}</p>
+          <p className="mt-1 whitespace-pre-wrap text-[13px] leading-5">{renderMentionBody(comment.body, members)}</p>
           <div className="mt-2 flex items-center gap-1">
             {!resolved && !readOnly && (
               <button
@@ -361,7 +363,7 @@ function Thread({
                   <span className="truncate text-[11px] font-medium">{reply.authorName}</span>
                   <span className="shrink-0 text-[10px] text-muted-foreground">{formatRelative(reply.createdAt)}</span>
                 </div>
-                <p className="whitespace-pre-wrap text-xs leading-5">{reply.body}</p>
+                <p className="whitespace-pre-wrap text-xs leading-5">{renderMentionBody(reply.body, members)}</p>
               </div>
             </div>
           ))}

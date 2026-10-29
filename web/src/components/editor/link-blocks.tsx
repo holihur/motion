@@ -41,18 +41,33 @@ export function PageLinkBlock({
     setQuery("")
   }
 
+  const [previewOpen, setPreviewOpen] = useState(false)
   return (
     <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 flex items-center gap-1">
       {target ? (
-        <button
-          type="button"
-          onClick={() => navigate(`/page/${target.id}`)}
-          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-border/70 bg-card px-3 py-2 text-left transition hover:border-brand/40 hover:bg-accent/30"
-        >
-          <span className="text-base leading-none">{target.icon || "📄"}</span>
-          <span className="truncate text-[13px] font-medium">{pageTitle(target.title)}</span>
-          <span className="ml-auto text-[10px] text-muted-foreground">{tr("Page")}</span>
-        </button>
+        <Popover open={previewOpen} onOpenChange={setPreviewOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              onClick={() => navigate(`/page/${target.id}`)}
+              onMouseEnter={() => setPreviewOpen(true)}
+              onMouseLeave={() => setPreviewOpen(false)}
+              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-border/70 bg-card px-3 py-2 text-left transition hover:border-brand/40 hover:bg-accent/30"
+            >
+              <span className="text-base leading-none">{target.icon || "📄"}</span>
+              <span className="truncate text-[13px] font-medium">{pageTitle(target.title)}</span>
+              <span className="ml-auto text-[10px] text-muted-foreground">{tr("Page")}</span>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64 p-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{target.icon || "📄"}</span>
+              <span className="truncate text-sm font-medium">{pageTitle(target.title)}</span>
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">{tr("Updated")} {new Date(target.updatedAt).toLocaleDateString()}</div>
+            <button type="button" onClick={() => navigate(`/page/${target.id}`)} className="mt-2 w-full rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground">{tr("Open")}</button>
+          </PopoverContent>
+        </Popover>
       ) : (
         <button
           type="button"

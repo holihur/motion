@@ -791,10 +791,20 @@ export function BlockRow(props: BlockRowProps) {
         return <FormBlock block={block} pageId={pageId} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "content":
         return (
-          <div className="my-3 rounded-xl border-2 border-dashed border-brand/35 bg-brand-soft/20 px-4 py-8 text-center">
-            <div className="text-xs font-medium text-brand">{tr("Page content appears here")}</div>
-            <div className="mt-1 text-[11px] text-muted-foreground">
+          <div className="my-3 rounded-xl border-2 border-dashed border-brand/35 bg-gradient-to-br from-brand-soft/30 to-brand-two/10 px-4 py-6 text-center">
+            <div className="mx-auto flex size-8 items-center justify-center rounded-lg bg-brand text-white">
+              <Columns2 className="size-4" />
+            </div>
+            <div className="mt-2 text-xs font-semibold text-brand">{tr("Page content appears here")}</div>
+            <div className="mt-1 text-[11px] leading-5 text-muted-foreground">
               {tr("Everything before this block is the shared header; everything after it is the footer.")}
+            </div>
+            <div className="mt-3 flex justify-center gap-1.5 text-[10px] text-muted-foreground">
+              <span className="rounded bg-background px-1.5 py-0.5">{tr("Header")}</span>
+              <span>→</span>
+              <span className="rounded bg-brand px-1.5 py-0.5 font-medium text-white">{tr("Content")}</span>
+              <span>→</span>
+              <span className="rounded bg-background px-1.5 py-0.5">{tr("Footer")}</span>
             </div>
           </div>
         )

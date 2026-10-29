@@ -31,6 +31,8 @@ import { cn } from "@/lib/utils"
 import { PageActionsMenu } from "@/components/app/page-actions"
 
 export function HomeView() {
+  // page-shell + card-elevated 全站质感已由 index.css 统一，Home 额外增加 hero 渐变与空状态插画
+
   const user = useAuthStore((state) => state.user)
   const pages = useWorkspaceStore((state) => state.pages)
   const workspaces = useWorkspaceStore((state) => state.workspaces)

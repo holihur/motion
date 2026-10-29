@@ -77,6 +77,7 @@ export interface Block {
   checked?: boolean
   language?: string
   color?: string
+  icon?: string
   /** Optional text/background palette keys for text-like blocks. */
   textColor?: string
   bgColor?: string

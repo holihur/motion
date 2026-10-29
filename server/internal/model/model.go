@@ -106,6 +106,7 @@ type Block struct {
 	Checked     bool       `bson:"checked,omitempty" json:"checked,omitempty"`
 	Language    string     `bson:"language,omitempty" json:"language,omitempty"`
 	Color       string     `bson:"color,omitempty" json:"color,omitempty"`
+	Icon        string     `bson:"icon,omitempty" json:"icon,omitempty"`
 	TextColor   string     `bson:"textColor,omitempty" json:"textColor,omitempty"`
 	BGColor     string     `bson:"bgColor,omitempty" json:"bgColor,omitempty"`
 	Align       string     `bson:"align,omitempty" json:"align,omitempty"`

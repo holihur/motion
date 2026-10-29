@@ -13,11 +13,13 @@ export function QRCodeBlock({
 }: {
   block: Block; readOnly: boolean; autoFocus?: boolean; onUpdate: (patch: Partial<Block>) => void
 }) {
-  const [dataURL, setDataURL] = useState("")
+  const [dataURLs, setDataURLs] = useState<string[]>([])
   const [error, setError] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
   const size = Number(block.language) || 280
   const value = block.text
+  const values = value.split("\n").map((v) => v.trim()).filter(Boolean)
+  const isBatch = values.length > 1
 
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus()
@@ -26,20 +28,21 @@ export function QRCodeBlock({
   useEffect(() => {
     let alive = true
     if (!value) {
-      setDataURL("")
+      setDataURLs([])
       setError("")
       return
     }
-    QRCode.toDataURL(value, {
+    Promise.all(values.map((v) => QRCode.toDataURL(v, {
       width: size, margin: 2, errorCorrectionLevel: "M",
       color: { dark: "#0f172a", light: "#ffffff" },
-    }).then((url) => {
-      if (alive) { setDataURL(url); setError("") }
+    }))).then((urls) => {
+      if (alive) { setDataURLs(urls); setError("") }
     }).catch((err) => {
       if (alive) setError(err instanceof Error ? err.message : "Could not generate QR code")
     })
     return () => { alive = false }
-  }, [value, size])
+  }, [value, size, values.join("|")])
+  const dataURL = dataURLs[0] ?? ""
 
   return (
     <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
@@ -60,18 +63,18 @@ export function QRCodeBlock({
           </div>
         )}
         {!value && <div className="rounded-lg border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">{readOnly ? tr("No QR code content.") : tr("Enter text or a URL to generate a QR code.")}</div>}
-        {value && dataURL && (
-          <div className="flex flex-col items-center gap-2">
-            <img src={dataURL} width={size} height={size} alt={block.caption || "QR code"} className="max-w-full rounded-lg bg-white" />
-            {block.caption && <div className="text-center text-[11px] text-muted-foreground">{block.caption}</div>}
-            <button type="button" onClick={() => {
-              const link = document.createElement("a")
-              link.href = dataURL
-              link.download = "qr-code.png"
-              link.click()
-            }} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground">
-              <ImageDown className="size-3" /> {tr("Download PNG")}
-            </button>
+        {value && dataURLs.length > 0 && (
+          <div className={isBatch ? "grid gap-3 sm:grid-cols-2" : "flex flex-col items-center gap-2"}>
+            {dataURLs.map((url, i) => (
+              <div key={i} className="flex flex-col items-center gap-1 rounded-lg border bg-white p-2">
+                <img src={url} width={Math.min(size, 180)} height={Math.min(size, 180)} alt={values[i] || "QR code"} className="max-w-full rounded-lg bg-white" />
+                <div className="truncate text-[10px] text-muted-foreground">{values[i]}</div>
+                <button type="button" onClick={() => { const link = document.createElement("a"); link.href = url; link.download = `qr-${i+1}.png`; link.click() }} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground">
+                  <ImageDown className="size-3" /> {tr("Download PNG")}
+                </button>
+              </div>
+            ))}
+            {block.caption && !isBatch && <div className="text-center text-[11px] text-muted-foreground">{block.caption}</div>}
           </div>
         )}
         {error && <p className="text-[11px] text-destructive">{error}</p>}

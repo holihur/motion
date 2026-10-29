@@ -342,6 +342,7 @@ export function BlockRow(props: BlockRowProps) {
         )
       case "callout": {
         const color = block.color || "amber"
+        const icon = block.icon || CALLOUT_EMOJI[color] || "💡"
         return (
           <div
             className={cn(
@@ -349,9 +350,9 @@ export function BlockRow(props: BlockRowProps) {
               CALLOUT_COLORS[color] ?? CALLOUT_COLORS.amber,
             )}
           >
-            <span className="mt-[1px] shrink-0 select-none text-[17px] leading-6">
-              {CALLOUT_EMOJI[color] ?? "💡"}
-            </span>
+            <button type="button" onClick={() => { if (readOnly) return; const next = prompt(tr("Callout icon"), icon) ?? icon; if (next) onUpdate({ icon: next }) }} className={cn("mt-[1px] shrink-0 select-none text-[17px] leading-6", !readOnly && "cursor-pointer hover:scale-110")} title={readOnly ? undefined : tr("Change icon")}>
+              {icon}
+            </button>
             {renderEditable("text-[15px] leading-[1.7] py-0")}
           </div>
         )

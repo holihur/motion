@@ -312,6 +312,7 @@ export function EmbedBlock({
   block: Block; readOnly: boolean; autoFocus?: boolean; onUpdate: (patch: Partial<Block>) => void
 }) {
   const [editing, setEditing] = useState(!block.url)
+  const [loading, setLoading] = useState(true)
   useEffect(() => { if (!block.url) setEditing(true) }, [block.url])
   if (editing) {
     return <LinkPrompt block={block} kind="embed" readOnly={readOnly} autoFocus={autoFocus} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
@@ -324,15 +325,19 @@ export function EmbedBlock({
           {tr("Open")} <ArrowUpRight className="size-3" />
         </a>
       </div>
-      <iframe
-        src={safeHttpUrl(block.url ?? "")?.toString() ?? "about:blank"}
-        title={block.caption || "Embedded content"}
-        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
-        allow="clipboard-write; encrypted-media; picture-in-picture; fullscreen"
-        referrerPolicy="no-referrer"
-        loading="lazy"
-        className="h-[360px] w-full bg-background"
-      />
+      <div className="relative">
+        {loading && <div className="absolute inset-0 flex items-center justify-center bg-muted/30"><div className="h-6 w-6 animate-spin rounded-full border-2 border-brand border-t-transparent" /></div>}
+        <iframe
+          src={safeHttpUrl(block.url ?? "")?.toString() ?? "about:blank"}
+          title={block.caption || "Embedded content"}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"
+          allow="clipboard-write; encrypted-media; picture-in-picture; fullscreen"
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          onLoad={() => setLoading(false)}
+          className="h-[360px] w-full bg-background"
+        />
+      </div>
       {!readOnly && <CardActions onEdit={() => setEditing(true)} />}
     </div>
   )

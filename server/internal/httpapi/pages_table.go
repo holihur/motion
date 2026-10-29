@@ -130,11 +130,3 @@ func sanitizeDatabase(db *model.DatabaseData) *model.DatabaseData {
 	groupBy := truncateRunes(db.GroupBy, 40)
 	return &model.DatabaseData{Columns: cols, Rows: rows, ViewMode: mode, GroupBy: groupBy}
 }
-
-func truncateRunes(value string, limit int) string {
-	runes := []rune(value)
-	if len(runes) <= limit {
-		return value
-	}
-	return string(runes[:limit])
-}

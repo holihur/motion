@@ -187,8 +187,8 @@ func (s *Server) downloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	// Non-image files require workspace membership; images are allowed anonymously for <img> but with private cache
 	if !strings.HasPrefix(strings.ToLower(contentType), "image/") {
-		info := authFrom(r.Context())
-		if info == nil {
+		info := currentAuth(r)
+		if info.UserID.IsZero() {
 			writeErr(w, http.StatusUnauthorized, "authentication required")
 			return
 		}

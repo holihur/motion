@@ -156,12 +156,21 @@ export function AuthPage() {
           </div>
         </div>
 
-        <div className="relative flex items-center justify-between text-xs text-muted-foreground">
-          <span>© {new Date().getFullYear()} Motion</span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-1.5 rounded-full bg-emerald-500" />
-            {tr("All systems operational")}
-          </span>
+        <div className="relative flex flex-col gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center justify-between">
+            <span>© {new Date().getFullYear()} Motion · AGPL-3.0 · {tr("Self-hosted")}</span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full bg-emerald-500" />
+              {tr("All systems operational")}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground/80">
+            <a href="https://github.com/holihur/motion" target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">GitHub</a>
+            <span className="opacity-30">·</span>
+            <span>{tr("Beautifully simple, quietly powerful.")}</span>
+            <span className="opacity-30">·</span>
+            <span>{tr("A calmer place for your thoughts")} — {tr("keep moving.")}</span>
+          </div>
         </div>
       </section>
 
@@ -313,9 +322,29 @@ export function AuthPage() {
               </button>
             </p>
 
-            <p className="mt-6 text-center text-[11px] leading-5 text-muted-foreground/70">
-              {tr("Demo account: demo@motion.app · demo1234")}
-            </p>
+            <div className="mt-6 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
+              <div className="flex items-center justify-center gap-2 text-[11px] font-medium">
+                <span className="rounded bg-brand px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">{tr("Tip")}</span>
+                <span className="text-muted-foreground">{tr("Demo account: demo@motion.app · demo1234")} — {tr("Explore the demo workspace")}</span>
+              </div>
+              <div className="mt-1.5 hidden justify-center gap-1.5 text-[10px] text-muted-foreground/70 sm:flex">
+                <span>{tr("Type / to insert any block")}</span>
+                <span className="opacity-30">·</span>
+                <span>{tr("Select text to leave a comment")}</span>
+                <span className="opacity-30">·</span>
+                <span>{tr("Ask Motion AI to summarize or edit")}</span>
+              </div>
+            </div>
+            <div className="mt-6 flex flex-col items-center gap-2 border-t pt-4 text-[10px] text-muted-foreground/60">
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                <span>© {new Date().getFullYear()} Motion</span>
+                <span className="opacity-30">·</span>
+                <span>{tr("Self-hosted")} · {tr("Open source")} · {tr("Lightweight")}</span>
+                <span className="opacity-30">·</span>
+                <a href="https://github.com/holihur/motion" target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">GitHub</a>
+              </div>
+              <div className="text-center leading-4">{tr("Motion is a lightweight workspace for notes, docs and the small ideas in between. Beautifully simple, quietly powerful.")}</div>
+            </div>
           </div>
         </div>
       </section>

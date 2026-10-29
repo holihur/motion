@@ -1074,17 +1074,7 @@ export function getLanguage(): Language {
   if (typeof localStorage === "undefined") return "en"
   const stored = localStorage.getItem(LANGUAGE_KEY) as Language | null
   if (stored && (LANGUAGES as { code: string }[]).some((l) => l.code === stored)) return stored
-  // Auto-detect from browser on first visit
-  const nav = typeof navigator !== "undefined" ? navigator.language.toLowerCase() : "en"
-  if (nav.startsWith("zh")) return "zh"
-  if (nav.startsWith("es")) return "es"
-  if (nav.startsWith("hi")) return "hi"
-  if (nav.startsWith("ar")) return "ar"
-  if (nav.startsWith("pt")) return "pt"
-  if (nav.startsWith("fr")) return "fr"
-  if (nav.startsWith("de")) return "de"
-  if (nav.startsWith("ja")) return "ja"
-  if (nav.startsWith("ru")) return "ru"
+  // Default to English; user can switch via toggle. Do not auto-detect to avoid surprising Chinese users with English source fallback.
   return "en"
 }
 

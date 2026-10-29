@@ -1,5 +1,5 @@
 import { Check, Languages } from "lucide-react"
-import { LANGUAGES, getLanguage, setLanguage, type Language } from "@/lib/i18n"
+import { LANGUAGES, ensureLanguageLoaded, getLanguage, setLanguage, type Language } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -27,7 +27,7 @@ export function LanguageToggle({ compact = false }: { compact?: boolean }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-36">
         {LANGUAGES.map((lang) => (
-          <DropdownMenuItem key={lang.code} onSelect={() => setLanguage(lang.code as Language)} className="gap-2">
+          <DropdownMenuItem key={lang.code} onSelect={async () => { await ensureLanguageLoaded(lang.code as Language); setLanguage(lang.code as Language) }} className="gap-2">
             <span className="flex-1">{lang.native}</span>
             <span className="text-[11px] text-muted-foreground">{lang.label}</span>
             {language === lang.code && <Check className="size-3.5 text-brand" />}

@@ -1048,5 +1048,15 @@
   "When someone replies to your comment": "有人回复你的评论时",
   "When your dispatched or scheduled agent task finishes": "你派发/定时的 Agent 任务完成时",
   "Write a comment… (type @ to mention)": "写评论…（输入 @ 提及成员）",
-  "Nothing under this filter.": "这个筛选下没有通知。"
+  "Nothing under this filter.": "这个筛选下没有通知。",
+  "Click to zoom": "点击放大",
+  "Diagram is still rendering": "图表还在渲染中",
+  "Diagram preview": "图表预览",
+  "Exit fullscreen": "退出全屏",
+  "Fullscreen": "全屏",
+  "Reset zoom": "重置缩放",
+  "Zoom": "缩放",
+  "Zoom in": "放大",
+  "Zoom out": "缩小",
+  "Zoom preview": "放大预览"
 }

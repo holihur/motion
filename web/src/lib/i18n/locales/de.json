@@ -1048,5 +1048,15 @@
   "When someone replies to your comment": "When someone replies to your comment",
   "When your dispatched or scheduled agent task finishes": "When your dispatched or scheduled agent task finishes",
   "Write a comment… (type @ to mention)": "Write a comment… (type @ to mention)",
-  "Nothing under this filter.": "Nothing under this filter."
+  "Nothing under this filter.": "Nothing under this filter.",
+  "Click to zoom": "Click to zoom",
+  "Diagram is still rendering": "Diagram is still rendering",
+  "Diagram preview": "Diagram preview",
+  "Exit fullscreen": "Exit fullscreen",
+  "Fullscreen": "Fullscreen",
+  "Reset zoom": "Reset zoom",
+  "Zoom": "Zoom",
+  "Zoom in": "Zoom in",
+  "Zoom out": "Zoom out",
+  "Zoom preview": "Zoom preview"
 }

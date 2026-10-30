@@ -12,6 +12,7 @@ import {
   Globe,
   GripVertical,
   Languages,
+  Maximize2,
   LockKeyhole,
   LockOpen,
   ImageIcon,
@@ -207,6 +208,7 @@ export function BlockRow(props: BlockRowProps) {
   const editableRef = useRef<HTMLDivElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
   const [diagramEditing, setDiagramEditing] = useState(!block.text)
+  const [diagramZoom, setDiagramZoom] = useState(false)
 
   useEffect(() => {
     const el = editableRef.current
@@ -628,13 +630,24 @@ export function BlockRow(props: BlockRowProps) {
                   <button type="button" onClick={() => onUpdate({ align: String(Math.min(200, zoom + 10)) })} className="rounded px-1.5 py-0.5 text-[10px] hover:bg-accent">+</button>
                 </div>
               )}
+              {!diagramEditing && (
+                <button
+                  type="button"
+                  onClick={() => setDiagramZoom(true)}
+                  title={tr("Zoom preview")}
+                  className="rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                >
+                  <Maximize2 className="size-3" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setDiagramEditing((value) => !value)}
-                className="ml-auto rounded px-2 py-0.5 text-[10px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                className="rounded px-2 py-0.5 text-[10px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
               >
                 {diagramEditing ? tr("Preview") : tr("Edit source")}
               </button>
+              <DiagramLightbox source={block.text} title={tr("Diagram preview")} open={diagramZoom} onOpenChange={setDiagramZoom} />
             </div>
             {diagramEditing ? (
               <textarea
@@ -648,8 +661,11 @@ export function BlockRow(props: BlockRowProps) {
                 className="block w-full resize-y bg-transparent p-3 font-mono text-[12px] leading-5 outline-none placeholder:text-muted-foreground/50"
               />
             ) : (
-              <div className="cursor-pointer" onClick={() => setDiagramEditing(true)}>
+              <div className="group/diagram relative cursor-zoom-in" onClick={() => setDiagramZoom(true)} title={tr("Click to zoom")}>
                 <MermaidDiagram source={block.text} />
+                <span className="pointer-events-none absolute right-2 top-2 hidden items-center gap-1 rounded-md border bg-background/85 px-2 py-1 text-[10px] text-muted-foreground shadow-sm backdrop-blur group-hover/diagram:flex">
+                  <Maximize2 className="size-3" /> {tr("Click to zoom")}
+                </span>
               </div>
             )}
           </div>

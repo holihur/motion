@@ -260,6 +260,21 @@
 }
 
 /* Native drag feedback */
+/* Deep links to a block: /page/<id>#block-<blockID> */
+[data-block-row] {
+  scroll-margin-top: 5rem;
+}
+[data-block-row]:target {
+  border-radius: 0.5rem;
+  background-color: color-mix(in oklch, var(--brand-soft) 65%, transparent);
+  box-shadow: inset 3px 0 0 var(--brand);
+  animation: block-target-pulse 1.8s ease-out 1;
+}
+@keyframes block-target-pulse {
+  0% { background-color: color-mix(in oklch, var(--brand) 22%, transparent); }
+  100% { background-color: color-mix(in oklch, var(--brand-soft) 65%, transparent); }
+}
+
 .block-dragging {
   opacity: 0.35;
 }

@@ -408,6 +408,42 @@ export function PageEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageId])
 
+  // Support deep links to a block: /page/<id>#block-<blockID>
+  useEffect(() => {
+    if (loading || !page || page.id !== pageId) return
+    let timer: number | undefined
+    let attempts = 0
+    function scrollToHash() {
+      const match = /^#(?:block-)?(.+)$/.exec(window.location.hash)
+      if (!match) return
+      const blockId = decodeURIComponent(match[1])
+      if (!blockId) return
+      if (timer) window.clearTimeout(timer)
+      attempts = 0
+      function tryScroll() {
+        // The block may not be mounted yet (virtual list / lazy page load).
+        window.dispatchEvent(new CustomEvent("motion:scroll-block", { detail: { id: blockId } }))
+        timer = window.setTimeout(() => {
+          const el = document.getElementById(`block-${blockId}`)
+          if (el) {
+            el.scrollIntoView({ block: "center", behavior: "auto" })
+            return
+          }
+          attempts += 1
+          if (attempts < 30) tryScroll()
+        }, 160)
+      }
+      // Let the virtual list finish its first measurement pass before jumping.
+      timer = window.setTimeout(tryScroll, 500)
+    }
+    scrollToHash()
+    window.addEventListener("hashchange", scrollToHash)
+    return () => {
+      if (timer) window.clearTimeout(timer)
+      window.removeEventListener("hashchange", scrollToHash)
+    }
+  }, [loading, page?.id, pageId])
+
   // Keep in sync with renames or metadata changes made elsewhere (sidebar, menus).
   useEffect(() => {
     function onMeta(event: Event) {

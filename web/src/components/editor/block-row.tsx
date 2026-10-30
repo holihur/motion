@@ -255,6 +255,15 @@ export function BlockRow(props: BlockRowProps) {
     }
   }
 
+  function copyBlockLink() {
+    const path = pageId ? `/page/${pageId}` : window.location.pathname
+    const url = `${window.location.origin}${path}#block-${encodeURIComponent(block.id)}`
+    void navigator.clipboard.writeText(url).then(
+      () => toast.success(tr("Block link copied")),
+      () => toast.error(tr("Could not copy block link")),
+    )
+  }
+
   function renderEditable(className: string) {
     return (
       <LexicalBlock
@@ -904,6 +913,7 @@ export function BlockRow(props: BlockRowProps) {
   return (
     <div
       ref={rowRef}
+      id={`block-${block.id}`}
       data-block-row
       data-block-id={block.id}
       data-block-index={index}
@@ -972,6 +982,19 @@ export function BlockRow(props: BlockRowProps) {
           </TooltipTrigger>
           <TooltipContent>{tr("Drag to move")}</TooltipContent>
         </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={copyBlockLink}
+              aria-label={tr("Copy link to block")}
+              className="flex size-5 items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground"
+            >
+              <Link2 className="size-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>{tr("Copy link to block")}</TooltipContent>
+        </Tooltip>
         <BlockMenu
           block={block}
           locked={locked}
@@ -991,6 +1014,7 @@ export function BlockRow(props: BlockRowProps) {
           canMoveUp={canMoveUp}
           canMoveDown={canMoveDown}
           onComment={onCommentBlock ? () => onCommentBlock(block.id) : undefined}
+          onCopyLink={copyBlockLink}
           trigger={
             <button
               type="button"
@@ -1112,6 +1136,7 @@ export function BlockRow(props: BlockRowProps) {
           canMoveUp={canMoveUp}
           canMoveDown={canMoveDown}
           onComment={onCommentBlock ? () => onCommentBlock(block.id) : undefined}
+          onCopyLink={copyBlockLink}
           align="end"
           trigger={
             <button
@@ -1148,6 +1173,7 @@ function BlockMenu({
   canMoveUp = false,
   canMoveDown = false,
   onComment,
+  onCopyLink,
   align = "start",
 }: {
   block: Block
@@ -1169,6 +1195,7 @@ function BlockMenu({
   canMoveUp?: boolean
   canMoveDown?: boolean
   onComment?: () => void
+  onCopyLink?: () => void
   align?: "start" | "end"
 }) {
   const canColor = TEXT_STYLE_TYPES.has(block.type)
@@ -1394,14 +1421,6 @@ function BlockMenu({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         )}
-        <DropdownMenuItem
-          onSelect={() => {
-            const url = `${window.location.origin}${window.location.pathname}#${block.id}`
-            void navigator.clipboard.writeText(url).then(() => toast.success(tr("Block link copied")))
-          }}
-        >
-          <Link2 /> {tr("Copy block link")}
-        </DropdownMenuItem>
         {(onInsertAbove || onInsertBelow) && <DropdownMenuSeparator />}
         {onInsertAbove && (
           <DropdownMenuItem onSelect={onInsertAbove}>
@@ -1454,6 +1473,11 @@ function BlockMenu({
         <DropdownMenuItem onSelect={copyText}>
           <ClipboardCopy /> {tr("Copy text")}
         </DropdownMenuItem>
+        {onCopyLink && (
+          <DropdownMenuItem onSelect={onCopyLink}>
+            <Link2 /> {tr("Copy link to block")}
+          </DropdownMenuItem>
+        )}
         {onToggleLock && (
           <DropdownMenuItem onSelect={onToggleLock}>
             {locked ? <LockOpen /> : <LockKeyhole />}

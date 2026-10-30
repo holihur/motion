@@ -1358,5 +1358,8 @@
   "Theme and language": "主题与语言",
   "Tokens and API": "Token 与 API",
   "Account": "账号",
-  "Export": "导出"
+  "Export": "导出",
+  "Block link copied": "块链接已复制",
+  "Could not copy block link": "无法复制块链接",
+  "Copy link to block": "复制块链接"
 }

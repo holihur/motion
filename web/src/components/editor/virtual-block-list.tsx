@@ -104,6 +104,25 @@ export function VirtualBlockList({
 
   const itemSignature = items.map((item) => item.block.id).join("|")
 
+  // Deep links: scroll to #block-<id> once the virtual list has its items.
+  useEffect(() => {
+    function jumpToHash() {
+      const match = /^#(?:block-)?(.+)$/.exec(window.location.hash)
+      if (!match) return
+      const id = decodeURIComponent(match[1])
+      const index = items.findIndex((item) => item.block.id === id)
+      if (index >= 0) virtualizer.scrollToIndex(index, { align: "center" })
+    }
+    const timer = window.setTimeout(jumpToHash, 80)
+    window.addEventListener("hashchange", jumpToHash)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener("hashchange", jumpToHash)
+    }
+    // Only re-run when the set/order of blocks changes, not on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemSignature, virtualizer])
+
   useEffect(() => {
     const parent = scrollParentRef.current
     if (!parent) return
@@ -138,7 +157,12 @@ export function VirtualBlockList({
       const detail = (event as CustomEvent<{ id?: string }>).detail
       if (!detail?.id) return
       const index = items.findIndex((item) => item.block.id === detail.id)
-      if (index >= 0) virtualizer.scrollToIndex(index, { align: "auto" })
+      if (index < 0) return
+      // Estimated heights change after the first measurement pass, so repeat the
+      // jump a few times until the target stays rendered at a stable position.
+      for (const delay of [0, 80, 200, 420]) {
+        window.setTimeout(() => virtualizer.scrollToIndex(index, { align: "center" }), delay)
+      }
     }
     function focusTo(event: Event) {
       const detail = (event as CustomEvent<{ id?: string; replay?: boolean }>).detail

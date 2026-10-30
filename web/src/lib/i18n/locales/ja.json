@@ -1358,5 +1358,8 @@
   "Theme and language": "Theme and language",
   "Tokens and API": "Tokens and API",
   "Account": "Account",
-  "Export": "Export"
+  "Export": "Export",
+  "Block link copied": "Block link copied",
+  "Could not copy block link": "Could not copy block link",
+  "Copy link to block": "Copy link to block"
 }

@@ -780,7 +780,7 @@ export function BlockEditor({
     const expanded = expandedSelection()
     let group: typeof blocksBefore
     let groupEnd: number
-    if (expanded.size > 1 && expanded.has(blocksBefore[from]?.id ?? "")) {
+    if (expanded.size > 1 && expanded.has(from)) {
       const sorted = [...expanded].sort((a, b) => a - b)
       group = sorted.map((i) => blocksBefore[i])
       groupEnd = sorted[sorted.length - 1] + 1

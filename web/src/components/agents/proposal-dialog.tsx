@@ -234,7 +234,7 @@ function RichCell({ block, renderBlock }: { block: Block; renderBlock?: (block: 
   return <CellText text={block.text} empty={block.type} />
 }
 
-function DiffView({ before, after, renderBlock }: { before: Block[]; after: Block[]; renderBlock?: (block: Block) => React.ReactNode }) {
+export function DiffView({ before, after, renderBlock }: { before: Block[]; after: Block[]; renderBlock?: (block: Block) => React.ReactNode }) {
   const [mode, setMode] = useState<"side" | "unified">("side")
   const rows = useMemo(() => alignRows(before, after, 1), [before, after])
   const counts = useMemo(() => {

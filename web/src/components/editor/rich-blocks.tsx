@@ -245,7 +245,7 @@ export function BookmarkBlock({
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            void navigator.clipboard.writeText(href).then(() => toast.success(tr("Copied")))
+            void navigator.clipboard.writeText(url?.toString() ?? "").then(() => toast.success(tr("Copied")))
           }}
           className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
@@ -531,7 +531,7 @@ export function FileBlock({
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            void navigator.clipboard.writeText(href).then(() => toast.success(tr("Copied")))
+            void navigator.clipboard.writeText(rawUrl).then(() => toast.success(tr("Copied")))
           }}
           className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
         >

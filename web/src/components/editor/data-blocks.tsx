@@ -255,7 +255,7 @@ function niceMax(value: number) {
   return step * power
 }
 
-function ChartGraph({ type, labels, series }: { type: "bar" | "line" | "pie"; labels: string[]; series: ChartSeries[] }) {
+function ChartGraph({ type, labels, series, showLabels = false }: { type: "bar" | "line" | "pie"; labels: string[]; series: ChartSeries[]; showLabels?: boolean }) {
   const width = 640
   const height = 290
   const margin = { left: 44, right: 16, top: 20, bottom: 52 }
@@ -316,7 +316,12 @@ function ChartGraph({ type, labels, series }: { type: "bar" | "line" | "pie"; la
           return item.values.map((value, index) => {
             const barH = Math.max(0, (Math.max(0, value) / max) * plotH)
             const x = margin.left + group * index + group * 0.15 + barW * seriesIndex
-            return <rect key={`${seriesIndex}-${index}`} x={x} y={margin.top + plotH - barH} width={Math.max(1, barW - 2)} height={barH} rx={2} fill={PALETTE[seriesIndex % PALETTE.length]}><title>{`${item.name} · ${labels[index]}: ${value}`}</title></rect>
+            return (
+              <g key={`${seriesIndex}-${index}`}>
+                <rect x={x} y={margin.top + plotH - barH} width={Math.max(1, barW - 2)} height={barH} rx={2} fill={PALETTE[seriesIndex % PALETTE.length]}><title>{`${item.name} · ${labels[index]}: ${value}`}</title></rect>
+                {showLabels && <text x={x + Math.max(1, barW - 2) / 2} y={margin.top + plotH - barH - 4} textAnchor="middle" className="fill-muted-foreground text-[9px]">{value}</text>}
+              </g>
+            )
           })
         }) : series.map((item, seriesIndex) => {
           const points = item.values.map((value, index) => {
@@ -324,7 +329,17 @@ function ChartGraph({ type, labels, series }: { type: "bar" | "line" | "pie"; la
             const y = margin.top + plotH - (Math.max(0, value) / max) * plotH
             return { x, y }
           })
-          return <g key={seriesIndex}><polyline points={points.map((point) => `${point.x},${point.y}`).join(" ")} fill="none" stroke={PALETTE[seriesIndex % PALETTE.length]} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />{points.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r={3} fill={PALETTE[seriesIndex % PALETTE.length]}><title>{`${item.name} · ${labels[index]}: ${item.values[index]}`}</title></circle>)}</g>
+          return (
+            <g key={seriesIndex}>
+              <polyline points={points.map((point) => `${point.x},${point.y}`).join(" ")} fill="none" stroke={PALETTE[seriesIndex % PALETTE.length]} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
+              {points.map((point, index) => (
+                <g key={index}>
+                  <circle cx={point.x} cy={point.y} r={3} fill={PALETTE[seriesIndex % PALETTE.length]}><title>{`${item.name} · ${labels[index]}: ${item.values[index]}`}</title></circle>
+                  {showLabels && <text x={point.x} y={point.y - 7} textAnchor="middle" className="fill-muted-foreground text-[9px]">{item.values[index]}</text>}
+                </g>
+              ))}
+            </g>
+          )
         })}
         {labels.map((label, index) => <text key={index} x={margin.left + group * index + group / 2} y={height - 24} textAnchor="middle" className="fill-muted-foreground text-[9px]">{label.length > 10 ? `${label.slice(0, 9)}…` : label}</text>)}
       </svg>

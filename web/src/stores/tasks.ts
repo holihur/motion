@@ -26,7 +26,8 @@ export const useTasksStore = create<TasksState>((set) => ({
   tasks: [],
   start: (label) => {
     const id = `task-${Date.now()}-${seq++}`
-    set((s) => ({ tasks: [{ id, label, progress: null, status: "running", createdAt: Date.now() }, ...s.tasks].slice(0, 20) }))
+    const task: Task = { id, label, progress: null, status: "running", createdAt: Date.now() }
+    set((s) => ({ tasks: [task, ...s.tasks].slice(0, 20) }))
     return id
   },
   update: (id, patch) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),

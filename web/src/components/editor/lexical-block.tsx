@@ -484,6 +484,10 @@ function FloatingToolbar() {
     setTranslating(true)
     try {
       const out = await translateText(source, lang)
+      if (!out) {
+        toast.error(tr("Could not translate this block. Configure AI in Settings first."))
+        return
+      }
       editor.update(() => {
         const selection = $getSelection()
         if ($isRangeSelection(selection)) selection.insertText(out)

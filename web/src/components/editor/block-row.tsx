@@ -15,6 +15,7 @@ import {
   Flag,
   Languages,
   Link2,
+  List,
   ListOrdered,
   Maximize2,
   Minus,
@@ -66,7 +67,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { RealtimePresence } from "@/lib/realtime"
-import { MermaidDiagram } from "@/components/editor/mermaid-diagram"
+import { DiagramLightbox, MermaidDiagram } from "@/components/editor/mermaid-diagram"
 import { LexicalBlock } from "@/components/editor/lexical-block"
 import { PasswordBlock } from "@/components/editor/password-block"
 import { CodeBlock } from "@/components/editor/code-block"

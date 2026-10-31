@@ -30,6 +30,7 @@ import { ApiError, api, getClientId } from "@/lib/api"
 import { tr } from "@/lib/i18n"
 import { pageThemeStyle } from "@/lib/page-theme"
 import type { Block, Comment, Member, Page } from "@/lib/types"
+import type { HeadingItem } from "@/components/editor/rich-blocks"
 import { applyBlockSync, diffBlocks } from "@/lib/blocks"
 import { cn, initials, uid } from "@/lib/utils"
 import { caretOffset, focusBlockById, setCaret } from "@/lib/caret"
@@ -48,6 +49,7 @@ import { SidebarToggle } from "@/components/app/sidebar-toggle"
 import { PageActionsMenu } from "@/components/app/page-actions"
 import { BlockEditor } from "@/components/editor/block-editor"
 import { EmojiPicker } from "@/components/editor/emoji-picker"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { CoverPicker } from "@/components/editor/cover-picker"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -121,6 +123,7 @@ export function PageEditor() {
 
   const [page, setPage] = useState<Page | null>(null)
   const [blocks, setBlocks] = useState<Block[]>([emptyBlock()])
+  const [outline, setOutline] = useState<HeadingItem[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [layoutPage, setLayoutPage] = useState<Page | null>(null)
   const [layoutVersion, setLayoutVersion] = useState(0)

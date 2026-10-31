@@ -601,6 +601,46 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
                 <div className="text-[11px] font-semibold text-muted-foreground">{tr("Quick actions")}</div>
                 <div className="flex flex-wrap gap-1">
                   <button type="button" onClick={addNode} className="rounded-md border px-2 py-1 text-[11px] hover:bg-accent">+ {tr("Node")}</button>
+                  <button
+                    type="button"
+                    title={tr("Download PNG")}
+                    onClick={() => {
+                      const el = svgRef.current
+                      if (!el) {
+                        toast.error(tr("No flowchart to export"))
+                        return
+                      }
+                      const clone = el.cloneNode(true) as SVGSVGElement
+                      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg")
+                      const href = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" }))
+                      const img = new Image()
+                      img.onload = () => {
+                        const canvas = document.createElement("canvas")
+                        canvas.width = 1520
+                        canvas.height = 880
+                        const ctx = canvas.getContext("2d")
+                        if (ctx) {
+                          ctx.fillStyle = getComputedStyle(document.body).backgroundColor || "#ffffff"
+                          ctx.fillRect(0, 0, canvas.width, canvas.height)
+                          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+                          canvas.toBlob((blob) => {
+                            if (!blob) return
+                            const url = URL.createObjectURL(blob)
+                            const link = document.createElement("a")
+                            link.href = url
+                            link.download = "flowchart.png"
+                            link.click()
+                            window.setTimeout(() => URL.revokeObjectURL(url), 2000)
+                          }, "image/png")
+                        }
+                        URL.revokeObjectURL(href)
+                      }
+                      img.src = href
+                    }}
+                    className="rounded-md border px-2 py-1 text-[11px] hover:bg-accent"
+                  >
+                    PNG
+                  </button>
                   <button type="button" onClick={() => commit(autoLayout(laid))} className="rounded-md border px-2 py-1 text-[11px] hover:bg-accent">{tr("Auto layout")}</button>
                   <button type="button" onClick={() => { void navigator.clipboard.writeText(block.text).then(() => { toast.success(tr("Copied")); setCopied(true); setTimeout(() => setCopied(false), 1200) }) }} className="flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-accent">{copied ? <Check className="size-3 text-green-600" /> : <Copy className="size-3" />}{tr("Copy data")}</button>
                 </div>

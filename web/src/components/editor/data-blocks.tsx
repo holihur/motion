@@ -186,6 +186,13 @@ export function GanttBlock({
                 <div className="relative">
                   <div className="pointer-events-none absolute bottom-0 left-[150px] right-0 top-0">
                     {ticks.map((tick, index) => <span key={index} className="absolute bottom-0 top-0 w-px bg-border/60" style={{ left: `${tick.position}%` }} />)}
+                    {(() => {
+                      const now = new Date()
+                      now.setHours(0, 0, 0, 0)
+                      if (!min || now < min || dayDiff(min, now) > totalDays) return null
+                      const left = (dayDiff(min, now) / totalDays) * 100
+                      return <span title={tr("Today")} className="absolute bottom-0 top-0 w-0.5 bg-red-500/80" style={{ left: `${left}%` }} />
+                    })()}
                   </div>
                   {tasks.map((task, index) => {
                     const valid = task.start && task.end
@@ -383,6 +390,17 @@ export function ChartBlock({
           <option value="line">{tr("Line")}</option>
           <option value="pie">{tr("Pie")}</option>
         </select>
+        {!editing && (
+          <button
+            type="button"
+            onClick={() => onUpdate({ align: block.align === "labels" ? "" : "labels" })}
+            aria-pressed={block.align === "labels"}
+            title={tr("Show values on chart")}
+            className={`flex items-center gap-1 rounded px-2 py-0.5 text-[10px] transition hover:bg-accent hover:text-foreground ${block.align === "labels" ? "text-brand" : "text-muted-foreground"}`}
+          >
+            123
+          </button>
+        )}
         <button type="button" onClick={() => setEditing((value) => !value)} className="ml-auto flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-muted-foreground transition hover:bg-accent hover:text-foreground">
           {editing ? <Check className="size-3" /> : <Pencil className="size-3" />}
           {editing ? tr("Done") : tr("Edit data")}
@@ -431,7 +449,7 @@ export function ChartBlock({
             }}
             className={readOnly ? "" : "cursor-pointer"}
           >
-            <ChartGraph type={type} labels={labels} series={series} />
+            <ChartGraph type={type} labels={labels} series={series} showLabels={block.align === "labels"} />
             {!readOnly && <div className="mt-1 text-center text-[10px] text-muted-foreground">{tr("Click chart to edit a value")}</div>}
           </div>
           <Dialog open={quickEdit} onOpenChange={setQuickEdit}>

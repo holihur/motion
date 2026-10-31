@@ -119,7 +119,24 @@ export function DatabaseBlock({
     <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px]">
         <span className="flex items-center gap-1 font-medium text-muted-foreground"><Table2 className="size-3" /> Database</span>
-        <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">{filtered.length} rows</span>
+        <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">{tr("{n} rows", { n: filtered.length })}</span>
+        <button
+          type="button"
+          title={tr("Download CSV")}
+          onClick={() => {
+            const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
+            const csv = "\ufeff" + [db.columns.map((c) => c.name), ...filtered.map((r) => db.columns.map((c) => r[c.id] ?? ""))].map((row) => row.map(esc).join(",")).join("\n")
+            const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }))
+            const link = document.createElement("a")
+            link.href = url
+            link.download = "database.csv"
+            link.click()
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+          }}
+          className="rounded px-2 py-1 hover:bg-accent"
+        >
+          CSV
+        </button>
         <div className="ml-auto flex items-center gap-1">
           <div className="flex items-center gap-1 rounded border bg-background px-1.5 py-0.5">
             <Filter className="size-3 text-muted-foreground" />

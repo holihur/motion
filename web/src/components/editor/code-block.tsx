@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react"
 import hljs from "highlight.js/lib/common"
-import { Code2, Copy, Download, ListOrdered } from "lucide-react"
+import { Code2, Copy, Download, ListOrdered, WrapText } from "lucide-react"
 import { toast } from "sonner"
 import type { Block } from "@/lib/types"
 import { tr } from "@/lib/i18n"
@@ -96,6 +96,15 @@ export function CodeBlock({
       <div className="flex items-center gap-0.5">
       <button
         type="button"
+        onClick={() => onUpdate({ align: block.align === "wrap" ? "" : "wrap" })}
+        aria-pressed={block.align === "wrap"}
+        title={tr("Toggle word wrap")}
+        className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] transition hover:bg-background hover:text-foreground ${block.align === "wrap" ? "text-brand" : "text-muted-foreground"}`}
+      >
+        <WrapText className="size-3" /> {tr("Wrap")}
+      </button>
+      <button
+        type="button"
         onClick={() => onUpdate({ lineNumbers: !block.lineNumbers })}
         aria-pressed={Boolean(block.lineNumbers)}
         className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] transition hover:bg-background hover:text-foreground ${block.lineNumbers ? "text-brand" : "text-muted-foreground"}`}
@@ -146,7 +155,7 @@ export function CodeBlock({
           </div>
         )}
         <div className="relative min-w-0 flex-1">
-        <pre aria-hidden className="min-h-[44px] overflow-x-auto whitespace-pre-wrap break-words px-3.5 py-3 font-mono text-[13px] leading-6">
+        <pre aria-hidden className={`min-h-[44px] px-3.5 py-3 font-mono text-[13px] leading-6 ${block.align === "wrap" ? "whitespace-pre-wrap break-words" : "overflow-x-auto whitespace-pre"}`}>
           <code className="hljs bg-transparent p-0" dangerouslySetInnerHTML={{ __html: highlighted }} />
         </pre>
         {!block.text && <span className="pointer-events-none absolute left-3.5 top-3 text-[13px] leading-6 text-muted-foreground/50">{placeholder}</span>}

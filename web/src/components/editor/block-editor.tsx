@@ -181,15 +181,23 @@ export function BlockEditor({
     [blocks],
   )
 
+  const HEADING_LEVEL: Record<string, number> = { heading1: 1, heading2: 2, heading3: 3 }
   const visibleEntries = useMemo(() => {
     const entries: { block: Block; index: number }[] = []
     let hiddenIndent: number | null = null
+    let hiddenSectionLevel: number | null = null
     blocks.forEach((block, index) => {
       const indent = block.indent ?? 0
       if (hiddenIndent !== null && indent > hiddenIndent) return
       if (hiddenIndent !== null) hiddenIndent = null
+      const level = HEADING_LEVEL[block.type]
+      if (hiddenSectionLevel !== null) {
+        if (level === undefined || level > hiddenSectionLevel) return
+        hiddenSectionLevel = null
+      }
       entries.push({ block, index })
       if (TOGGLE_TYPES.includes(block.type) && block.collapsed) hiddenIndent = indent
+      else if (level !== undefined && block.collapsed) hiddenSectionLevel = level
     })
     return entries
   }, [blocks])

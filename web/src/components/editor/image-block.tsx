@@ -82,6 +82,7 @@ export function ImageBlock({
   const [editing, setEditing] = useState(false)
   const [editUrl, setEditUrl] = useState("")
   const [editCaption, setEditCaption] = useState("")
+  const [editLink, setEditLink] = useState("")
   const [editWidth, setEditWidth] = useState("full")
   const [editAlign, setEditAlign] = useState("center")
   const [annotating, setAnnotating] = useState(false)
@@ -108,9 +109,10 @@ export function ImageBlock({
     if (!editing) return
     setEditUrl(block.url || "")
     setEditCaption(block.caption || "")
+    setEditLink(block.language || "")
     setEditWidth(block.width || "full")
     setEditAlign(block.align || "center")
-  }, [editing, block.url, block.caption, block.width, block.align])
+  }, [editing, block.url, block.caption, block.width, block.align, block.language])
 
   async function uploadImage(file: File) {
     if (!workspaceId || uploading) return
@@ -162,6 +164,7 @@ export function ImageBlock({
     onUpdate({
       url,
       caption: editCaption.trim(),
+      language: editLink.trim(),
       width: editWidth === "full" ? "" : editWidth,
       align: editAlign === "center" ? "" : editAlign,
     })
@@ -412,11 +415,16 @@ export function ImageBlock({
               type="button"
               onClick={(event) => {
                 if (annotating) return
+                if (block.language) {
+                  window.open(block.language, "_blank", "noopener")
+                  return
+                }
                 event.stopPropagation()
                 setLightbox(true)
               }}
+              title={block.language ? block.language : undefined}
               className="block w-full cursor-zoom-in outline-none"
-              aria-label={tr("View full size")}
+              aria-label={block.language ? tr("Open link") : tr("View full size")}
             >
               <img
                 src={block.url}
@@ -565,6 +573,16 @@ export function ImageBlock({
                 value={editUrl}
                 onChange={(event) => setEditUrl(event.target.value)}
                 placeholder="https://…"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`image-link-${block.id}`}>{tr("Link URL (optional)")}</Label>
+              <Input
+                id={`image-link-${block.id}`}
+                value={editLink}
+                onChange={(event) => setEditLink(event.target.value)}
+                placeholder="https://…"
+                inputMode="url"
               />
             </div>
             <div className="space-y-1.5">

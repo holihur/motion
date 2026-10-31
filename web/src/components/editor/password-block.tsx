@@ -195,7 +195,23 @@ export function PasswordBlock({
             />
           </label>
           <label className="block space-y-1.5 text-[11px] font-medium">
-            {hasSecret ? tr("New password") : tr("Password")}
+            <span className="flex items-center justify-between">
+              {hasSecret ? tr("New password") : tr("Password")}
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%"
+                    const bytes = new Uint32Array(16)
+                    crypto.getRandomValues(bytes)
+                    setPassword([...bytes].map((b) => chars[b % chars.length]).join(""))
+                  }}
+                  className="font-normal text-brand hover:underline"
+                >
+                  {tr("Generate")}
+                </button>
+              )}
+            </span>
             <input
               type="password"
               value={password}
@@ -203,7 +219,7 @@ export function PasswordBlock({
               autoComplete="new-password"
               onChange={(event) => setPassword(event.target.value)}
               placeholder={tr("At least 8 characters")}
-              className="h-8 w-full rounded-md border bg-background px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
+              className="h-8 w-full rounded-md border bg-background px-2.5 text-xs font-normal outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
             />
             {password.length > 0 && (
               <div className="mt-1.5 flex items-center gap-1.5">

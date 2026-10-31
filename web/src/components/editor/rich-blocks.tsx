@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   ArrowUpRight,
   Bookmark,
@@ -12,10 +12,12 @@ import {
   FileVideo,
   Frame,
   Hash,
+  Link2,
   ListTree,
   Pencil,
   Play,
   Presentation,
+  RefreshCw,
   Sigma,
   Upload,
   Video,
@@ -181,15 +183,18 @@ function LinkPrompt({
   )
 }
 
-function CardActions({ onEdit }: { onEdit: () => void }) {
+function CardActions({ onEdit, extra }: { onEdit: () => void; extra?: ReactNode }) {
   return (
-    <button
-      type="button"
-      onClick={onEdit}
-      className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-background/90 px-1.5 py-1 text-[10px] text-muted-foreground opacity-0 shadow-sm ring-1 ring-border transition group-hover:opacity-100 hover:text-foreground"
-    >
-      <Pencil className="size-3" /> {tr("Edit")}
-    </button>
+    <span className="absolute right-2 top-2 flex items-center gap-1 opacity-0 shadow-sm transition group-hover:opacity-100 max-md:opacity-100">
+      {extra}
+      <button
+        type="button"
+        onClick={onEdit}
+        className="flex items-center gap-1 rounded-md bg-background/90 px-1.5 py-1 text-[10px] text-muted-foreground ring-1 ring-border hover:text-foreground"
+      >
+        <Pencil className="size-3" /> {tr("Edit")}
+      </button>
+    </span>
   )
 }
 
@@ -244,9 +249,35 @@ export function BookmarkBlock({
           <span className="block truncate text-[13px] font-medium">{title}</span>
           <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{block.caption || block.url}</span>
         </span>
+        <button
+          type="button"
+          title={tr("Copy link")}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            void navigator.clipboard.writeText(href).then(() => toast.success(tr("Copied")))
+          }}
+          className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <Link2 className="size-3.5" />
+        </button>
         <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
       </a>
-      {!readOnly && <CardActions onEdit={() => setEditing(true)} />}
+      {!readOnly && (
+        <CardActions
+          onEdit={() => setEditing(true)}
+          extra={
+            <button
+              type="button"
+              title={tr("Refetch title")}
+              onClick={() => onUpdate({ text: "" })}
+              className="flex items-center gap-1 rounded-md bg-background/90 px-1.5 py-1 text-[10px] text-muted-foreground ring-1 ring-border hover:text-foreground"
+            >
+              <RefreshCw className="size-3" />
+            </button>
+          }
+        />
+      )}
     </div>
   )
 }
@@ -291,7 +322,17 @@ export function VideoBlock({
   if (editing) {
     return <LinkPrompt block={block} kind="video" readOnly={readOnly} autoFocus={autoFocus} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
   }
-  const embed = videoEmbed(block.url ?? "")
+  const startAt = (() => {
+    const m = /^t=(\d+)$/.exec((block.language ?? "").trim())
+    return m ? Number(m[1]) : 0
+  })()
+  const embedBase = videoEmbed(block.url ?? "")
+  const embed = embedBase && startAt > 0
+    ? (embedBase.includes("youtube-nocookie") ? `${embedBase}${embedBase.includes("?") ? "&" : "?"}start=${startAt}`
+      : embedBase.includes("vimeo.com") ? `${embedBase}#t=${startAt}s`
+      : embedBase.includes("bilibili.com") ? `${embedBase}${embedBase.includes("?") ? "&" : "?"}t=${startAt}`
+      : embedBase)
+    : embedBase
   const cover = (() => {
     try {
       const u = new URL(block.url ?? "")
@@ -324,6 +365,22 @@ export function VideoBlock({
         </a>
       )}
       {block.caption && embed && <div className="mt-1.5 text-center text-[11px] text-muted-foreground">{block.caption}</div>}
+      {!readOnly && (
+        <span className="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
+          {tr("Start at")}
+          <input
+            type="number"
+            min={0}
+            value={startAt || ""}
+            placeholder="0s"
+            onChange={(e) => {
+              const v = Math.max(0, Math.floor(Number(e.target.value) || 0))
+              onUpdate({ language: v > 0 ? `t=${v}` : "" })
+            }}
+            className="h-6 w-16 rounded border bg-background px-1.5 text-center outline-none focus:border-brand"
+          />
+        </span>
+      )}
       {!readOnly && <CardActions onEdit={() => setEditing(true)} />}
     </div>
   )
@@ -358,9 +415,24 @@ export function EmbedBlock({
           referrerPolicy="no-referrer"
           loading="lazy"
           onLoad={() => setLoading(false)}
-          className="h-[360px] w-full bg-background"
+          className={cn("w-full bg-background", block.language === "sm" ? "h-56" : block.language === "lg" ? "h-[600px]" : "h-[360px]")}
         />
       </div>
+      {!readOnly && (
+        <div className="flex items-center justify-center gap-1 border-t border-border/60 px-2 py-1 text-[10px] text-muted-foreground">
+          {[["sm", "S"], ["", "M"], ["lg", "L"]].map(([v, label]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => onUpdate({ language: v })}
+              title={tr("Embed height")}
+              className={cn("rounded px-2 py-0.5 font-medium hover:bg-accent", (block.language || "") === v ? "bg-accent text-foreground" : "")}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       {!readOnly && <CardActions onEdit={() => setEditing(true)} />}
     </div>
   )
@@ -418,6 +490,18 @@ export function FileBlock({
           <span className="block truncate text-[13px] font-medium">{name}</span>
           <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{block.caption || hostFor(rawUrl)}</span>
         </span>
+        <button
+          type="button"
+          title={tr("Copy link")}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            void navigator.clipboard.writeText(href).then(() => toast.success(tr("Copied")))
+          }}
+          className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <Link2 className="size-3.5" />
+        </button>
         <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
       </a>
       {isPdf && rawUrl && (
@@ -476,6 +560,21 @@ export function EquationBlock({
     >
       <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] text-muted-foreground">
         <Sigma className="size-3" /> {tr("Equation")}
+        {!readOnly && (
+          <span className="flex items-center gap-0.5">
+            {[["sm", "S"], ["", "M"], ["lg", "L"]].map(([v, label]) => (
+              <button
+                key={label}
+                type="button"
+                title={tr("Equation size")}
+                onClick={() => onUpdate({ language: v })}
+                className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium hover:bg-accent", (block.language || "") === v ? "bg-accent text-foreground" : "")}
+              >
+                {label}
+              </button>
+            ))}
+          </span>
+        )}
         <button
           type="button"
           onClick={() => void navigator.clipboard.writeText(block.text).then(() => toast.success(tr("Copied to clipboard")), () => toast.error(tr("Could not copy")))}
@@ -504,7 +603,7 @@ export function EquationBlock({
         />
       )}
       <div
-        className={cn("overflow-x-auto px-4 py-4 text-center", editing && "border-t border-border/60 bg-muted/15")}
+        className={cn("overflow-x-auto px-4 py-4 text-center", editing && "border-t border-border/60 bg-muted/15", block.language === "sm" ? "text-base" : block.language === "lg" ? "text-2xl" : "text-xl")}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>
@@ -512,12 +611,15 @@ export function EquationBlock({
 }
 
 export function TocBlock({
-  block, headings, readOnly,
+  block, headings, readOnly, onUpdate,
 }: {
   block: Block
   headings: HeadingItem[]
   readOnly: boolean
+  onUpdate?: (patch: Partial<Block>) => void
 }) {
+  const maxLevel = block.language === "2" ? 2 : 3
+  const shown = headings.filter((h) => h.level <= maxLevel)
   const [activeId, setActiveId] = useState<string | null>(null)
   useEffect(() => {
     const ids = headings.map((h) => h.id)
@@ -543,11 +645,27 @@ export function TocBlock({
       <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
         <ListTree className="size-3.5" /> {block.text || tr("Table of contents")}
       </div>
-      {headings.length === 0 ? (
+      {!readOnly && onUpdate && (
+        <span className="ml-auto flex items-center gap-0.5">
+          {[["3", tr("All levels")], ["2", "H1–H2"]].map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => onUpdate({ language: v === "3" ? "" : v })}
+              className={cn("rounded px-1.5 py-0.5 text-[10px] hover:bg-accent", (block.language || "3") === v || (!block.language && v === "3") ? "bg-accent font-medium" : "text-muted-foreground")}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
+      )}
+      {shown.length === 0 && headings.length > 0 ? (
+        <p className="mt-2 text-[11px] text-muted-foreground">{tr("No headings at this level. Add a heading or choose another level.")}</p>
+      ) : headings.length === 0 ? (
         <p className="mt-2 text-[11px] text-muted-foreground">{tr("Add headings to build a table of contents.")}</p>
       ) : (
         <nav className="mt-2 space-y-0.5">
-          {headings.map((heading) => (
+          {shown.map((heading) => (
             <button
               key={heading.id}
               type="button"

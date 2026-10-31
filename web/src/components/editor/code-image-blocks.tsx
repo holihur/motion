@@ -32,16 +32,17 @@ export function QRCodeBlock({
       setError("")
       return
     }
+    const dark = /^#[0-9a-fA-F]{6}$/.test(block.color ?? "") ? block.color! : "#0f172a"
     Promise.all(values.map((v) => QRCode.toDataURL(v, {
       width: size, margin: 2, errorCorrectionLevel: "M",
-      color: { dark: "#0f172a", light: "#ffffff" },
+      color: { dark, light: "#ffffff" },
     }))).then((urls) => {
       if (alive) { setDataURLs(urls); setError("") }
     }).catch((err) => {
       if (alive) setError(err instanceof Error ? err.message : "Could not generate QR code")
     })
     return () => { alive = false }
-  }, [value, size, values.join("|")])
+  }, [value, size, values.join("|"), block.color])
   const dataURL = dataURLs[0] ?? ""
 
   return (
@@ -50,9 +51,23 @@ export function QRCodeBlock({
         <QrCode className="size-3.5 text-brand" />
         <span className="flex-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{tr("QR code")}</span>
         {!readOnly && (
-          <select value={String(size)} onChange={(event) => onUpdate({ language: event.target.value })} aria-label={tr("QR size")} className="h-6 rounded border bg-background px-1 text-[10px] outline-none">
-            {QR_SIZES.map(([value, label]) => <option key={value} value={value}>{tr(label)}</option>)}
-          </select>
+          <>
+            <span className="flex items-center gap-1">
+              {["#0f172a", "#7c5cff", "#0ea5e9", "#16a34a", "#dc2626"].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  title={tr("QR color")}
+                  onClick={() => onUpdate({ color: c === "#0f172a" ? "" : c })}
+                  className={`size-4 rounded-full border ${((block.color || "#0f172a") === c) ? "ring-2 ring-brand ring-offset-1" : ""}`}
+                  style={{ background: c }}
+                />
+              ))}
+            </span>
+            <select value={String(size)} onChange={(event) => onUpdate({ language: event.target.value })} aria-label={tr("QR size")} className="h-6 rounded border bg-background px-1 text-[10px] outline-none">
+              {QR_SIZES.map(([value, label]) => <option key={value} value={value}>{tr(label)}</option>)}
+            </select>
+          </>
         )}
       </div>
       <div className="space-y-3 p-3">
@@ -138,6 +153,44 @@ export function BarcodeBlock({
         <div className={value ? "overflow-x-auto rounded-lg bg-white p-2" : "hidden"}>
           <svg ref={svgRef} className="mx-auto max-w-full" />
         </div>
+        {value && !error && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                const el = svgRef.current
+                if (!el) return
+                const clone = el.cloneNode(true) as SVGSVGElement
+                clone.setAttribute("xmlns", "http://www.w3.org/2000/svg")
+                const href = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml;charset=utf-8" }))
+                const img = new Image()
+                img.onload = () => {
+                  const canvas = document.createElement("canvas")
+                  canvas.width = img.width * 2 || 600
+                  canvas.height = img.height * 2 || 200
+                  const ctx = canvas.getContext("2d")
+                  if (ctx) {
+                    ctx.fillStyle = "#ffffff"
+                    ctx.fillRect(0, 0, canvas.width, canvas.height)
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+                    canvas.toBlob((blob) => {
+                      if (!blob) return
+                      const link = document.createElement("a")
+                      link.href = URL.createObjectURL(blob)
+                      link.download = "barcode.png"
+                      link.click()
+                    }, "image/png")
+                  }
+                  URL.revokeObjectURL(href)
+                }
+                img.src = href
+              }}
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ImageDown className="size-3" /> {tr("Download PNG")}
+            </button>
+          </div>
+        )}
         {block.caption && value && <div className="text-center text-[11px] text-muted-foreground">{block.caption}</div>}
         {error && <p className="text-[11px] text-destructive">{error}</p>}
       </div>

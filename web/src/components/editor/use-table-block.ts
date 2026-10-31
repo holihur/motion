@@ -82,7 +82,19 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
     )
   }, [table])
 
+  const downloadCSV = useCallback(() => {
+    const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
+    const csv = "\ufeff" + [table.columns, ...table.rows].map((r) => table.columns.map((_, i) => esc(r[i] ?? "")).join(",")).join("\n")
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }))
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "table.csv"
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    toast.success(tr("Export ready"))
+  }, [table])
+
   return {
-    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, copyTable,
+    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, copyTable, downloadCSV,
   }
 }

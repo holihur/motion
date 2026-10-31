@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { ChevronRight, Columns2, FileText, Link2, Pencil, Plus, X } from "lucide-react"
+import { ChevronRight, Columns2, Copy, FileText, Link2, Pencil, Plus, X } from "lucide-react"
 import type { Block, PageSummary, TableData } from "@/lib/types"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { pageTitle } from "@/lib/tree"
 import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
+import { toast } from "sonner"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 export function defaultColumnsTable(): TableData {
@@ -65,7 +66,17 @@ export function PageLinkBlock({
               <span className="truncate text-sm font-medium">{pageTitle(target.title)}</span>
             </div>
             <div className="mt-1 text-[11px] text-muted-foreground">{tr("Updated")} {new Date(target.updatedAt).toLocaleDateString()}</div>
-            <button type="button" onClick={() => navigate(`/page/${target.id}`)} className="mt-2 w-full rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground">{tr("Open")}</button>
+            <div className="mt-2 flex gap-1.5">
+              <button type="button" onClick={() => navigate(`/page/${target.id}`)} className="flex-1 rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground">{tr("Open")}</button>
+              <button
+                type="button"
+                title={tr("Copy link")}
+                onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}/page/${target.id}`).then(() => toast.success(tr("Copied"))) }}
+                className="rounded border px-2 py-1 text-xs hover:bg-accent"
+              >
+                <Copy className="size-3" />
+              </button>
+            </div>
           </PopoverContent>
         </Popover>
       ) : (
@@ -117,7 +128,8 @@ export function PageLinkBlock({
   )
 }
 
-export function BreadcrumbBlock({ block, breadcrumb }: { block: Block; breadcrumb: { id: string; title: string; icon: string }[] }) {
+export function BreadcrumbBlock({ block, breadcrumb, onUpdate }: { block: Block; breadcrumb: { id: string; title: string; icon: string }[]; onUpdate?: (patch: Partial<Block>) => void }) {
+  const sep = block.language === "slash" ? "/" : "›"
   const navigate = useNavigate()
   const pages = useWorkspaceStore((s) => s.pages)
   const chain = breadcrumb.length > 0 ? breadcrumb : []
@@ -129,7 +141,7 @@ export function BreadcrumbBlock({ block, breadcrumb }: { block: Block; breadcrum
         const children = pages.filter((p) => p.parentId === item.id && !p.archived).slice(0, 8)
         return (
           <span key={item.id} className="flex min-w-0 items-center gap-1">
-            <ChevronRight className="size-3 shrink-0 opacity-50" />
+            {sep === "/" ? <span className="shrink-0 text-[11px] opacity-50">/</span> : <ChevronRight className="size-3 shrink-0 opacity-50" />}
             <Popover>
               <PopoverTrigger asChild>
                 <button type="button" onClick={() => navigate(`/page/${item.id}`)} className={cn("flex min-w-0 items-center gap-1 rounded px-1 py-0.5 hover:bg-accent hover:text-foreground", isCurrent && "bg-accent font-medium text-foreground")}> 
@@ -151,6 +163,16 @@ export function BreadcrumbBlock({ block, breadcrumb }: { block: Block; breadcrum
           </span>
         )
       })}
+      {onUpdate && (
+        <button
+          type="button"
+          title={tr("Separator style")}
+          onClick={() => onUpdate({ language: sep === "/" ? "" : "slash" })}
+          className="rounded px-1 py-0.5 text-[11px] opacity-0 transition hover:bg-accent hover:text-foreground hover:opacity-100 focus-visible:opacity-100"
+        >
+          {sep}
+        </button>
+      )}
     </div>
   )
 }
@@ -203,6 +225,14 @@ export function ColumnsBlock({
         <Columns2 className="size-3" /> {tr("Columns")}
         {!readOnly && (
           <div className="ml-auto flex items-center gap-1 normal-case tracking-normal">
+            <button
+              type="button"
+              title={tr("Even split")}
+              onClick={() => onUpdate({ table: { ...table, widths: columns.map(() => 100 / columns.length) } })}
+              className="rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground"
+            >
+              1:1
+            </button>
             {columns.length < 4 && <button type="button" onClick={addColumn} className="flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><Plus className="size-3" /> {tr("Column")}</button>}
             {columns.length > 2 && <button type="button" onClick={() => removeColumn(columns.length - 1)} className="rounded p-1 hover:bg-destructive/10 hover:text-destructive" aria-label={tr("Remove column")}><X className="size-3" /></button>}
           </div>

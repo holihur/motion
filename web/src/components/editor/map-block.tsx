@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { ExternalLink, Loader2, Map as MapIcon, Search } from "lucide-react"
+import { Copy, ExternalLink, Loader2, Map as MapIcon, Search } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import type { Block, MapData, MapProvider } from "@/lib/types"
@@ -148,6 +148,19 @@ export function MapBlock({
         {!readOnly && (
           <button type="button" onClick={() => setPicking((v) => !v)} className={cn("rounded px-2 py-1 text-[10px]", picking ? "bg-brand text-white" : "bg-muted hover:bg-accent")}>{picking ? tr("Picking…") : tr("Pick on map")}</button>
         )}
+        <span className="hidden items-center gap-0.5 sm:flex">
+          <button type="button" onClick={() => onUpdate({ map: { ...data, zoom: Math.max(2, Math.min(18, (data.zoom ?? 12) - 1)) } })} aria-label={tr("Zoom out")} className="rounded px-1.5 py-0.5 text-[11px] hover:bg-accent">−</button>
+          <span className="min-w-8 text-center text-[10px] tabular-nums text-muted-foreground">{data.zoom ?? 12}</span>
+          <button type="button" onClick={() => onUpdate({ map: { ...data, zoom: Math.max(2, Math.min(18, (data.zoom ?? 12) + 1)) } })} aria-label={tr("Zoom in")} className="rounded px-1.5 py-0.5 text-[11px] hover:bg-accent">+</button>
+          <button
+            type="button"
+            title={tr("Copy coordinates")}
+            onClick={() => { void navigator.clipboard.writeText(`${data.lat},${data.lng}`).then(() => toast.success(tr("Copied"))) }}
+            className="rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Copy className="size-3" />
+          </button>
+        </span>
         <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{data.label || tr("Untitled location")}</span>
         {provider === "mapbox" && !mapbox && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] text-amber-700 dark:text-amber-300">{tr("Mapbox token not configured")}</span>}
         <a href={openURL} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground">

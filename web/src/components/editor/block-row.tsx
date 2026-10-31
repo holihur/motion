@@ -9,10 +9,14 @@ import {
   ClipboardCopy,
   Columns2,
   Copy,
+  Download,
   Globe,
   GripVertical,
+  Flag,
   Languages,
+  ListOrdered,
   Maximize2,
+  Minus,
   LockKeyhole,
   LockOpen,
   ImageIcon,
@@ -23,6 +27,7 @@ import {
   Palette,
   Plus,
   RefreshCw,
+  Rows3,
   ChevronRight,
   Table2,
   Trash2,
@@ -211,6 +216,7 @@ export function BlockRow(props: BlockRowProps) {
   const [diagramEditing, setDiagramEditing] = useState(!block.text)
   const [diagramZoom, setDiagramZoom] = useState(false)
   const [longFolded, setLongFolded] = useState(true)
+  const [calloutFolded, setCalloutFolded] = useState(false)
 
   useEffect(() => {
     const el = editableRef.current
@@ -264,6 +270,19 @@ export function BlockRow(props: BlockRowProps) {
     )
   }
 
+  function toRoman(n: number): string {
+    const table: [number, string][] = [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]]
+    let out = ""
+    let rest = Math.max(1, Math.min(3999, n))
+    for (const [v, s] of table) {
+      while (rest >= v) {
+        out += s
+        rest -= v
+      }
+    }
+    return out
+  }
+
   function renderContent() {
     switch (block.type) {
       case "toggle":
@@ -297,16 +316,37 @@ export function BlockRow(props: BlockRowProps) {
         )
       }
       case "heading1":
-        return renderEditable("text-[30px] font-semibold leading-[1.25] tracking-[-0.02em] py-1.5 mt-5")
       case "heading2":
-        return renderEditable("text-[24px] font-semibold leading-[1.3] tracking-[-0.015em] py-1 mt-4")
-      case "heading3":
-        return renderEditable("text-[19px] font-semibold leading-[1.4] py-1 mt-3")
+      case "heading3": {
+        const headingClass =
+          block.type === "heading1"
+            ? "text-[30px] font-semibold leading-[1.25] tracking-[-0.02em] py-1.5 mt-5"
+            : block.type === "heading2"
+              ? "text-[24px] font-semibold leading-[1.3] tracking-[-0.015em] py-1 mt-4"
+              : "text-[19px] font-semibold leading-[1.4] py-1 mt-3"
+        return (
+          <div className="group/heading flex items-start gap-1">
+            {!readOnly && (
+              <button
+                type="button"
+                aria-label={block.collapsed ? tr("Expand section") : tr("Collapse section")}
+                aria-expanded={!block.collapsed}
+                onClick={onToggleCollapsed}
+                title={block.collapsed ? tr("Expand section") : tr("Collapse section")}
+                className="mt-[9px] flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition hover:bg-accent hover:text-foreground max-md:text-muted-foreground group-hover/heading:text-muted-foreground"
+              >
+                <ChevronRight className={cn("size-3.5 transition-transform", !block.collapsed && "rotate-90")} />
+              </button>
+            )}
+            <div className="min-w-0 flex-1">{renderEditable(headingClass)}</div>
+          </div>
+        )
+      }
       case "bulleted":
         return (
           <div className="flex items-start gap-2.5">
             <span className="mt-[9px] flex h-4 w-4 shrink-0 items-center justify-center">
-              <span className="size-[5px] rounded-full bg-foreground/70" />
+              <span className={cn("size-[5px] bg-foreground/70", block.language === "square" ? "rounded-[1px]" : "rounded-full")} />
             </span>
             {renderEditable("text-[15px] leading-[1.7] py-[3px]")}
           </div>
@@ -314,8 +354,8 @@ export function BlockRow(props: BlockRowProps) {
       case "numbered":
         return (
           <div className="flex items-start gap-2">
-            <span className="mt-[3px] flex h-6 w-5 shrink-0 items-center justify-end text-[14px] tabular-nums text-muted-foreground">
-              {number}.
+            <span className="mt-[3px] flex h-6 w-7 shrink-0 items-center justify-end text-[14px] tabular-nums text-muted-foreground">
+              {block.language === "alpha" ? `${String.fromCharCode(96 + ((number - 1) % 26) + 1)}.` : block.language === "roman" ? `${toRoman(number)}.` : `${number}.`}
             </span>
             {renderEditable("text-[15px] leading-[1.7] py-[3px]")}
           </div>
@@ -323,6 +363,9 @@ export function BlockRow(props: BlockRowProps) {
       case "todo":
         return (
           <div className="flex items-start gap-2.5">
+            {Boolean(block.language) && (
+              <span title={tr("Priority: {p}", { p: block.language === "high" ? tr("High") : block.language === "med" ? tr("Medium") : tr("Low") })} className={cn("mt-[5px] h-[17px] w-1 shrink-0 rounded-full", block.language === "high" ? "bg-red-500" : block.language === "med" ? "bg-amber-500" : "bg-sky-500")} />
+            )}
             <button
               type="button"
               role="checkbox"
@@ -347,7 +390,7 @@ export function BlockRow(props: BlockRowProps) {
         )
       case "quote":
         return (
-          <div className="border-l-[3px] border-foreground/60 py-0.5 pl-4">
+          <div className={cn("border-l-[3px] py-0.5 pl-4", block.color === "brand" ? "border-brand/70" : block.color === "green" ? "border-emerald-500/70" : block.color === "red" ? "border-red-500/70" : block.color === "sky" ? "border-sky-500/70" : "border-foreground/60")}>
             {renderEditable("text-[15px] leading-[1.7] py-[3px] text-foreground/90")}
             <div className="mt-1 flex items-center gap-1.5">
               <span className="text-[10px] text-muted-foreground">—</span>
@@ -381,7 +424,16 @@ export function BlockRow(props: BlockRowProps) {
                 </button>
               </EmojiPicker>
             )}
-            {renderEditable("text-[15px] leading-[1.7] py-0")}
+            <div className="min-w-0 flex-1">
+              <div className={cn(calloutFolded && "line-clamp-2")}>{renderEditable("text-[15px] leading-[1.7] py-0")}</div>
+              {calloutFolded ? (
+                <button type="button" onClick={() => setCalloutFolded(false)} className="mt-0.5 text-[11px] text-brand hover:underline">{tr("Show more")}</button>
+              ) : (
+                block.text.length > 240 && (
+                  <button type="button" onClick={() => setCalloutFolded(true)} className="mt-0.5 text-[11px] text-muted-foreground hover:text-foreground hover:underline">{tr("Show less")}</button>
+                )
+              )}
+            </div>
           </div>
         )
       }
@@ -400,7 +452,7 @@ export function BlockRow(props: BlockRowProps) {
           />
         )
       case "table": {
-        const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, copyTable } = useTableBlock(block, onUpdate)
+        const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, copyTable, downloadCSV } = useTableBlock(block, onUpdate)
         const sortByColumn = (index: number) => {
           const sorted = [...table.rows].sort((a, b) => {
             const av = a[index] ?? ""
@@ -502,6 +554,14 @@ export function BlockRow(props: BlockRowProps) {
                   className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"
                 >
                   <Copy className="size-3" /> {tr("Copy")}
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadCSV}
+                  title={tr("Download CSV")}
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"
+                >
+                  <Download className="size-3" /> CSV
                 </button>
               </div>
             </div>
@@ -639,14 +699,24 @@ export function BlockRow(props: BlockRowProps) {
                 </div>
               )}
               {!diagramEditing && (
-                <button
-                  type="button"
-                  onClick={() => setDiagramZoom(true)}
-                  title={tr("Zoom preview")}
-                  className="rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
-                >
-                  <Maximize2 className="size-3" />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { void navigator.clipboard.writeText(block.text).then(() => toast.success(tr("Copied"))) }}
+                    title={tr("Copy source")}
+                    className="rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                  >
+                    <Copy className="size-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDiagramZoom(true)}
+                    title={tr("Zoom preview")}
+                    className="rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                  >
+                    <Maximize2 className="size-3" />
+                  </button>
+                </>
               )}
               <button
                 type="button"
@@ -698,7 +768,7 @@ export function BlockRow(props: BlockRowProps) {
               onFocus={() => onFocusBlock?.(block.id)}
               className="group/divider rounded-sm py-1 outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
             >
-              <hr className={style === "dashed" ? "border-dashed" : style === "dotted" ? "border-dotted" : "border-solid"} style={{ borderColor: "var(--border)" }} />
+              <hr className={cn(style === "dashed" ? "border-dashed" : style === "dotted" ? "border-dotted" : "border-solid", block.width === "thick" ? "border-t-2" : "border-t")} style={{ borderColor: "var(--border)" }} />
               {!readOnly && (
                 <div className="mt-1 hidden justify-center gap-1 opacity-0 transition-opacity max-md:opacity-100 group-hover/divider:opacity-100 group-focus-within/divider:opacity-100 sm:flex">
                   {["solid","dashed","dotted"].map((s) => (
@@ -731,7 +801,7 @@ export function BlockRow(props: BlockRowProps) {
       case "equation":
         return <EquationBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "toc":
-        return <TocBlock block={block} headings={headings} readOnly={readOnly} />
+        return <TocBlock block={block} headings={headings} readOnly={readOnly} onUpdate={readOnly ? undefined : onUpdate} />
       case "jsonVisual":
         return <JsonVisualBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
       case "database":
@@ -743,7 +813,7 @@ export function BlockRow(props: BlockRowProps) {
       case "pageLink":
         return <PageLinkBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
       case "breadcrumb":
-        return <BreadcrumbBlock block={block} breadcrumb={breadcrumb} />
+        return <BreadcrumbBlock block={block} breadcrumb={breadcrumb} onUpdate={readOnly ? undefined : onUpdate} />
       case "columns":
         return <ColumnsBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
       case "qrcode":
@@ -791,11 +861,12 @@ export function BlockRow(props: BlockRowProps) {
         )
       case "paragraph":
       default: {
+        const paraLeading = block.type === "paragraph" && block.language === "compact" ? "leading-[1.5]" : "leading-[1.7]"
         const lines = block.text.split("\n").length
         if (readOnly && longFolded && lines > 40) {
           return (
             <div>
-              <div className="max-h-64 overflow-hidden text-[15px] leading-[1.7]">
+              <div className={`max-h-64 overflow-hidden text-[15px] ${block.type === "paragraph" && block.language === "compact" ? "leading-[1.5]" : "leading-[1.7]"}`}>
                 {renderEditable("py-[3px] pointer-events-none select-none")}
               </div>
               <button
@@ -808,7 +879,7 @@ export function BlockRow(props: BlockRowProps) {
             </div>
           )
         }
-        return renderEditable("text-[15px] leading-[1.7] py-[3px]")
+        return renderEditable(`text-[15px] ${paraLeading} py-[3px]`)
       }
     }
   }
@@ -1192,6 +1263,98 @@ function BlockMenu({
                 <AlignRight /> {tr("Right")}
                 {alignValue === "right" && <Check className="ml-auto size-3.5" />}
               </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        {block.type === "quote" && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Palette /> {tr("Quote color")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-40">
+              {[["", "Default"], ["brand", "Brand"], ["green", "Green"], ["red", "Red"], ["sky", "Sky"]].map(([value, label]) => (
+                <DropdownMenuItem key={label} onSelect={() => onUpdate({ color: value })}>
+                  <span className={cn("size-3 rounded-full border", !value ? "border-foreground/50" : value === "brand" ? "bg-brand" : value === "green" ? "bg-emerald-500" : value === "red" ? "bg-red-500" : "bg-sky-500")} />
+                  {tr(label)}
+                  {(block.color || "") === value && <Check className="ml-auto size-3.5" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        {block.type === "paragraph" && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Rows3 /> {tr("Line spacing")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-40">
+              {[["comfortable", "Comfortable"], ["compact", "Compact"]].map(([value, label]) => (
+                <DropdownMenuItem key={value} onSelect={() => onUpdate({ language: value === "comfortable" ? "" : value })}>
+                  {tr(label)}
+                  {(block.language || "comfortable") === value && <Check className="ml-auto size-3.5" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        {block.type === "todo" && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Flag /> {tr("Priority")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-40">
+              {[["", "None"], ["low", "Low"], ["med", "Medium"], ["high", "High"]].map(([value, label]) => (
+                <DropdownMenuItem key={label} onSelect={() => onUpdate({ language: value })}>
+                  {value && <span className={cn("size-2 rounded-full", value === "high" ? "bg-red-500" : value === "med" ? "bg-amber-500" : "bg-sky-500")} />}
+                  {tr(label)}
+                  {(block.language || "") === value && <Check className="ml-auto size-3.5" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        {block.type === "bulleted" && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <List /> {tr("Bullet style")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-40">
+              {[["", "●  Dot"], ["square", "■  Square"]].map(([value, label]) => (
+                <DropdownMenuItem key={label} onSelect={() => onUpdate({ language: value })}>
+                  <span className="text-[11px]">{label}</span>
+                  {(block.language || "") === value && <Check className="ml-auto size-3.5" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        {block.type === "numbered" && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <ListOrdered /> {tr("Number style")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-40">
+              {[["", "1. 2. 3."], ["alpha", "a. b. c."], ["roman", "i. ii. iii."]].map(([value, label]) => (
+                <DropdownMenuItem key={label} onSelect={() => onUpdate({ language: value })}>
+                  <span className="font-mono text-[11px]">{label}</span>
+                  {(block.language || "") === value && <Check className="ml-auto size-3.5" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
+        {block.type === "divider" && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Minus /> {tr("Thickness")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-40">
+              {[["", "Thin"], ["thick", "Thick"]].map(([value, label]) => (
+                <DropdownMenuItem key={label} onSelect={() => onUpdate({ width: value })}>
+                  {tr(label)}
+                  {(block.width || "") === value && <Check className="ml-auto size-3.5" />}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         )}

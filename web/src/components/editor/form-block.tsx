@@ -240,7 +240,34 @@ export function FormBlock({
 
       <Dialog open={responsesOpen} onOpenChange={setResponsesOpen}>
         <DialogContent className="max-h-[80svh] max-w-2xl overflow-y-auto">
-          <DialogHeader><DialogTitle>{form.title || tr("Form")} · {tr("Responses")}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {form.title || tr("Form")} · {tr("Responses")}
+              {responses.length > 0 && (
+                <button
+                  type="button"
+                  title={tr("Download CSV")}
+                  onClick={() => {
+                    const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
+                    const head = ["submittedAt", ...fields.map((f) => f.label)]
+                    const lines = [head.map(esc).join(",")]
+                    for (const r of responses) {
+                      lines.push([r.submittedAt, ...fields.map((f) => r.values[f.id] ?? "")].map(esc).join(","))
+                    }
+                    const url = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" }))
+                    const link = document.createElement("a")
+                    link.href = url
+                    link.download = "form-responses.csv"
+                    link.click()
+                    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+                  }}
+                  className="rounded border px-2 py-0.5 text-[11px] font-normal hover:bg-accent"
+                >
+                  CSV
+                </button>
+              )}
+            </DialogTitle>
+          </DialogHeader>
           {responses.length === 0 ? <p className="text-sm text-muted-foreground">{tr("No responses yet.")}</p> : (
             <div className="space-y-2">
               {responses.map((response) => (

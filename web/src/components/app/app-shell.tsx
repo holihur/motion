@@ -92,9 +92,20 @@ export function AppShell() {
 
   if (!ready) return <Splash />
 
+  const zenMode = useUIStore((state) => state.zenMode)
+  const setZenMode = useUIStore((state) => state.setZenMode)
+
+  useEffect(() => {
+    function onKeyDownZen(event: KeyboardEvent) {
+      if (event.key === "Escape" && zenMode) setZenMode(false)
+    }
+    window.addEventListener("keydown", onKeyDownZen)
+    return () => window.removeEventListener("keydown", onKeyDownZen)
+  }, [zenMode, setZenMode])
+
   return (
     <div className="flex h-svh overflow-hidden bg-background">
-      <Sidebar />
+      {!zenMode && <Sidebar />}
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Suspense fallback={<RouteSkeleton />}>
           <Outlet />

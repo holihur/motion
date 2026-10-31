@@ -28,3 +28,14 @@ export async function translateText(text: string, target: LangCode): Promise<str
   // fallback: simple marker (preserves CI without AI key)
   return `[${target.toUpperCase()}] ${text}`
 }
+
+/** 改写选中文本：无专用后端，复用通用 AI chat（BYOK），失败抛错。 */
+export async function rewriteText(text: string, instruction: string): Promise<string> {
+  if (!text.trim()) return text
+  const res = await api.ai.chat({
+    message: `${instruction} (only output the rewritten text, keep the same language and formatting):\n\n${text}`,
+  })
+  const out = res.reply?.trim() ?? ""
+  if (out.length < 2) throw new Error("empty rewrite")
+  return out
+}

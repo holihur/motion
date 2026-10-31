@@ -1274,5 +1274,14 @@
   "Translate selection": "Translate selection",
   "Wrap in toggle": "Wrap in toggle",
   "{n} characters · {m} blocks": "{n} characters · {m} blocks",
-  "{n} chars": "{n} chars"
+  "{n} chars": "{n} chars",
+  "AI rewrite": "AI rewrite",
+  "Block link copied": "Block link copied",
+  "Copy block link": "Copy block link",
+  "Could not rewrite": "Could not rewrite",
+  "Focus mode": "Focus mode",
+  "Nothing to read": "Nothing to read",
+  "Read aloud": "Read aloud",
+  "Read aloud not supported": "Read aloud not supported",
+  "Stop reading": "Stop reading"
 }

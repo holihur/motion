@@ -1274,5 +1274,14 @@
   "Translate selection": "翻译选中",
   "Wrap in toggle": "包进折叠块",
   "{n} characters · {m} blocks": "{n} 字 · {m} 个块",
-  "{n} chars": "{n} 字"
+  "{n} chars": "{n} 字",
+  "AI rewrite": "AI 改写",
+  "Block link copied": "块链接已复制",
+  "Copy block link": "复制块链接",
+  "Could not rewrite": "改写失败",
+  "Focus mode": "专注模式",
+  "Nothing to read": "没有可朗读的内容",
+  "Read aloud": "朗读",
+  "Read aloud not supported": "不支持朗读",
+  "Stop reading": "停止朗读"
 }

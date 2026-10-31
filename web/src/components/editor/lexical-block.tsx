@@ -18,6 +18,7 @@ import {
   Code2,
   Italic,
   Languages,
+  Sparkles,
   Link2,
   Loader2,
   Strikethrough,
@@ -49,7 +50,7 @@ import { caretOffset } from "@/lib/caret"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
-import { TRANSLATE_LANGS, translateText, type LangCode } from "@/lib/translate"
+import { TRANSLATE_LANGS, rewriteText, translateText, type LangCode } from "@/lib/translate"
 import { toast } from "sonner"
 
 const INLINE_TRANSFORMERS = [BOLD_ITALIC_STAR, BOLD_STAR, ITALIC_STAR, INLINE_CODE, STRIKETHROUGH, LINK]
@@ -390,6 +391,57 @@ function TranslatePicker({ onPick, onClose }: { onPick: (lang: LangCode) => void
   )
 }
 
+const REWRITE_OPTIONS: [string, string][] = [
+  ["Polish the writing", "润色"],
+  ["Shorten while keeping key points", "缩短"],
+  ["Expand with concrete detail", "扩写"],
+  ["Make it formal", "正式"],
+  ["Make it casual", "随意"],
+]
+
+function RewritePicker({ busy, onPick }: { busy: boolean; onPick: (instruction: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!open) return
+    function close(e: PointerEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    window.addEventListener("pointerdown", close, true)
+    return () => window.removeEventListener("pointerdown", close, true)
+  }, [open ])
+  return (
+    <span ref={ref} className="relative">
+      <button
+        type="button"
+        aria-label={tr("AI rewrite")}
+        title={tr("AI rewrite")}
+        onClick={() => setOpen((v) => !v)}
+        className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground"
+      >
+        {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+      </button>
+      {open && (
+        <span className="absolute bottom-full left-1/2 z-10 mb-1 flex w-28 -translate-x-1/2 flex-col overflow-hidden rounded-lg border bg-popover p-1 shadow-xl">
+          {REWRITE_OPTIONS.map(([instruction, label]) => (
+            <button
+              key={instruction}
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                onPick(instruction)
+              }}
+              className="rounded px-2 py-1.5 text-left text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            >
+              {tr(label)}
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
+  )
+}
+
 function FloatingToolbar() {
   const [editor] = useLexicalComposerContext()
   const [rect, setRect] = useState<{ left: number; top: number } | null>(null)
@@ -406,6 +458,24 @@ function FloatingToolbar() {
       if ($isRangeSelection(selection)) text = selection.getTextContent()
     })
     return text
+  }
+
+  async function rewriteSelection(instruction: string) {
+    const source = selectedText()
+    if (!source.trim() || translating) return
+    setTranslating(true)
+    try {
+      const out = await rewriteText(source, instruction)
+      editor.update(() => {
+        const selection = $getSelection()
+        if ($isRangeSelection(selection)) selection.insertText(out)
+      })
+      toast.success(tr("Applied"))
+    } catch {
+      toast.error(tr("Could not rewrite"))
+    } finally {
+      setTranslating(false)
+    }
   }
 
   async function translateSelection(lang: LangCode) {
@@ -561,6 +631,16 @@ function FloatingToolbar() {
           <Link2 className="size-3.5" />
         </button>
       )}
+      <RewritePicker
+        busy={translating}
+        onPick={(instruction) => {
+          if (!selectedText().trim()) {
+            toast.error(tr("Select text first"))
+            return
+          }
+          void rewriteSelection(instruction)
+        }}
+      />
       <button
         type="button"
         aria-label={tr("Translate selection")}

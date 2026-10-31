@@ -7,6 +7,7 @@ import {
   Clock3,
   FileQuestion,
   FileText,
+  Fullscreen,
   ImagePlus,
   LockKeyhole,
   Loader2,
@@ -18,8 +19,10 @@ import {
   SmilePlus,
   Sparkles,
   SquarePen,
+  Square,
   Star,
   Users,
+  Volume2,
 } from "lucide-react"
 import { toast } from "sonner"
 import { ApiError, api, getClientId } from "@/lib/api"
@@ -40,6 +43,7 @@ import { buildTree, ancestorChain, pageTitle } from "@/lib/tree"
 import { Backlinks } from "@/components/editor/backlinks"
 import { hasMarkdownSyntax, parseMarkdownToBlocks } from "@/lib/markdown-import"
 import { useWorkspaceStore } from "@/stores/workspace"
+import { useUIStore } from "@/stores/ui"
 import { SidebarToggle } from "@/components/app/sidebar-toggle"
 import { PageActionsMenu } from "@/components/app/page-actions"
 import { BlockEditor } from "@/components/editor/block-editor"
@@ -134,8 +138,61 @@ export function PageEditor() {
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [composerOpen, setComposerOpen] = useState(false)
+  const zenMode = useUIStore((state) => state.zenMode)
+  const setZenMode = useUIStore((state) => state.setZenMode)
+  const [reading, setReading] = useState(false)
+
+  function toggleReadAloud() {
+    try {
+      if (reading) {
+        window.speechSynthesis?.cancel()
+        setReading(false)
+        return
+      }
+      const text = [title, ...blocks.map((b) => b.text || "")].join("\n").slice(0, 8000)
+      if (!text.trim()) {
+        toast.error(tr("Nothing to read"))
+        return
+      }
+      const utter = new SpeechSynthesisUtterance(text)
+      utter.lang = document.documentElement.lang || "zh-CN"
+      utter.onend = () => setReading(false)
+      utter.onerror = () => setReading(false)
+      window.speechSynthesis?.cancel()
+      window.speechSynthesis?.speak(utter)
+      setReading(true)
+    } catch {
+      toast.error(tr("Read aloud not supported"))
+    }
+  }
+
+  useEffect(() => () => {
+    try {
+      window.speechSynthesis?.cancel()
+    } catch { /* ignore */ }
+  }, [])
   const [tabCollision, setTabCollision] = useState(false)
   const clientId = useMemo(() => Math.random().toString(36).slice(2), [])
+
+  // 块链接 hash：#blockId 直达定位。
+  useEffect(() => {
+    if (!page?.id) return
+    const hash = window.location.hash.slice(1)
+    if (!hash) return
+    let tries = 0
+    const timer = window.setInterval(() => {
+      tries++
+      const el = document.getElementById(`block-input-${hash}`) ?? document.querySelector(`[data-block-id="${hash}"]`)
+      if (el || tries >= 25) {
+        window.clearInterval(timer)
+        if (el) {
+          window.history.replaceState(null, "", window.location.pathname)
+          window.dispatchEvent(new CustomEvent("motion:focus-block", { detail: { id: hash } }))
+        }
+      }
+    }, 200)
+    return () => window.clearInterval(timer)
+  }, [page?.id])
 
   // 同一页面多 tab 打开提示：localStorage 心跳，30s 过期。
   useEffect(() => {
@@ -1250,6 +1307,36 @@ export function PageEditor() {
             <span className={cn("size-1.5 rounded-full", liveStatus === "connected" ? "bg-emerald-500" : "bg-amber-500")} />
             {liveStatus === "connected" ? tr("Live") : tr("Reconnecting")}
           </span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setZenMode(!zenMode)}
+                aria-label={tr("Focus mode")}
+                title={tr("Focus mode")}
+                className={cn("text-muted-foreground", zenMode && "bg-brand-soft text-brand")}
+              >
+                <Fullscreen className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{tr("Focus mode")}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => toggleReadAloud()}
+                aria-label={reading ? tr("Stop reading") : tr("Read aloud")}
+                title={reading ? tr("Stop reading") : tr("Read aloud")}
+                className={cn("text-muted-foreground", reading && "bg-brand-soft text-brand")}
+              >
+                {reading ? <Square className="size-4" /> : <Volume2 className="size-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{reading ? tr("Stop reading") : tr("Read aloud")}</TooltipContent>
+          </Tooltip>
           {!readOnly && <Tooltip>
             <TooltipTrigger asChild>
               <Button

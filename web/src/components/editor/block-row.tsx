@@ -14,6 +14,7 @@ import {
   GripVertical,
   Flag,
   Languages,
+  Link2,
   ListOrdered,
   Maximize2,
   Minus,
@@ -1377,6 +1378,14 @@ function BlockMenu({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         )}
+        <DropdownMenuItem
+          onSelect={() => {
+            const url = `${window.location.origin}${window.location.pathname}#${block.id}`
+            void navigator.clipboard.writeText(url).then(() => toast.success(tr("Block link copied")))
+          }}
+        >
+          <Link2 /> {tr("Copy block link")}
+        </DropdownMenuItem>
         {(onInsertAbove || onInsertBelow) && <DropdownMenuSeparator />}
         {onInsertAbove && (
           <DropdownMenuItem onSelect={onInsertAbove}>

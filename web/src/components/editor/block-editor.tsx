@@ -766,16 +766,37 @@ export function BlockEditor({
 
   function moveBlock(from: number, target: number, position: "before" | "after") {
     const blocksBefore = blocksRef.current
-    const end = subtreeEndAt(blocksBefore, from)
-    if (from === target || (target > from && target < end)) {
+    // 多选拖拽：拖的块在选中集里就整体搬走。
+    const expanded = expandedSelection()
+    let group: typeof blocksBefore
+    let groupEnd: number
+    if (expanded.size > 1 && expanded.has(blocksBefore[from]?.id ?? "")) {
+      const sorted = [...expanded].sort((a, b) => a - b)
+      group = sorted.map((i) => blocksBefore[i])
+      groupEnd = sorted[sorted.length - 1] + 1
+      if (target >= sorted[0] && target < groupEnd) {
+        setDragging(null)
+        setDrop(null)
+        return
+      }
+    } else {
+      const end = subtreeEndAt(blocksBefore, from)
+      if (from === target || (target > from && target < end)) {
+        setDragging(null)
+        setDrop(null)
+        return
+      }
+      group = blocksBefore.slice(from, end)
+      groupEnd = end
+    }
+    const groupIds = new Set(group.map((b) => b.id))
+    const targetId = blocksBefore[target]?.id
+    if (!targetId || groupIds.has(targetId)) {
       setDragging(null)
       setDrop(null)
       return
     }
-    const group = blocksBefore.slice(from, end)
-    const targetId = blocksBefore[target]?.id
-    if (!targetId) return
-    const rest = blocksBefore.filter((_, position) => position < from || position >= end)
+    const rest = blocksBefore.filter((block) => !groupIds.has(block.id))
     let insert = rest.findIndex((block) => block.id === targetId)
     if (insert < 0) {
       setDragging(null)

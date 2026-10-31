@@ -7,10 +7,12 @@ interface UIState {
   settingsOpen: boolean
   sidebarOpen: boolean
   sidebarCollapsed: boolean
+  zenMode: boolean
   setSearchOpen: (open: boolean) => void
   setSettingsOpen: (open: boolean) => void
   setSidebarOpen: (open: boolean) => void
   toggleSidebarCollapsed: () => void
+  setZenMode: (zen: boolean) => void
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -21,6 +23,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   setSearchOpen: (searchOpen) => set({ searchOpen }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+  zenMode: false,
+  setZenMode: (zenMode) => set({ zenMode }),
   toggleSidebarCollapsed: () => {
     const sidebarCollapsed = !get().sidebarCollapsed
     localStorage.setItem(COLLAPSE_KEY, sidebarCollapsed ? "1" : "0")

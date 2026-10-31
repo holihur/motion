@@ -229,7 +229,7 @@ func (s *Server) unlockPublicPage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write(staticpublish.UnlockPage(page.Title))
+		_, _ = w.Write(staticpublish.UnlockPage(page.Title, slug))
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
@@ -338,7 +338,7 @@ func (s *Server) servePublicPage(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(page.PublicPasswordHash) != "" && !publicUnlocked(r, slug, page.PublicPasswordHash) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("X-Robots-Tag", "noindex")
-		_, _ = w.Write(staticpublish.UnlockPage(page.Title))
+		_, _ = w.Write(staticpublish.UnlockPage(page.Title, slug))
 		return
 	}
 	_, _ = s.store.Pages.UpdateByID(r.Context(), page.ID, bson.M{"$inc": bson.M{"publicViews": 1}})

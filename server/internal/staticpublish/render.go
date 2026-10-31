@@ -113,7 +113,7 @@ func RenderPublicPage(page model.Page, childPages []model.Page, links map[string
 }
 
 // UnlockPage renders a password gate for protected public pages.
-func UnlockPage(title string) []byte {
+func UnlockPage(title, slug string) []byte {
 	t := title
 	if strings.TrimSpace(t) == "" {
 		t = "Untitled"
@@ -124,6 +124,7 @@ func UnlockPage(title string) []byte {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<base href="/p/` + html.EscapeString(slug) + `/">
 <title>` + html.EscapeString(t) + ` · Protected</title>
 <style>` + siteCSS + `</style>
 </head>
@@ -199,7 +200,8 @@ load()})();</script>`)
 <meta property="og:type" content="article">
 `
 	}()) + `<meta name="generator" content="Motion">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' https: http: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'none'">
+<base href="/p/` + html.EscapeString(extra.Slug) + `/">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' https: http: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'self'">
 <style>` + siteCSS + `</style>
 </head>
 <body>

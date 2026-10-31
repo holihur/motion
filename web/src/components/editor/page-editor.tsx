@@ -8,6 +8,7 @@ import {
   FileQuestion,
   FileText,
   Fullscreen,
+  ListTree,
   ImagePlus,
   LockKeyhole,
   Loader2,
@@ -1266,6 +1267,30 @@ export function PageEditor() {
         <SidebarToggle />
         <Breadcrumbs page={page} title={title} icon={icon} />
         <PageStats blocks={blocks} />
+        {outline.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                title={tr("Outline")}
+                className="hidden shrink-0 rounded-md p-1.5 text-muted-foreground transition hover:bg-accent hover:text-foreground md:block"
+              >
+                <ListTree className="size-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-80 w-64 overflow-y-auto thin-scrollbar">
+              {outline.map((h) => (
+                <DropdownMenuItem
+                  key={h.id}
+                  onSelect={() => window.dispatchEvent(new CustomEvent("motion:scroll-block", { detail: { id: h.id } }))}
+                  className={h.level === 1 ? "font-medium" : ""}
+                >
+                  <span className="truncate" style={{ paddingLeft: (h.level - 1) * 12 }}>{h.text || tr("Untitled")}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         {readOnly && (
           <span className="ml-1 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
             {tr("View only")}
@@ -1615,6 +1640,7 @@ export function PageEditor() {
             <BlockEditor
               blocks={blocks}
               readOnly={readOnly}
+              onHeadings={setOutline}
               isLayout={Boolean(page.isLayout)}
               hasContentPlaceholder={blocks.some((block) => block.type === "content")}
               scrollParentRef={scrollRef}

@@ -3,6 +3,7 @@ import { Clock3, History, Loader2, RotateCcw, Save } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import type { Block, Page, PageRevision } from "@/lib/types"
+import { DiffView } from "@/components/agents/proposal-dialog"
 import { cn, formatDate, formatRelative } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
@@ -218,10 +219,20 @@ export function HistoryDialog({
                       {formatDate(selected.createdAt)} · {tr("saved by {name}", { name: selected.authorName || "Someone" })}
                     </p>
                   </div>
+                  {(compare ? compare.title !== selected.title || compare.cover !== selected.cover : page.title !== selected.title || page.cover !== selected.cover) && (
+                    <div className="mb-2 flex flex-wrap gap-1.5">
+                      {(compare ? compare.title !== selected.title : page.title !== selected.title) && (
+                        <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700">{tr("Title changed")}: {(compare?.title ?? page.title) || "—"} → {selected.title || "—"}</span>
+                      )}
+                      {(compare ? compare.cover !== selected.cover : page.cover !== selected.cover) && (
+                        <span className="rounded bg-violet-500/15 px-2 py-0.5 text-[10px] font-medium text-violet-700">{tr("Cover changed")}</span>
+                      )}
+                    </div>
+                  )}
                   {compare ? (
                     compareLoading ? <div className="flex justify-center py-6"><Loader2 className="size-5 animate-spin" /></div> :
-                    <TwoVersionDiff a={compare} b={selected} />
-                  ) : <RevisionDiff page={page} selected={selected} />}
+                    <DiffView before={compare.blocks ?? []} after={selected.blocks ?? []} renderBlock={(block) => <PreviewBlock block={block} />} />
+                  ) : <DiffView before={page.blocks} after={selected.blocks ?? []} renderBlock={(block) => <PreviewBlock block={block} />} />}
                   <div className="mt-5 flex justify-end border-t pt-4">
                     <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setConfirmOpen(true)}>
                       <RotateCcw className="size-3.5" /> {tr("Restore this version")}
@@ -255,100 +266,7 @@ export function HistoryDialog({
   )
 }
 
-type DiffKind = "same" | "changed" | "removed" | "added"
-
-function blockFingerprint(block: Block) {
-  return JSON.stringify(block)
-}
-
-function RevisionDiff({ page, selected }: { page: Page; selected: PageRevision }) {
-  const selectedBlocks = selected.blocks ?? []
-  if (selectedBlocks.length === 0 && page.blocks.length === 0) return null
-  const current = new Map(page.blocks.map((block) => [block.id, block]))
-  const selectedIDs = new Set(selectedBlocks.map((block) => block.id))
-  let changed = 0
-  let removed = 0
-  let added = 0
-  for (const block of selectedBlocks) {
-    const now = current.get(block.id)
-    if (!now) removed++
-    else if (blockFingerprint(now) !== blockFingerprint(block)) changed++
-  }
-  for (const block of page.blocks) if (!selectedIDs.has(block.id)) added++
-  if (changed + removed + added === 0) {
-    return <p className="text-[11px] text-muted-foreground">{tr("This version matches the current page.")}</p>
-  }
-  return (
-    <div className="space-y-2">
-      <p className="rounded-lg bg-muted/60 px-3 py-2 text-[11px] text-muted-foreground">
-        {tr("Compared with this version")}: {" "}
-        <span className="font-medium text-foreground">{changed + removed + added}</span>{" "}
-        {tr("changes")}
-      </p>
-      <div className="space-y-2">
-        {selectedBlocks.map((block) => {
-          const now = current.get(block.id)
-          const kind: DiffKind = !now ? "removed" : blockFingerprint(now) === blockFingerprint(block) ? "same" : "changed"
-          return (
-            <div key={block.id} className={cn("rounded-lg border px-3 py-2", diffClass(kind))}>
-              <div className="mb-1 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide opacity-80">
-                {kind === "removed" ? tr("Removed") : kind === "changed" ? tr("Changed") : tr("Unchanged")}
-              </div>
-              <PreviewBlock block={block} />
-            </div>
-          )
-        })}
-        {page.blocks.filter((block) => !selectedIDs.has(block.id)).map((block) => (
-          <div key={block.id} className={cn("rounded-lg border px-3 py-2", diffClass("added"))}>
-            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-emerald-700 opacity-80">{tr("Added")}</div>
-            <PreviewBlock block={block} />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function TwoVersionDiff({ a, b }: { a: PageRevision; b: PageRevision }) {
-  const blocksA = a.blocks ?? []
-  const blocksB = b.blocks ?? []
-  const titleChanged = a.title !== b.title
-  const coverChanged = a.cover !== b.cover
-  return (
-    <div className="space-y-3">
-      {(titleChanged || coverChanged) && (
-        <div className="flex flex-wrap gap-1.5">
-          {titleChanged && <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-700">{tr("Title changed")}: {a.title || "—"} → {b.title || "—"}</span>}
-          {coverChanged && <span className="rounded bg-violet-500/15 px-2 py-0.5 text-[10px] font-medium text-violet-700">{tr("Cover changed")}</span>}
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{formatDate(a.createdAt)} · {a.authorName || "Someone"}</div>
-          {blocksA.map((block) => <div key={block.id} className="rounded border px-2 py-1.5 bg-muted/20"><PreviewBlock block={block} /></div>)}
-        </div>
-        <div className="space-y-2">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{formatDate(b.createdAt)} · {b.authorName || "Someone"}</div>
-          {blocksB.map((block) => <div key={block.id} className="rounded border px-2 py-1.5 bg-background"><PreviewBlock block={block} /></div>)}
-        </div>
-      </div>
-    </div>
-  )
-}
-function diffClass(kind: DiffKind) {
-  switch (kind) {
-    case "added":
-      return "border-emerald-500/30 bg-emerald-500/5"
-    case "removed":
-      return "border-destructive/30 bg-destructive/5 line-through decoration-destructive/40"
-    case "changed":
-      return "border-amber-500/30 bg-amber-500/5"
-    default:
-      return "border-border/60 bg-background"
-  }
-}
-
-function PreviewBlock({ block }: { block: PageRevision["blocks"] extends (infer T)[] | undefined ? T : never }) {
+function PreviewBlock({ block }: { block: Block }) {
   switch (block.type) {
     case "heading1":
       return <h1 className="text-xl font-semibold">{block.text}</h1>

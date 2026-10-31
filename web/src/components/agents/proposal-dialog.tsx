@@ -227,7 +227,14 @@ function CellText({ text, empty }: { text: string; empty: string }) {
   return <>{text.length > 600 ? text.slice(0, 600) + "…" : text}</>
 }
 
-function DiffView({ before, after }: { before: Block[]; after: Block[] }) {
+function RichCell({ block, renderBlock }: { block: Block; renderBlock?: (block: Block) => React.ReactNode }) {
+  if (renderBlock && (block.type === "image" || block.type === "table" || block.type === "code")) {
+    return <>{renderBlock(block)}</>
+  }
+  return <CellText text={block.text} empty={block.type} />
+}
+
+function DiffView({ before, after, renderBlock }: { before: Block[]; after: Block[]; renderBlock?: (block: Block) => React.ReactNode }) {
   const [mode, setMode] = useState<"side" | "unified">("side")
   const rows = useMemo(() => alignRows(before, after, 1), [before, after])
   const counts = useMemo(() => {
@@ -290,13 +297,13 @@ function DiffView({ before, after }: { before: Block[]; after: Block[] }) {
                 <div key={i} className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 sm:gap-2">
                   <div className={`min-w-0 rounded-lg border px-2.5 py-2 ${leftTone}`}>
                     <RowLabel block={left} sign={r.kind === "removed" ? "−" : r.kind === "changed" ? "±" : ""} />
-                    {left && <div className="mt-0.5 whitespace-pre-wrap text-xs leading-5"><CellText text={left.text} empty={left.type} /></div>}
+                    {left && <div className="mt-0.5 whitespace-pre-wrap text-xs leading-5"><RichCell block={left} renderBlock={renderBlock} /></div>}
                   </div>
                   <div className={`min-w-0 rounded-lg border px-2.5 py-2 ${rightTone}`}>
                     <RowLabel block={right} sign={r.kind === "added" ? "+" : r.kind === "changed" ? "±" : ""} />
                     {right && (
                       <div className="mt-0.5 whitespace-pre-wrap text-xs leading-5">
-                        {r.kind === "changed" ? <InlineChange before={r.before.text} after={r.after.text} /> : <CellText text={right.text} empty={right.type} />}
+                        {r.kind === "changed" ? <InlineChange before={r.before.text} after={r.after.text} /> : <RichCell block={right} renderBlock={renderBlock} />}
                       </div>
                     )}
                   </div>
@@ -321,7 +328,7 @@ function DiffView({ before, after }: { before: Block[]; after: Block[] }) {
                   <div className="mt-1 whitespace-pre-wrap text-xs leading-5 text-red-700/80 line-through decoration-red-500/40 dark:text-red-300/80">{r.before.text || tr("Empty block")}</div>
                 )}
                 <div className="mt-1 whitespace-pre-wrap text-xs leading-5">
-                  {r.kind === "changed" ? <InlineChange before={r.before.text} after={r.after.text} /> : <CellText text={r.block.text} empty={r.block.type} />}
+                  {r.kind === "changed" ? <InlineChange before={r.before.text} after={r.after.text} /> : <RichCell block={r.block} renderBlock={renderBlock} />}
                 </div>
               </div>
             )

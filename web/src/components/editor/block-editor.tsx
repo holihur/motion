@@ -88,6 +88,7 @@ export function BlockEditor({
   workspaceId = "",
   pageId = "",
   members = [],
+  onHeadings,
 }: {
   blocks: Block[]
   onChange: (blocks: Block[]) => void
@@ -103,6 +104,7 @@ export function BlockEditor({
   isLayout?: boolean
   hasContentPlaceholder?: boolean
   breadcrumb?: { id: string; title: string; icon: string }[]
+  onHeadings?: (headings: HeadingItem[]) => void
   workspaceId?: string
   pageId?: string
   members?: Member[]
@@ -187,6 +189,11 @@ export function BlockEditor({
         })),
     [blocks],
   )
+
+  useEffect(() => {
+    onHeadings?.(headings)
+  }, [headings, onHeadings])
+
 
   const HEADING_LEVEL: Record<string, number> = { heading1: 1, heading2: 2, heading3: 3 }
   const visibleEntries = useMemo(() => {

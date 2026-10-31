@@ -1293,5 +1293,7 @@
   "Published": "已发布",
   "Published to web": "已发布到网上",
   "Unpublish": "取消发布",
-  "Unpublished": "已取消发布"
+  "Unpublished": "已取消发布",
+  "Include sub-pages": "包含子页面",
+  "Published sub-pages stay linked; others show as plain text.": "已发布的子页面保持可点，未发布的显示为纯文本。"
 }

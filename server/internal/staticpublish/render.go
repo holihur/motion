@@ -95,6 +95,16 @@ func Render(rootID primitive.ObjectID, pages []model.Page, publicBase string) (m
 	return out, nil
 }
 
+// RenderPublicPage renders one page for /p/{slug} hosting. links maps page
+// IDs to their public hrefs ("/p/..."); pages without an entry render as "#".
+func RenderPublicPage(page model.Page, childPages []model.Page, links map[string]string) []byte {
+	files := make(map[string]string, len(links))
+	for id, href := range links {
+		files[id] = href
+	}
+	return renderPage(page, childPages, files, "")
+}
+
 func renderPage(page model.Page, childPages []model.Page, files map[string]string, base string) string {
 	var body strings.Builder
 	for _, block := range page.Blocks {
@@ -239,7 +249,10 @@ func renderBlock(block model.Block, files map[string]string, base string) string
 	case "gantt", "chart", "columns":
 		return renderTable(block.Table, base)
 	case "pageLink":
-		return `<p><a class="page-link" href="` + html.EscapeString(pageHref(block.URL, files, base)) + `">🔗 ` + inline + `</a></p>`
+		if href := pageHref(block.URL, files, base); href != "" && href != "#" {
+			return `<p><a class="page-link" href="` + html.EscapeString(href) + `">🔗 ` + inline + `</a></p>`
+		}
+		return `<p><span class="page-link">🔗 ` + inline + `</span></p>`
 	case "bookmark", "video", "embed", "file":
 		return `<p><a class="embed-link" href="` + html.EscapeString(safeURL(block.URL, base)) + `">` + inline + `</a></p>`
 	case "password":

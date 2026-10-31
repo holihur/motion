@@ -369,5 +369,7 @@
   "Published": "Published",
   "Published to web": "Published to web",
   "Unpublish": "Unpublish",
-  "Unpublished": "Unpublished"
+  "Unpublished": "Unpublished",
+  "Include sub-pages": "Include sub-pages",
+  "Published sub-pages stay linked; others show as plain text.": "Published sub-pages stay linked; others show as plain text."
 }

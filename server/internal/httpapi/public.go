@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/rand"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -9,8 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/motion/server/internal/export"
 	"github.com/motion/server/internal/model"
+	"github.com/motion/server/internal/staticpublish"
 )
 
 const publicSlugAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -25,6 +27,18 @@ func randomPublicSlug() string {
 		out[i] = publicSlugAlphabet[int(v)%len(publicSlugAlphabet)]
 	}
 	return string(out)
+}
+
+func (s *Server) ensurePublicSlug(ctx context.Context) (string, error) {
+	for i := 0; i < 5; i++ {
+		candidate := randomPublicSlug()
+		var existing model.Page
+		err := s.store.Pages.FindOne(ctx, bson.M{"publicSlug": candidate}).Decode(&existing)
+		if err != nil {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("could not allocate a public link")
 }
 
 // POST /api/pages/{pageID}/publish — make the page public at /p/{slug}.
@@ -42,27 +56,44 @@ func (s *Server) publishPagePublic(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "archived pages cannot be published")
 		return
 	}
-	slug := strings.TrimSpace(page.PublicSlug)
-	if slug == "" {
-		for i := 0; i < 5; i++ {
-			candidate := randomPublicSlug()
-			var existing model.Page
-			err := s.store.Pages.FindOne(r.Context(), bson.M{"publicSlug": candidate}).Decode(&existing)
-			if err != nil {
-				slug = candidate
-				break
+	var req struct {
+		IncludeChildren bool `json:"includeChildren"`
+	}
+	_ = decodeJSON(r, &req)
+
+	targets := []primitive.ObjectID{page.ID}
+	if req.IncludeChildren {
+		if ids, err := s.descendantIDs(r, page.WorkspaceID, page.ID); err == nil {
+			for id := range ids {
+				targets = append(targets, id)
 			}
 		}
-		if slug == "" {
-			writeErr(w, http.StatusInternalServerError, "could not allocate a public link")
-			return
+	}
+	slug := strings.TrimSpace(page.PublicSlug)
+	for _, target := range targets {
+		var current model.Page
+		if err := s.store.Pages.FindOne(r.Context(), bson.M{"_id": target, "archived": false}).Decode(&current); err != nil {
+			continue
 		}
-		if _, err := s.store.Pages.UpdateByID(r.Context(), page.ID, bson.M{"$set": bson.M{
-			"publicSlug": slug, "updatedAt": time.Now().UTC(),
+		if strings.TrimSpace(current.PublicSlug) != "" {
+			continue
+		}
+		candidate, err := s.ensurePublicSlug(r.Context())
+		if err != nil {
+			continue
+		}
+		if _, err := s.store.Pages.UpdateByID(r.Context(), target, bson.M{"$set": bson.M{
+			"publicSlug": candidate, "updatedAt": time.Now().UTC(),
 		}}); err != nil {
-			writeErr(w, http.StatusInternalServerError, "could not publish page")
-			return
+			continue
 		}
+		if target == page.ID {
+			slug = candidate
+		}
+	}
+	if slug == "" {
+		writeErr(w, http.StatusInternalServerError, "could not allocate a public link")
+		return
 	}
 	_, actorName := s.editorFor(r)
 	s.writeAudit(r.Context(), page.WorkspaceID, currentUserID(r), actorName, primitive.NilObjectID, "",
@@ -81,7 +112,19 @@ func (s *Server) unpublishPagePublic(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := s.store.Pages.UpdateByID(r.Context(), page.ID, bson.M{"$unset": bson.M{"publicSlug": ""}}); err != nil {
+	var req struct {
+		IncludeChildren bool `json:"includeChildren"`
+	}
+	_ = decodeJSON(r, &req)
+	targets := []primitive.ObjectID{page.ID}
+	if req.IncludeChildren {
+		if ids, err := s.descendantIDs(r, page.WorkspaceID, page.ID); err == nil {
+			for id := range ids {
+				targets = append(targets, id)
+			}
+		}
+	}
+	if _, err := s.store.Pages.UpdateMany(r.Context(), bson.M{"_id": bson.M{"$in": targets}}, bson.M{"$unset": bson.M{"publicSlug": ""}}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not unpublish page")
 		return
 	}
@@ -104,11 +147,36 @@ func (s *Server) servePublicPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	page = s.applyLayout(r.Context(), page)
-	data, err := export.HTML(page)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "could not render page")
-		return
+	// 子页面跟随：已发布的后代建成 /p/slug 映射，未发布的保持 "#"。
+	links := map[string]string{page.ID.Hex(): "/p/" + slug}
+	if ids, err := s.descendantIDs(r, page.WorkspaceID, page.ID); err == nil && len(ids) > 0 {
+		list := make([]primitive.ObjectID, 0, len(ids))
+		for id := range ids {
+			list = append(list, id)
+		}
+		cur, err := s.store.Pages.Find(r.Context(), bson.M{
+			"_id": bson.M{"$in": list}, "archived": false,
+			"publicSlug": bson.M{"$ne": ""},
+		})
+		if err == nil {
+			defer cur.Close(r.Context())
+			var published []model.Page
+			if err := cur.All(r.Context(), &published); err == nil {
+				for _, child := range published {
+					links[child.ID.Hex()] = "/p/" + child.PublicSlug
+				}
+			}
+		}
 	}
+	// 直接子页面导航（未发布的自动跳过）。
+	var direct []model.Page
+	if cur, err := s.store.Pages.Find(r.Context(), bson.M{
+		"workspaceId": page.WorkspaceID, "parentId": page.ID, "archived": false,
+	}); err == nil {
+		_ = cur.All(r.Context(), &direct)
+		cur.Close(r.Context())
+	}
+	data := staticpublish.RenderPublicPage(page, direct, links)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Robots-Tag", "noindex")
 	w.Header().Set("Cache-Control", "public, max-age=60")

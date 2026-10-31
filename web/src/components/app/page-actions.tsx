@@ -89,6 +89,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const [publishOpen, setPublishOpen] = useState(false)
   const [publicSlug, setPublicSlug] = useState<string | null>(page.publicSlug ?? null)
   const [publishing, setPublishing] = useState(false)
+  const [withChildren, setWithChildren] = useState(true)
   const [enabledProviders, setEnabledProviders] = useState<Set<string>>(new Set())
   const [groups, setGroups] = useState<PublishGroup[]>([])
   const importRef = useRef<HTMLInputElement>(null)
@@ -459,6 +460,18 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
             <DialogDescription>
               {tr("Anyone with the link can read this page. No login required.")}
             </DialogDescription>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border bg-muted/40 px-2.5 py-2 text-xs">
+              <input
+                type="checkbox"
+                checked={withChildren}
+                onChange={(e) => setWithChildren(e.target.checked)}
+                className="size-3.5 accent-[var(--brand)]"
+              />
+              <span>
+                {tr("Include sub-pages")}
+                <span className="block text-[11px] text-muted-foreground">{tr("Published sub-pages stay linked; others show as plain text.")}</span>
+              </span>
+            </label>
           </DialogHeader>
           {(publicSlug || page.publicSlug) && (
             <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-2.5 py-2">
@@ -493,7 +506,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
                   onClick={() => {
                     setPublishing(true)
                     api.pages
-                      .unpublish(page.id)
+                      .unpublish(page.id, withChildren)
                       .then(() => {
                         setPublicSlug(null)
                         useWorkspaceStore.getState().patchSummary(page.id, { publicSlug: undefined } as Partial<PageSummary>)
@@ -515,7 +528,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
                   onClick={() => {
                     setPublishing(true)
                     api.pages
-                      .publish(page.id)
+                      .publish(page.id, withChildren)
                       .then((res) => {
                         setPublicSlug(res.slug)
                         useWorkspaceStore.getState().patchSummary(page.id, { publicSlug: res.slug })

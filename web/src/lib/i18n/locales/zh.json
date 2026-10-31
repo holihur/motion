@@ -1195,5 +1195,7 @@
   "Text too long — split into a new block": "文字太长——已拆成新块",
   "This page is open in another tab — edits may conflict.": "此页在另一标签页打开中，编辑可能冲突。",
   "{n} task(s) running": "{n} 个任务运行中",
-  "Type / for blocks, # for headings": "输入 / 插入块，# 标题"
+  "Type / for blocks, # for headings": "输入 / 插入块，# 标题",
+  "Reload": "重新加载",
+  "Show all {n} lines": "展开全部 {n} 行"
 }

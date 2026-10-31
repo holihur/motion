@@ -262,5 +262,7 @@
   "Text too long — split into a new block": "Text too long — split into a new block",
   "This page is open in another tab — edits may conflict.": "This page is open in another tab — edits may conflict.",
   "{n} task(s) running": "{n} task(s) running",
-  "Type / for blocks, # for headings": "Type / for blocks, # for headings"
+  "Type / for blocks, # for headings": "Type / for blocks, # for headings",
+  "Reload": "Reload",
+  "Show all {n} lines": "Show all {n} lines"
 }

@@ -210,6 +210,7 @@ export function BlockRow(props: BlockRowProps) {
   const rowRef = useRef<HTMLDivElement>(null)
   const [diagramEditing, setDiagramEditing] = useState(!block.text)
   const [diagramZoom, setDiagramZoom] = useState(false)
+  const [longFolded, setLongFolded] = useState(true)
 
   useEffect(() => {
     const el = editableRef.current
@@ -789,8 +790,26 @@ export function BlockRow(props: BlockRowProps) {
           />
         )
       case "paragraph":
-      default:
+      default: {
+        const lines = block.text.split("\n").length
+        if (readOnly && longFolded && lines > 40) {
+          return (
+            <div>
+              <div className="max-h-64 overflow-hidden text-[15px] leading-[1.7]">
+                {renderEditable("py-[3px] pointer-events-none select-none")}
+              </div>
+              <button
+                type="button"
+                onClick={() => setLongFolded(false)}
+                className="mt-1 rounded-md border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                {tr("Show all {n} lines", { n: lines })}
+              </button>
+            </div>
+          )
+        }
         return renderEditable("text-[15px] leading-[1.7] py-[3px]")
+      }
     }
   }
 

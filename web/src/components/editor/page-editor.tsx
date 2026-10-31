@@ -1340,6 +1340,13 @@ export function PageEditor() {
           <span className="min-w-0 flex-1 truncate">
             {tr("This page is open in another tab — edits may conflict.")}
           </span>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="shrink-0 rounded border border-sky-600/30 px-2 py-0.5 font-medium transition hover:bg-sky-500/10"
+          >
+            {tr("Reload")}
+          </button>
         </div>
       )}
       {(liveStatus === "disconnected" || !online) && (

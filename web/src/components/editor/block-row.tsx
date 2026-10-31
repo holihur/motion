@@ -849,6 +849,8 @@ export function BlockRow(props: BlockRowProps) {
         return <BarcodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "form":
         return <FormBlock block={block} pageId={pageId} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+      case "poll":
+        return <PollBlock block={block} pageId={pageId} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "content":
         return (
           <div className="my-3 rounded-xl border-2 border-dashed border-brand/35 bg-gradient-to-br from-brand-soft/30 to-brand-two/10 px-4 py-6 text-center">

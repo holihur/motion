@@ -145,28 +145,21 @@ export function PollBlock({ block, pageId, readOnly, autoFocus, onUpdate }: {
                 const checked = poll.multiple ? pickedNow || (mine && picked.length === 0) : mine
                 return (
                   <div key={opt.id}>
-                    {!showResults && !poll.closed ? (
-                      <button
-                        type="button"
-                        disabled={readOnly || poll.closed || voting}
-                        onClick={() => togglePick(opt.id)}
-                        className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition ${checked ? "border-brand bg-brand-soft/40" : "hover:bg-accent/50"}`}
-                      >
-                        <span className={`flex size-4 shrink-0 items-center justify-center rounded-full border ${checked ? "border-brand bg-brand text-white" : "border-muted-foreground/40"}`}>
-                          {checked && <Check className="size-2.5" />}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">{opt.text || tr("Option")}</span>
-                      </button>
-                    ) : (
-                      <div className={`rounded-lg border px-2.5 py-2 ${mine ? "border-brand/50 bg-brand-soft/20" : ""}`}>
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="min-w-0 flex-1 truncate font-medium">{opt.text || tr("Option")}</span>
-                          {mine && <Check className="size-3 shrink-0 text-brand" />}
-                          <span className="shrink-0 tabular-nums text-muted-foreground">{votes}</span>
-                        </div>
-                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
-                          <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${(votes / max) * 100}%` }} />
-                        </div>
+                    <button
+                      type="button"
+                      disabled={readOnly || poll.closed || voting}
+                      onClick={() => togglePick(opt.id)}
+                      className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition disabled:cursor-default ${checked ? "border-brand bg-brand-soft/40" : "hover:bg-accent/50"}`}
+                    >
+                      <span className={`flex size-4 shrink-0 items-center justify-center border ${poll.multiple ? "rounded-[4px]" : "rounded-full"} ${checked ? "border-brand bg-brand text-white" : "border-muted-foreground/40"}`}>
+                        {checked && <Check className="size-2.5" />}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{opt.text || tr("Option")}</span>
+                      {showResults && <span className="shrink-0 tabular-nums text-muted-foreground">{votes}</span>}
+                    </button>
+                    {showResults && (
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${(votes / max) * 100}%` }} />
                       </div>
                     )}
                   </div>

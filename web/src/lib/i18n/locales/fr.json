@@ -1187,5 +1187,13 @@
   "Could not load comments": "Could not load comments",
   "Something went wrong": "Something went wrong",
   "The page crashed — a refresh usually fixes it.": "The page crashed — a refresh usually fixes it.",
-  "Reload page": "Reload page"
+  "Reload page": "Reload page",
+  "Clear finished": "Clear finished",
+  "Importing {n} file(s)": "Importing {n} file(s)",
+  "Success": "Success",
+  "Tasks": "Tasks",
+  "Text too long — split into a new block": "Text too long — split into a new block",
+  "This page is open in another tab — edits may conflict.": "This page is open in another tab — edits may conflict.",
+  "{n} task(s) running": "{n} task(s) running",
+  "Type / for blocks, # for headings": "Type / for blocks, # for headings"
 }

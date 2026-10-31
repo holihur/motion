@@ -1187,5 +1187,13 @@
   "Could not load comments": "评论加载失败",
   "Something went wrong": "出了点问题",
   "The page crashed — a refresh usually fixes it.": "页面崩溃了，刷新一般就能好。",
-  "Reload page": "刷新页面"
+  "Reload page": "刷新页面",
+  "Clear finished": "清除已完成",
+  "Importing {n} file(s)": "正在导入 {n} 个文件",
+  "Success": "成功率",
+  "Tasks": "任务",
+  "Text too long — split into a new block": "文字太长——已拆成新块",
+  "This page is open in another tab — edits may conflict.": "此页在另一标签页打开中，编辑可能冲突。",
+  "{n} task(s) running": "{n} 个任务运行中",
+  "Type / for blocks, # for headings": "输入 / 插入块，# 标题"
 }

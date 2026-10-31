@@ -5,6 +5,7 @@ import {
   MousePointer2, Link2, Unlink,
 } from "lucide-react"
 import { toast } from "sonner"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { tr } from "@/lib/i18n"
 import { uid } from "@/lib/utils"
 import type { Block } from "@/lib/types"
@@ -516,6 +517,7 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
                             }}
                             onKeyDown={(e) => {
                               e.stopPropagation()
+                              if (isImeKeyEvent(e)) return
                               if (e.key === "Enter") (e.target as HTMLInputElement).blur()
                               if (e.key === "Escape") setEditingId(null)
                             }}

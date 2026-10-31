@@ -3,6 +3,7 @@ import { Check, ImagePlus, Link2, Trash2 } from "lucide-react"
 import { COVERS, coverPosition, withCoverPosition, type CoverPosition } from "@/lib/covers"
 import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 export function CoverPicker({
@@ -68,6 +69,7 @@ export function CoverPicker({
               value={url}
               onChange={(event) => setUrl(event.target.value)}
               onKeyDown={(event) => {
+                if (isImeKeyEvent(event)) return
                 if (event.key === "Enter") {
                   event.preventDefault()
                   applyUrl()

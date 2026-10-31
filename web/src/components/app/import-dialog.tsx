@@ -14,6 +14,7 @@ import { api } from "@/lib/api"
 import { tr } from "@/lib/i18n"
 import type { Block } from "@/lib/types"
 import { useWorkspaceStore } from "@/stores/workspace"
+import { useTasksStore } from "@/stores/tasks"
 import { parseMarkdownToBlocks } from "@/lib/markdown-import"
 import { extractHTMLTitle, parseHTMLToBlocks } from "@/lib/html-import"
 import { inlineMarkdownToRich } from "@/lib/inline-markdown"
@@ -81,6 +82,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     const list = [...files].slice(0, 50)
     setBusy(true)
     setProgress({ done: 0, total: list.length })
+    const taskId = useTasksStore.getState().start(tr("Importing {n} file(s)", { n: list.length }))
     const created: string[] = []
     try {
       for (const file of list) {
@@ -98,10 +100,16 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         const page = await createPageWithBlocks(activeId, title.slice(0, 120), blocks)
         created.push(page.id)
         setProgress((p) => p && { done: p.done + 1, total: p.total })
+        useTasksStore.getState().update(taskId, { progress: Math.round((created.length / list.length) * 100) })
       }
+      useTasksStore.getState().finish(taskId, tr("Imported {n} page(s)", { n: created.length }))
       await afterImport(created, created.length)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tr("Could not import files"))
+      const message = e instanceof Error ? e.message : tr("Could not import files")
+      useTasksStore.getState().fail(taskId, message)
+      toast.error(message, {
+        action: { label: tr("Retry"), onClick: () => void onPickFiles(files) },
+      })
     } finally {
       setBusy(false)
       setProgress(null)
@@ -152,8 +160,12 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   async function exportAll() {
     if (!activeId) return
     setBusy(true)
+    const taskId = useTasksStore.getState().start(tr("Export workspace"))
     try {
-      const blob = await api.integrations.exportWorkspace(activeId, exportFormat)
+      const blob = await api.integrations.exportWorkspace(activeId, exportFormat, (done, total) => {
+        useTasksStore.getState().update(taskId, { progress: total > 0 ? Math.min(99, Math.round((done / total) * 100)) : null })
+      })
+      useTasksStore.getState().finish(taskId)
       const href = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = href
@@ -164,7 +176,11 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       window.setTimeout(() => URL.revokeObjectURL(href), 2000)
       toast.success(tr("Export ready"))
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tr("Could not export page"))
+      const message = e instanceof Error ? e.message : tr("Could not export page")
+      useTasksStore.getState().fail(taskId, message)
+      toast.error(message, {
+        action: { label: tr("Retry"), onClick: () => void exportAll() },
+      })
     } finally {
       setBusy(false)
     }

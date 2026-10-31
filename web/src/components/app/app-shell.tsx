@@ -4,6 +4,7 @@ import { useAuthStore } from "@/stores/auth"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { useUIStore } from "@/stores/ui"
 import { tr } from "@/lib/i18n"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { Sidebar } from "@/components/app/sidebar"
 import { useWorkspaceRealtime } from "@/components/app/use-workspace-realtime"
 import { Splash } from "@/components/app/splash"
@@ -17,6 +18,9 @@ const SettingsDialog = lazy(() =>
 )
 const ShortcutsDialog = lazy(() =>
   import("@/components/app/shortcuts-dialog").then((module) => ({ default: module.ShortcutsDialog })),
+)
+const TaskCenter = lazy(() =>
+  import("@/components/app/task-center").then((module) => ({ default: module.TaskCenter })),
 )
 
 export function AppShell() {
@@ -72,7 +76,7 @@ export function AppShell() {
       }
       if (event.key === "?" && !event.metaKey && !event.ctrlKey) {
         const target = event.target as HTMLElement | null
-        if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return
+        if (isImeKeyEvent(event) || (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable))) return
         event.preventDefault()
         setShortcutsOpen(true)
       }
@@ -111,6 +115,9 @@ export function AppShell() {
           <ShortcutsDialog open onOpenChange={setShortcutsOpen} />
         </Suspense>
       )}
+      <Suspense fallback={null}>
+        <TaskCenter />
+      </Suspense>
     </div>
   )
 }

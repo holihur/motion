@@ -4,6 +4,7 @@ import type { Member } from "@/lib/types"
 import { tr } from "@/lib/i18n"
 import { initials } from "@/lib/utils"
 import { cn } from "@/lib/utils"
+import { isImeKeyEvent } from "@/lib/keyboard"
 
 function mentionQuery(text: string, caret: number): string | null {
   const before = text.slice(0, caret)
@@ -122,6 +123,7 @@ export function MentionTextarea({ members, value, onChange, ...rest }: {
           mention.sync(e.target.value, e.target.selectionStart ?? e.target.value.length)
         }}
         onKeyDown={(e) => {
+          if (isImeKeyEvent(e.nativeEvent)) return
           if (mention.open && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === "Escape")) {
             if (e.key === "Escape") {
               mention.setOpen(false)
@@ -192,6 +194,7 @@ export function MentionInput({ members, value, onChange, ...rest }: {
           mention.sync(e.target.value, e.target.selectionStart ?? e.target.value.length)
         }}
         onKeyDown={(e) => {
+          if (isImeKeyEvent(e.nativeEvent)) return
           if (mention.open && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === "Escape")) {
             if (e.key === "Escape") {
               mention.setOpen(false)

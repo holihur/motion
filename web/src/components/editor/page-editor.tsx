@@ -120,6 +120,46 @@ export function PageEditor() {
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [composerOpen, setComposerOpen] = useState(false)
+  const [tabCollision, setTabCollision] = useState(false)
+  const clientId = useMemo(() => Math.random().toString(36).slice(2), [])
+
+  // 同一页面多 tab 打开提示：localStorage 心跳，30s 过期。
+  useEffect(() => {
+    if (!page?.id) return
+    const key = `motion:tab:${page.id}`
+    const beat = () => {
+      try {
+        localStorage.setItem(key, JSON.stringify({ client: clientId, ts: Date.now() }))
+      } catch { /* ignore */ }
+    }
+    const check = () => {
+      try {
+        const raw = localStorage.getItem(key)
+        if (!raw) {
+          setTabCollision(false)
+          return
+        }
+        const data = JSON.parse(raw) as { client?: string; ts?: number }
+        setTabCollision(!!data.client && data.client !== clientId && Date.now() - (data.ts ?? 0) < 30000)
+      } catch {
+        setTabCollision(false)
+      }
+    }
+    beat()
+    check()
+    const timer = window.setInterval(() => {
+      beat()
+      check()
+    }, 10000)
+    function onStorage(e: StorageEvent) {
+      if (e.key === key) check()
+    }
+    window.addEventListener("storage", onStorage)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener("storage", onStorage)
+    }
+  }, [page?.id, clientId])
   const [comments, setComments] = useState<Comment[]>([])
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [commentsPage, setCommentsPage] = useState(1)
@@ -1294,6 +1334,14 @@ export function PageEditor() {
         </div>
       </header>
 
+      {tabCollision && (
+        <div className="flex items-center gap-2 border-b border-sky-500/20 bg-sky-500/10 px-4 py-1.5 text-[11px] text-sky-900 dark:text-sky-100">
+          <AlertCircle className="size-3.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">
+            {tr("This page is open in another tab — edits may conflict.")}
+          </span>
+        </div>
+      )}
       {(liveStatus === "disconnected" || !online) && (
         <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/15 px-4 py-1.5 text-[11px] text-amber-900 dark:text-amber-100">
           <AlertCircle className="size-3.5 shrink-0" />

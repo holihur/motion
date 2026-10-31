@@ -444,7 +444,7 @@ export const api = {
         method: "POST",
         body: body({ doc }),
       }),
-    exportWorkspace: async (workspaceId: string, format: "md" | "html") => {
+    exportWorkspace: async (workspaceId: string, format: "md" | "html", onProgress?: (done: number, total: number) => void) => {
       const headers = new Headers()
       const token = getToken()
       if (token) headers.set("Authorization", `Bearer ${token}`)
@@ -453,7 +453,19 @@ export const api = {
         const payload = await response.json().catch(() => null) as { error?: string } | null
         throw new ApiError(localizeApiError(payload?.error || `请求失败（${response.status}）`), response.status)
       }
-      return response.blob()
+      if (!onProgress || !response.body) return response.blob()
+      const total = Number(response.headers.get("Content-Length") || 0)
+      const reader = response.body.getReader()
+      const chunks: BlobPart[] = []
+      let done = 0
+      for (;;) {
+        const { done: finished, value } = await reader.read()
+        if (finished) break
+        chunks.push(value)
+        done += value.byteLength
+        onProgress(done, total)
+      }
+      return new Blob(chunks)
     },
     test: (workspaceId: string, provider: string) =>
       request<{ ok: boolean; message: string; latencyMs: number }>(`/workspaces/${workspaceId}/integrations/${provider}/test`, { method: "POST" }),

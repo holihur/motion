@@ -352,9 +352,25 @@ export function BlockEditor({
     closeSlash()
   }
 
+  const MAX_BLOCK_CHARS = 50000
   function handleInput(index: number, text: string, el: HTMLElement, rich?: string) {
     const block = blocksRef.current[index]
     if (!block) return
+
+    if ([...text].length > MAX_BLOCK_CHARS) {
+      // 超长粘贴：截断当前块，多余部分拆成新段落，避免单块过大卡死。
+      const runes = [...text]
+      const head = runes.slice(0, MAX_BLOCK_CHARS).join("")
+      const tail = runes.slice(MAX_BLOCK_CHARS).join("")
+      updateBlock(index, { text: head, ...(rich !== undefined ? { rich: "" } : {}) })
+      if (tail.trim()) {
+        const extra = createBlock("paragraph")
+        extra.text = tail
+        commit([...blocksRef.current.slice(0, index + 1), extra, ...blocksRef.current.slice(index + 1)])
+      }
+      toast.warning(tr("Text too long — split into a new block"))
+      return
+    }
 
     if (block.type === "code") {
       updateBlock(index, { text })
@@ -997,7 +1013,7 @@ export function BlockEditor({
       case "code":
         return tr("Write some code…")
       default:
-        return index === 0 ? tr("Write something, or type '/' for commands…") : tr("输入 / 插入块，# 标题")
+        return index === 0 ? tr("Write something, or type '/' for commands…") : tr("Type / for blocks, # for headings")
     }
   }
 

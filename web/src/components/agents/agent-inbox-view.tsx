@@ -24,6 +24,7 @@ import { api } from "@/lib/api"
 import type { Agent, AgentMode, AgentRun, AIProposal, AuditLog, TaskTemplate } from "@/lib/types"
 import { formatRelative } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
+import { isImeKeyEvent } from "@/lib/keyboard"
 import { WorkspaceIcon } from "@/components/app/workspace-icon"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { TEMPLATE_VARS, expandTemplateVars, hasTemplateVars } from "@/lib/template-vars"
@@ -335,7 +336,15 @@ export function AgentInboxView() {
               <Leaderboard agents={agents} runs={runs} stats={stats} onOpen={(a) => setDetailAgent(a)} />
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {loading && agents.length === 0
-                  ? [0, 1].map((item) => <Skeleton key={item} className="h-36 rounded-xl" />)
+                  ? [0, 1].map((item) => (
+                      <div key={item} className="rounded-xl border bg-card p-4">
+                        <div className="flex items-center gap-3">
+                          <Skeleton className="size-10 rounded-xl" />
+                          <div className="flex-1"><Skeleton className="h-4 w-1/2" /><Skeleton className="mt-1.5 h-3 w-2/3" /></div>
+                        </div>
+                        <Skeleton className="mt-3 h-7 w-28" />
+                      </div>
+                    ))
                   : agents.map((agent) => {
                       const stat = stats.get(agent.id) ?? stats.get(agent.name)
                       const total = (stat?.approved ?? 0) + (stat?.rejected ?? 0)
@@ -346,7 +355,7 @@ export function AgentInboxView() {
                           role="button"
                           tabIndex={0}
                           onClick={() => setDetailAgent(agent)}
-                          onKeyDown={(e) => { if (e.key === "Enter") setDetailAgent(agent) }}
+                          onKeyDown={(e) => { if (isImeKeyEvent(e)) return; if (e.key === "Enter") setDetailAgent(agent) }}
                           className="cursor-pointer rounded-xl border bg-card p-4 transition hover:border-brand/30"
                         >
                           <div className="flex items-start gap-3">
@@ -845,7 +854,14 @@ function RunsList({ runs, loading, reviewing, onRetry }: {
 }) {
   if (loading && runs.length === 0) {
     return (
-      <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
+      <div className="space-y-2">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="rounded-xl border bg-card px-3 py-2.5">
+            <Skeleton className="h-3.5 w-1/3" />
+            <Skeleton className="mt-1.5 h-3 w-4/5" />
+          </div>
+        ))}
+      </div>
     )
   }
   if (runs.length === 0) {
@@ -926,21 +942,34 @@ function Leaderboard({ agents, runs, stats, onOpen }: {
       <div className="flex items-center gap-1.5 border-b border-border/60 px-3 py-2 text-xs font-semibold">
         <Trophy className="size-3.5 text-amber-500" /> {tr("Leaderboard")}
       </div>
-      {rows.map(({ agent, runs: n, rate, tokens, pending }) => (
-        <button
-          key={agent.id}
-          type="button"
-          onClick={() => onOpen(agent)}
-          className="flex w-full items-center gap-2.5 border-b px-3 py-2 text-left text-xs transition last:border-b-0 hover:bg-accent/40"
-        >
-          <span className="text-base">{agent.icon}</span>
-          <span className="min-w-0 flex-1 truncate font-medium">{agent.name}</span>
-          {pending > 0 && <span className="rounded-full bg-amber-500/15 px-1.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">{pending}</span>}
-          <span className="hidden w-16 text-right tabular-nums text-muted-foreground sm:block">{n} {tr("Runs").toLowerCase()}</span>
-          <span className="w-14 text-right font-semibold tabular-nums">{rate === null ? "—" : `${rate}%`}</span>
-          <span className="w-16 text-right tabular-nums text-muted-foreground">{tokens > 1000 ? `${(tokens / 1000).toFixed(1)}k` : tokens}</span>
-        </button>
-      ))}
+      <div className="overflow-x-auto thin-scrollbar">
+        <table className="w-full min-w-[520px] border-collapse text-xs">
+          <thead>
+            <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+              <th className="sticky left-0 bg-card px-3 py-1.5 font-medium">{tr("Agent")}</th>
+              <th className="px-2 py-1.5 text-right font-medium">{tr("Runs")}</th>
+              <th className="px-2 py-1.5 text-right font-medium">{tr("Success")}</th>
+              <th className="px-3 py-1.5 text-right font-medium">{tr("Tokens used")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ agent, runs: n, rate, tokens, pending }) => (
+              <tr key={agent.id} onClick={() => onOpen(agent)} className="cursor-pointer border-t transition hover:bg-accent/40">
+                <td className="sticky left-0 bg-card px-3 py-2">
+                  <span className="flex items-center gap-2">
+                    <span className="text-base">{agent.icon}</span>
+                    <span className="truncate font-medium">{agent.name}</span>
+                    {pending > 0 && <span className="rounded-full bg-amber-500/15 px-1.5 text-[10px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">{pending}</span>}
+                  </span>
+                </td>
+                <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{n}</td>
+                <td className="px-2 py-2 text-right font-semibold tabular-nums">{rate === null ? "—" : `${rate}%`}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{tokens > 1000 ? `${(tokens / 1000).toFixed(1)}k` : tokens}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -968,8 +997,14 @@ function ProposalList({
 
   if (loading && proposals.length === 0) {
     return (
-      <div className="space-y-3">
-        {[0, 1, 2].map((item) => <Skeleton key={item} className="h-24 rounded-xl" />)}
+      <div className="space-y-2.5">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="rounded-xl border bg-card p-4">
+            <Skeleton className="h-4 w-2/5" />
+            <Skeleton className="mt-2 h-3 w-3/5" />
+            <Skeleton className="mt-2 h-3 w-4/5" />
+          </div>
+        ))}
       </div>
     )
   }

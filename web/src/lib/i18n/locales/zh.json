@@ -1284,5 +1284,14 @@
   "Read aloud": "朗读",
   "Read aloud not supported": "不支持朗读",
   "Stop reading": "停止朗读",
-  "Outline": "大纲"
+  "Outline": "大纲",
+  "Anyone with the link can read this page. No login required.": "有链接的人都能读，无需登录。",
+  "Could not publish": "发布失败",
+  "Could not unpublish": "取消发布失败",
+  "Publish": "发布",
+  "Publish to web": "发布到网上",
+  "Published": "已发布",
+  "Published to web": "已发布到网上",
+  "Unpublish": "取消发布",
+  "Unpublished": "已取消发布"
 }

@@ -189,6 +189,7 @@ func (s *Server) Router() http.Handler {
 	// SCIM 2.0 stub (enterprise provisioning)
 	r.Get("/scim/v2/Users", s.scimUsers)
 	r.Get("/scim/v2/Users/{id}", s.scimUserByID)
+	r.Get("/p/{slug}", s.servePublicPage)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/system/info", s.systemInfo)
@@ -282,6 +283,8 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("pages:read")).Get("/notifications/prefs", s.getNotifyPrefs)
 			r.With(s.requireScope("pages:read")).Put("/notifications/prefs", s.saveNotifyPrefs)
 			r.With(s.requireScope("pages:read")).Get("/proposals/{proposalID}", s.getProposal)
+			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/publish", s.publishPagePublic)
+			r.With(s.requireScope("pages:write")).Delete("/pages/{pageID}/publish", s.unpublishPagePublic)
 			r.With(s.requireScope("pages:write")).Post("/proposals/{proposalID}/approve", s.approveProposal)
 			r.With(s.requireScope("pages:write")).Post("/proposals/{proposalID}/reject", s.rejectProposal)
 

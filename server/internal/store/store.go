@@ -84,6 +84,7 @@ func (s *Store) EnsureIndexes(ctx context.Context) error {
 	_, err = s.Pages.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "archived", Value: 1}, {Key: "order", Value: 1}}},
 		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "parentId", Value: 1}}},
+		{Keys: bson.D{{Key: "publicSlug", Value: 1}}, Options: options.Index().SetUnique(true).SetSparse(true)},
 		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "updatedAt", Value: -1}}},
 		{Keys: bson.D{{Key: "workspaceId", Value: 1}, {Key: "isLayout", Value: 1}, {Key: "archived", Value: 1}}},
 		{Keys: bson.D{{Key: "archived", Value: 1}, {Key: "archivedAt", Value: 1}}},

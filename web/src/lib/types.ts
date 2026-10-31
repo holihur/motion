@@ -198,6 +198,7 @@ export interface PageSummary {
   order: number
   updatedAt: string
   snippet?: string
+  publicSlug?: string
 }
 
 export interface Page extends PageSummary {

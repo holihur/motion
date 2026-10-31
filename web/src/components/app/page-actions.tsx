@@ -13,6 +13,8 @@ import {
   FileType2,
   FileUp,
   ArrowDownToLine,
+  ArrowUpRight,
+  Globe,
   GitMerge,
   Link2,
   LockKeyhole,
@@ -20,6 +22,7 @@ import {
   MoreHorizontal,
   Palette,
   PencilLine,
+  Loader2,
   Scissors,
   Star,
   StarOff,
@@ -83,6 +86,9 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const [themeOpen, setThemeOpen] = useState(false)
   const [layoutOpen, setLayoutOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [publishOpen, setPublishOpen] = useState(false)
+  const [publicSlug, setPublicSlug] = useState<string | null>(page.publicSlug ?? null)
+  const [publishing, setPublishing] = useState(false)
   const [enabledProviders, setEnabledProviders] = useState<Set<string>>(new Set())
   const [groups, setGroups] = useState<PublishGroup[]>([])
   const importRef = useRef<HTMLInputElement>(null)
@@ -394,6 +400,10 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           <DropdownMenuItem onSelect={() => void exportFile("docx")}>
             <FileType2 /> {tr("Export as Word")}
           </DropdownMenuItem>
+          {!readOnly && !locked && <DropdownMenuItem onSelect={() => { setPublicSlug(page.publicSlug ?? null); setPublishOpen(true) }}>
+            <Globe /> {publicSlug || page.publicSlug ? tr("Published to web") : tr("Publish to web")}
+            {(publicSlug || page.publicSlug) && <span className="ml-auto size-1.5 rounded-full bg-emerald-500" />}
+          </DropdownMenuItem>}
           {!readOnly && enabledProviders.has("git") && <DropdownMenuItem onSelect={() => void onPublishGit()}>
             <GitBranch /> {tr("Publish to Git")}
           </DropdownMenuItem>}
@@ -440,6 +450,88 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
       />
       <PageThemeDialog page={page} open={themeOpen} onOpenChange={setThemeOpen} />
       <PageLayoutDialog page={page} open={layoutOpen} onOpenChange={setLayoutOpen} />
+      <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="size-4 text-brand" /> {tr("Publish to web")}
+            </DialogTitle>
+            <DialogDescription>
+              {tr("Anyone with the link can read this page. No login required.")}
+            </DialogDescription>
+          </DialogHeader>
+          {(publicSlug || page.publicSlug) && (
+            <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-2.5 py-2">
+              <span className="min-w-0 flex-1 truncate font-mono text-xs">{`${window.location.origin}/p/${publicSlug || page.publicSlug}`}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 shrink-0 gap-1 text-[11px]"
+                onClick={() => {
+                  void navigator.clipboard.writeText(`${window.location.origin}/p/${publicSlug || page.publicSlug}`).then(() => toast.success(tr("Copied")))
+                }}
+              >
+                <Copy className="size-3" /> {tr("Copy")}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 shrink-0 px-2 text-[11px]"
+                onClick={() => window.open(`/p/${publicSlug || page.publicSlug}`, "_blank", "noopener")}
+              >
+                <ArrowUpRight className="size-3" />
+              </Button>
+            </div>
+          )}
+          <DialogFooter className="gap-1.5">
+            {(publicSlug || page.publicSlug) ? (
+              <>
+                <Button
+                  variant="ghost"
+                  className="gap-1 text-destructive hover:text-destructive"
+                  disabled={publishing}
+                  onClick={() => {
+                    setPublishing(true)
+                    api.pages
+                      .unpublish(page.id)
+                      .then(() => {
+                        setPublicSlug(null)
+                        useWorkspaceStore.getState().patchSummary(page.id, { publicSlug: undefined } as Partial<PageSummary>)
+                        toast.success(tr("Unpublished"))
+                      })
+                      .catch((e) => toast.error(e instanceof Error ? e.message : tr("Could not unpublish")))
+                      .finally(() => setPublishing(false))
+                  }}
+                >
+                  {tr("Unpublish")}
+                </Button>
+                <Button variant="outline" onClick={() => setPublishOpen(false)}>{tr("Done")}</Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" onClick={() => setPublishOpen(false)}>{tr("Cancel")}</Button>
+                <Button
+                  disabled={publishing}
+                  onClick={() => {
+                    setPublishing(true)
+                    api.pages
+                      .publish(page.id)
+                      .then((res) => {
+                        setPublicSlug(res.slug)
+                        useWorkspaceStore.getState().patchSummary(page.id, { publicSlug: res.slug })
+                        toast.success(tr("Published"))
+                      })
+                      .catch((e) => toast.error(e instanceof Error ? e.message : tr("Could not publish")))
+                      .finally(() => setPublishing(false))
+                  }}
+                >
+                  {publishing && <Loader2 className="size-3.5 animate-spin" />} {tr("Publish")}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
       <SplitPageDialog
         page={page}

@@ -540,6 +540,10 @@ export const api = {
       request<Paginated<{ id: string; values: Record<string, string>; submittedAt: string }>>(
         `/pages/${pageId}/form-submissions?blockId=${encodeURIComponent(blockId)}&page=${page}&pageSize=${pageSize}`,
       ),
+    publish: (id: string) =>
+      request<{ slug: string; url: string }>(`/pages/${id}/publish`, { method: "POST" }),
+    unpublish: (id: string) =>
+      request<{ ok: boolean }>(`/pages/${id}/publish`, { method: "DELETE" }),
     exportFile: async (id: string, format: "html" | "pdf" | "docx") => {
       const headers = new Headers()
       const token = getToken()

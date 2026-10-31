@@ -1284,5 +1284,14 @@
   "Read aloud": "Read aloud",
   "Read aloud not supported": "Read aloud not supported",
   "Stop reading": "Stop reading",
-  "Outline": "Outline"
+  "Outline": "Outline",
+  "Anyone with the link can read this page. No login required.": "Anyone with the link can read this page. No login required.",
+  "Could not publish": "Could not publish",
+  "Could not unpublish": "Could not unpublish",
+  "Publish": "Publish",
+  "Publish to web": "Publish to web",
+  "Published": "Published",
+  "Published to web": "Published to web",
+  "Unpublish": "Unpublish",
+  "Unpublished": "Unpublished"
 }

@@ -193,6 +193,7 @@ type Page struct {
 	CreatedAt    time.Time           `bson:"createdAt" json:"createdAt"`
 	UpdatedAt    time.Time           `bson:"updatedAt" json:"updatedAt"`
 	ArchivedAt   *time.Time          `bson:"archivedAt,omitempty" json:"archivedAt,omitempty"`
+	PublicSlug   string               `bson:"publicSlug,omitempty" json:"publicSlug,omitempty"`
 }
 
 // PageSummary is the lightweight shape used by the sidebar tree.
@@ -210,6 +211,7 @@ type PageSummary struct {
 	Locked    bool                `bson:"locked,omitempty" json:"locked"`
 	Order     float64             `bson:"order" json:"order"`
 	UpdatedAt time.Time           `bson:"updatedAt" json:"updatedAt"`
+	PublicSlug string              `bson:"publicSlug,omitempty" json:"publicSlug,omitempty"`
 	Text      string              `bson:"text,omitempty" json:"-"`
 	Snippet   string              `bson:"-" json:"snippet,omitempty"`
 }

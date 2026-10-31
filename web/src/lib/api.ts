@@ -595,6 +595,11 @@ export const api = {
       }>(`/pages/${id}/ops`, { method: "POST", body: body(input) }),
     comments: (id: string, page = 1, pageSize = 50) =>
       request<Paginated<Comment>>(`/pages/${id}/comments?page=${page}&pageSize=${pageSize}`),
+    vote: (pageId: string, blockId: string, optionIds: string[]) =>
+      request<Block>(`/pages/${pageId}/blocks/${blockId}/vote`, {
+        method: "POST",
+        body: body({ optionIds }),
+      }),
     createComment: (
       id: string,
       input: {

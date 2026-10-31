@@ -60,6 +60,8 @@ function estimatedHeight(block: Block): number {
       return 220
     case "form":
       return 320
+    case "poll":
+      return 240
     case "divider":
       return 32
     case "callout":

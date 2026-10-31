@@ -1295,5 +1295,19 @@
   "Unpublish": "取消发布",
   "Unpublished": "已取消发布",
   "Include sub-pages": "包含子页面",
-  "Published sub-pages stay linked; others show as plain text.": "已发布的子页面保持可点，未发布的显示为纯文本。"
+  "Published sub-pages stay linked; others show as plain text.": "已发布的子页面保持可点，未发布的显示为纯文本。",
+  "Add option": "加选项",
+  "Change vote": "改票",
+  "Close poll": "结束投票",
+  "Closed": "已结束",
+  "Could not vote": "投票失败",
+  "Multiple choice": "多选",
+  "Options": "选项",
+  "Poll": "投票",
+  "Saved — voters will see it right away.": "已保存——投票人立刻能看到。",
+  "Show results before voting": "投票前显示结果",
+  "Tap another option to change your vote": "点别的选项可改票",
+  "Vote": "投票",
+  "What should we decide?": "要决定什么？",
+  "{n} vote(s)": "{n} 票"
 }

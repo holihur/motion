@@ -317,6 +317,17 @@ function PreviewBlock({ block }: { block: Block }) {
       )
     case "diagram":
       return <pre className="overflow-x-auto rounded bg-muted p-2 font-mono text-[10px]">{block.text}</pre>
+    case "poll": {
+      const total = (block.poll?.options ?? []).reduce((sum, o) => sum + (o.votes?.length ?? 0), 0)
+      return (
+        <div className="text-xs">
+          <div className="font-medium">📊 {block.poll?.question || "Poll"}</div>
+          {(block.poll?.options ?? []).map((o) => (
+            <div key={o.id} className="text-muted-foreground">• {o.text} ({o.votes?.length ?? 0}/{total})</div>
+          ))}
+        </div>
+      )
+    }
     default:
       return <p className="whitespace-pre-wrap text-xs leading-5">{block.text || "—"}</p>
   }

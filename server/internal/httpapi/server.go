@@ -285,6 +285,7 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("pages:read")).Get("/proposals/{proposalID}", s.getProposal)
 			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/publish", s.publishPagePublic)
 			r.With(s.requireScope("pages:write")).Delete("/pages/{pageID}/publish", s.unpublishPagePublic)
+			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/blocks/{blockID}/vote", s.votePoll)
 			r.With(s.requireScope("pages:write")).Post("/proposals/{proposalID}/approve", s.approveProposal)
 			r.With(s.requireScope("pages:write")).Post("/proposals/{proposalID}/reject", s.rejectProposal)
 

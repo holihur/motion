@@ -55,6 +55,7 @@ var blockTypes = map[string]bool{
 	"barcode":        true,
 	"form":           true,
 	"map":            true,
+	"poll":           true,
 	"content":        true,
 }
 
@@ -582,6 +583,9 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		if b.Type == "database" {
 			b.Database = sanitizeDatabase(b.Database)
 		}
+		if b.Type == "poll" {
+			b.Poll = sanitizePoll(b.Poll)
+		}
 		if b.Type == "form" && b.Form != nil {
 			b.Form.Title = truncateRunes(b.Form.Title, 200)
 			b.Form.Description = truncateRunes(b.Form.Description, 1000)
@@ -725,6 +729,9 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 		}
 		if b.Type == "database" {
 			b.Database = sanitizeDatabase(b.Database)
+		}
+		if b.Type == "poll" {
+			b.Poll = sanitizePoll(b.Poll)
 		}
 		if b.Type == "form" && b.Form != nil {
 			b.Form.Title = truncateRunes(b.Form.Title, 200)

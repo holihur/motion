@@ -68,6 +68,19 @@ func Markdown(page model.Page) []byte {
 				caption = "image"
 			}
 			sb.WriteString(fmt.Sprintf("![%s](%s)\n\n", caption, b.URL))
+		case "poll":
+			numbered = 0
+			if b.Poll != nil {
+				sb.WriteString("**" + b.Poll.Question + "**\n\n")
+				total := 0
+				for _, opt := range b.Poll.Options {
+					total += len(opt.Votes)
+				}
+				for _, opt := range b.Poll.Options {
+					sb.WriteString(fmt.Sprintf("- [ ] %s (%d/%d)\n", opt.Text, len(opt.Votes), total))
+				}
+				sb.WriteString("\n")
+			}
 		case "bookmark":
 			numbered = 0
 			t := text

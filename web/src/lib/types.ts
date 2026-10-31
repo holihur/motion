@@ -27,6 +27,7 @@ export type BlockType =
   | "barcode"
   | "form"
   | "map"
+  | "poll"
   | "content"
   | "toggle"
   | "toggleHeading1"
@@ -84,6 +85,20 @@ export interface FormData {
 
 export type MapProvider = "mapbox" | "google" | "amap" | "baidu" | "osm"
 
+export interface PollOption {
+  id: string
+  text: string
+  votes?: string[]
+}
+
+export interface PollData {
+  question: string
+  options: PollOption[]
+  multiple?: boolean
+  showResults?: boolean
+  closed?: boolean
+}
+
 export interface MapData {
   lat: number
   lng: number
@@ -119,6 +134,7 @@ export interface Block {
   database?: DatabaseData
   form?: FormData
   map?: MapData
+  poll?: PollData
   translations?: Record<string, string>
   lineNumbers?: boolean
   /** 0 = root. Used by toggles and nested content. */

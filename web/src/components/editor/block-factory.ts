@@ -67,6 +67,21 @@ export function createBlock(type: BlockType = "paragraph"): Block {
     ...(type === "qrcode" ? { language: "280" } : {}),
     ...(type === "barcode" ? { language: "CODE128" } : {}),
     ...(type === "form" ? { form: defaultForm() } : {}),
+    ...(type === "poll"
+      ? {
+          text: "",
+          poll: {
+            question: "",
+            options: [
+              { id: uid(), text: "", votes: [] },
+              { id: uid(), text: "", votes: [] },
+            ],
+            multiple: false,
+            showResults: true,
+            closed: false,
+          },
+        }
+      : {}),
     ...(type === "map" ? { map: { lat: 37.7749, lng: -122.4194, zoom: 12, label: "San Francisco", provider: "mapbox" } } : {}),
   }
 }

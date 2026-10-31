@@ -37,6 +37,16 @@ function blockToMarkdown(block: Block, number: number): string {
     }
     case "diagram":
       return `\`\`\`mermaid\n${block.text}\n\`\`\``
+    case "poll": {
+      const poll = block.poll
+      if (!poll) return text
+      const lines = [`**${poll.question || "Poll"}**`]
+      const total = poll.options.reduce((sum, o) => sum + (o.votes?.length ?? 0), 0)
+      for (const opt of poll.options) {
+        lines.push(`- [ ] ${opt.text} (${opt.votes?.length ?? 0}/${total})`)
+      }
+      return lines.join("\n")
+    }
     default:
       return text
   }

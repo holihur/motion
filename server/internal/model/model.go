@@ -112,6 +112,22 @@ type FormField struct {
 	Options  []string `bson:"options,omitempty" json:"options,omitempty"`
 }
 
+// PollOption is one choice in a poll block; Votes holds voter user IDs.
+type PollOption struct {
+	ID    string   `bson:"id" json:"id"`
+	Text  string   `bson:"text" json:"text"`
+	Votes []string `bson:"votes,omitempty" json:"votes,omitempty"`
+}
+
+// PollData backs the poll block.
+type PollData struct {
+	Question    string       `bson:"question" json:"question"`
+	Options     []PollOption `bson:"options" json:"options"`
+	Multiple    bool         `bson:"multiple,omitempty" json:"multiple,omitempty"`
+	ShowResults bool         `bson:"showResults,omitempty" json:"showResults,omitempty"`
+	Closed      bool         `bson:"closed,omitempty" json:"closed,omitempty"`
+}
+
 type MapData struct {
 	Lat      float64 `bson:"lat" json:"lat"`
 	Lng      float64 `bson:"lng" json:"lng"`
@@ -160,6 +176,7 @@ type Block struct {
 	Database     *DatabaseData      `bson:"database,omitempty" json:"database,omitempty"`
 	Form         *FormData          `bson:"form,omitempty" json:"form,omitempty"`
 	Map          *MapData           `bson:"map,omitempty" json:"map,omitempty"`
+	Poll         *PollData          `bson:"poll,omitempty" json:"poll,omitempty"`
 	Translations map[string]string `bson:"translations,omitempty" json:"translations,omitempty"`
 	LineNumbers bool       `bson:"lineNumbers,omitempty" json:"lineNumbers,omitempty"`
 	Indent      int        `bson:"indent,omitempty" json:"indent,omitempty"`

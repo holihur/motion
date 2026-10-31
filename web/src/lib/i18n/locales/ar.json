@@ -1295,5 +1295,19 @@
   "Unpublish": "Unpublish",
   "Unpublished": "Unpublished",
   "Include sub-pages": "Include sub-pages",
-  "Published sub-pages stay linked; others show as plain text.": "Published sub-pages stay linked; others show as plain text."
+  "Published sub-pages stay linked; others show as plain text.": "Published sub-pages stay linked; others show as plain text.",
+  "Add option": "Add option",
+  "Change vote": "Change vote",
+  "Close poll": "Close poll",
+  "Closed": "Closed",
+  "Could not vote": "Could not vote",
+  "Multiple choice": "Multiple choice",
+  "Options": "Options",
+  "Poll": "Poll",
+  "Saved — voters will see it right away.": "Saved — voters will see it right away.",
+  "Show results before voting": "Show results before voting",
+  "Tap another option to change your vote": "Tap another option to change your vote",
+  "Vote": "Vote",
+  "What should we decide?": "What should we decide?",
+  "{n} vote(s)": "{n} vote(s)"
 }

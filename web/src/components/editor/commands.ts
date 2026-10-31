@@ -5,6 +5,7 @@ import {
   ChartGantt,
   CheckSquare,
   ClipboardList,
+  Vote,
   Columns2,
   Code2,
   Database,
@@ -83,6 +84,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { type: "qrcode", title: "QR code", description: "Generate a QR code from text or a URL", icon: QrCode, keywords: "qr code url scan barcode" },
   { type: "barcode", title: "Barcode", description: "Generate a CODE128 or retail barcode", icon: ScanBarcode, keywords: "barcode code128 ean upc scan" },
   { type: "form", title: "Form", description: "Collect responses with a simple form", icon: ClipboardList, keywords: "form survey input response collect" },
+  { type: "poll", title: "Poll", description: "Vote on options with live results", icon: Vote, keywords: "poll vote voting survey option toupiao" },
 ]
 
 export const BLOCK_LABELS: Record<BlockType, string> = {
@@ -123,6 +125,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   qrcode: "QR code",
   barcode: "Barcode",
   form: "Form",
+  poll: "Poll",
 }
 
 export function filterCommands(query: string) {

@@ -264,5 +264,6 @@
   "{n} task(s) running": "{n} task(s) running",
   "Type / for blocks, # for headings": "Type / for blocks, # for headings",
   "Reload": "Reload",
-  "Show all {n} lines": "Show all {n} lines"
+  "Show all {n} lines": "Show all {n} lines",
+  "Export timed out": "Export timed out"
 }

@@ -2,6 +2,13 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import type { Block } from "@/lib/types"
 
+function textExtraLines(block: Block): number {
+  if (!block.text) return 0
+  const hard = block.text.split("\n").length - 1
+  const soft = Math.floor([...block.text].length / 90)
+  return hard + soft
+}
+
 function estimatedHeight(block: Block): number {
   switch (block.type) {
     case "heading1":
@@ -10,8 +17,6 @@ function estimatedHeight(block: Block): number {
       return 50
     case "heading3":
       return 44
-    case "code":
-      return 160
     case "table":
       return 230
     case "diagram":
@@ -59,9 +64,12 @@ function estimatedHeight(block: Block): number {
       return 32
     case "callout":
     case "quote":
-      return 54
+      return Math.min(54 + textExtraLines(block) * 24, 1200)
+    case "code":
+      return Math.min(160 + textExtraLines(block) * 20, 2000)
     default:
-      return 34
+      // paragraph / lists / headings: grow with text length
+      return Math.min(34 + textExtraLines(block) * 24, 1500)
   }
 }
 

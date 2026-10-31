@@ -161,11 +161,26 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     if (!activeId) return
     setBusy(true)
     const taskId = useTasksStore.getState().start(tr("Export workspace"))
+    const tasks = useTasksStore.getState()
     try {
-      const blob = await api.integrations.exportWorkspace(activeId, exportFormat, (done, total) => {
-        useTasksStore.getState().update(taskId, { progress: total > 0 ? Math.min(99, Math.round((done / total) * 100)) : null })
-      })
-      useTasksStore.getState().finish(taskId)
+      const { jobId } = await api.integrations.exportJob(activeId, exportFormat)
+      // Poll for real progress (1s); job TTL is 10min server-side.
+      let status = "queued"
+      let done = 0
+      let total = 0
+      for (let i = 0; i < 600; i++) {
+        await new Promise((r) => window.setTimeout(r, 1000))
+        const st = await api.integrations.exportJobStatus(activeId, jobId)
+        status = st.status
+        done = st.done
+        total = st.total
+        if (status === "failed") throw new Error(st.error || tr("Could not export page"))
+        if (status === "done") break
+        tasks.update(taskId, { progress: total > 0 ? Math.round((done / total) * 100) : null })
+      }
+      if (status !== "done") throw new Error(tr("Export timed out"))
+      const blob = await api.integrations.exportJobDownload(activeId, jobId)
+      tasks.finish(taskId)
       const href = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = href
@@ -177,7 +192,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       toast.success(tr("Export ready"))
     } catch (e) {
       const message = e instanceof Error ? e.message : tr("Could not export page")
-      useTasksStore.getState().fail(taskId, message)
+      tasks.fail(taskId, message)
       toast.error(message, {
         action: { label: tr("Retry"), onClick: () => void exportAll() },
       })

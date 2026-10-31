@@ -1197,5 +1197,6 @@
   "{n} task(s) running": "{n} 个任务运行中",
   "Type / for blocks, # for headings": "输入 / 插入块，# 标题",
   "Reload": "重新加载",
-  "Show all {n} lines": "展开全部 {n} 行"
+  "Show all {n} lines": "展开全部 {n} 行",
+  "Export timed out": "导出超时"
 }

@@ -821,7 +821,7 @@ export function BlockRow(props: BlockRowProps) {
       data-block-index={index}
       data-selected={selected || undefined}
       className={cn(
-        "group/block relative flex items-start gap-0.5 rounded-md transition-colors",
+        "group/block cv-auto relative flex items-start gap-0.5 rounded-md transition-colors",
         selected && "bg-brand-soft/25 ring-1 ring-inset ring-brand/20",
         isDragging && "block-dragging",
         dropPosition === "before" && "block-drop-before",

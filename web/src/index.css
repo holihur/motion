@@ -207,6 +207,11 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+  /* 原生虚拟化：可视区外跳过渲染（浏览器自动处理聚焦/查找/锚点） */
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 140px;
+  }
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;

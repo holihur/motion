@@ -444,6 +444,18 @@ export const api = {
         method: "POST",
         body: body({ doc }),
       }),
+    exportJob: (workspaceId: string, format: "md" | "html") =>
+      request<{ jobId: string; status: string }>(`/workspaces/${workspaceId}/export/jobs?format=${format}`, { method: "POST" }),
+    exportJobStatus: (workspaceId: string, jobId: string) =>
+      request<{ jobId: string; status: string; done: number; total: number; size: number; error: string }>(`/workspaces/${workspaceId}/export/jobs/${jobId}`),
+    exportJobDownload: async (workspaceId: string, jobId: string) => {
+      const headers = new Headers()
+      const token = getToken()
+      if (token) headers.set("Authorization", `Bearer ${token}`)
+      const response = await fetch(`/api/workspaces/${workspaceId}/export/jobs/${jobId}/download`, { headers })
+      if (!response.ok) throw new ApiError(localizeApiError(`请求失败（${response.status}）`), response.status)
+      return response.blob()
+    },
     exportWorkspace: async (workspaceId: string, format: "md" | "html", onProgress?: (done: number, total: number) => void) => {
       const headers = new Headers()
       const token = getToken()

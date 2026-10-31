@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { BarChart3, Check, Loader2, Lock, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
@@ -35,6 +35,7 @@ export function PollBlock({ block, pageId, readOnly, autoFocus, onUpdate }: {
   const poll: PollData = block.poll ?? defaultPoll()
   const [picked, setPicked] = useState<string[]>([])
   const [voting, setVoting] = useState(false)
+  const votingRef = useRef(false)
 
   const total = useMemo(() => poll.options.reduce((sum, o) => sum + (o.votes?.length ?? 0), 0), [poll.options])
   const myVotes = useMemo(
@@ -50,7 +51,10 @@ export function PollBlock({ block, pageId, readOnly, autoFocus, onUpdate }: {
   }
 
   async function vote(ids: string[]) {
-    if (voting || poll.closed) return
+    // `voting` state updates asynchronously; a ref also blocks rapid double
+    // clicks in the same tick before React has re-rendered the button.
+    if (votingRef.current || poll.closed) return
+    votingRef.current = true
     setVoting(true)
     try {
       const updated = await api.pages.vote(pageId, block.id, ids)
@@ -59,6 +63,7 @@ export function PollBlock({ block, pageId, readOnly, autoFocus, onUpdate }: {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : tr("Could not vote"))
     } finally {
+      votingRef.current = false
       setVoting(false)
     }
   }

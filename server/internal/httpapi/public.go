@@ -390,6 +390,13 @@ func (s *Server) servePublicPage(w http.ResponseWriter, r *http.Request) {
 	})
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("X-Robots-Tag", "noindex")
-	w.Header().Set("Cache-Control", "public, max-age=60")
+	// Password-protected pages must never enter a shared cache without the
+	// unlock cookie; otherwise a proxy could serve the unlocked HTML to others.
+	if strings.TrimSpace(page.PublicPasswordHash) != "" {
+		w.Header().Set("Cache-Control", "private, no-store")
+		w.Header().Set("Vary", "Cookie")
+	} else {
+		w.Header().Set("Cache-Control", "public, max-age=60")
+	}
 	_, _ = w.Write(data)
 }

@@ -27,8 +27,8 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return
-  // Never cache API / realtime traffic.
-  if (url.pathname.startsWith("/api")) return
+  // Never cache API / realtime traffic or separately rendered public pages.
+  if (url.pathname.startsWith("/api") || url.pathname.startsWith("/p/")) return
 
   if (req.mode === "navigate") {
     event.respondWith(

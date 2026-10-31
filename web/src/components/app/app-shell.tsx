@@ -85,13 +85,6 @@ export function AppShell() {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [setSearchOpen, setSettingsOpen, setSidebarOpen, navigate])
 
-  if (status === "loading" || status === "guest") {
-    if (status === "guest") return <Navigate to="/login" replace />
-    return <Splash />
-  }
-
-  if (!ready) return <Splash />
-
   const zenMode = useUIStore((state) => state.zenMode)
   const setZenMode = useUIStore((state) => state.setZenMode)
 
@@ -102,6 +95,13 @@ export function AppShell() {
     window.addEventListener("keydown", onKeyDownZen)
     return () => window.removeEventListener("keydown", onKeyDownZen)
   }, [zenMode, setZenMode])
+
+  if (status === "loading" || status === "guest") {
+    if (status === "guest") return <Navigate to="/login" replace />
+    return <Splash />
+  }
+
+  if (!ready) return <Splash />
 
   return (
     <div className="flex h-svh overflow-hidden bg-background">

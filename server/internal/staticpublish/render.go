@@ -95,14 +95,128 @@ func Render(rootID primitive.ObjectID, pages []model.Page, publicBase string) (m
 	return out, nil
 }
 
+// PublicExtra carries public-site options for RenderPublicPage.
+type PublicExtra struct {
+	Description   string
+	Slug          string
+	AllowComments bool
+}
+
 // RenderPublicPage renders one page for /p/{slug} hosting. links maps page
-// IDs to their public hrefs ("/p/..."); pages without an entry render as "#".
-func RenderPublicPage(page model.Page, childPages []model.Page, links map[string]string) []byte {
+// IDs to their public hrefs ("/p/..."); pages without an entry render as text.
+func RenderPublicPage(page model.Page, childPages []model.Page, links map[string]string, extra PublicExtra) []byte {
 	files := make(map[string]string, len(links))
 	for id, href := range links {
 		files[id] = href
 	}
-	return renderPage(page, childPages, files, "")
+	return renderPublic(page, childPages, files, extra)
+}
+
+// UnlockPage renders a password gate for protected public pages.
+func UnlockPage(title string) []byte {
+	t := title
+	if strings.TrimSpace(t) == "" {
+		t = "Untitled"
+	}
+	return []byte(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>` + html.EscapeString(t) + ` · Protected</title>
+<style>` + siteCSS + `</style>
+</head>
+<body>
+<main>
+<header class="page-head">
+<div class="icon">🔒</div>
+<h1>` + html.EscapeString(t) + `</h1>
+<div class="meta">This page is password protected.</div>
+</header>
+<form method="post" action="./unlock" class="unlock">
+<input type="password" name="password" placeholder="Password" autocomplete="current-password" required autofocus>
+<button type="submit">Unlock</button>
+</form>
+<footer>Published with Motion</footer>
+</main>
+</body>
+</html>`)
+}
+
+func renderPublic(page model.Page, childPages []model.Page, files map[string]string, extra PublicExtra) []byte {
+	var body strings.Builder
+	for _, block := range page.Blocks {
+		body.WriteString(renderBlock(block, files, ""))
+	}
+	var childList strings.Builder
+	if len(childPages) > 0 {
+		childList.WriteString(`<nav class="children"><h2>Pages in this section</h2><ul>`)
+		for _, child := range childPages {
+			href := files[child.ID.Hex()]
+			if href == "" {
+				continue
+			}
+			childList.WriteString(`<li><a href="` + html.EscapeString(href) + `">` + iconHTML(child.Icon) + ` ` + html.EscapeString(titleOf(child)) + `</a></li>`)
+		}
+		childList.WriteString(`</ul></nav>`)
+	}
+	title := titleOf(page)
+	desc := strings.TrimSpace(extra.Description)
+	if len([]rune(desc)) > 160 {
+		desc = string([]rune(desc)[:160])
+	}
+	var comments strings.Builder
+	if extra.AllowComments {
+		comments.WriteString(`<section class="comments" id="comments"><h2>Comments</h2><div id="comment-list"><p class="muted">Loading…</p></div>
+<form id="comment-form"><input name="name" maxlength="40" placeholder="Your name" required><textarea name="body" maxlength="2000" rows="3" placeholder="Write a comment…" required></textarea><button type="submit">Post comment</button></form>
+<p class="muted"><small>Comments are public. Be kind.</small></p></section>
+<script>(function(){var slug="` + extra.Slug + `";
+function esc(s){return s.replace(/[&<>"]/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])})}
+function load(){fetch("./comments").then(function(r){return r.json()}).then(function(d){
+var box=document.getElementById("comment-list");if(!box)return;
+if(!d.items||!d.items.length){box.innerHTML='<p class="muted">No comments yet.</p>';return}
+box.innerHTML=d.items.map(function(c){return '<div class="comment"><b>'+esc(c.name||"Someone")+'</b> <span class="muted">'+esc(c.at||"")+'</span><p>'+esc(c.body||"")+'</p></div>'}).join("");
+}).catch(function(){})}
+document.getElementById("comment-form").addEventListener("submit",function(e){e.preventDefault();
+var f=e.target;var data={name:f.name.value,body:f.body.value};
+fetch("./comments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}).then(function(r){if(!r.ok)throw 0;f.body.value="";load()}).catch(function(){alert("Could not post comment")})});
+load()})();</script>`)
+	}
+	return []byte(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>` + html.EscapeString(title) + `</title>
+` + (func() string {
+		if desc == "" {
+			return ""
+		}
+		return `<meta name="description" content="` + html.EscapeString(desc) + `">
+<meta property="og:title" content="` + html.EscapeString(title) + `">
+<meta property="og:description" content="` + html.EscapeString(desc) + `">
+<meta property="og:type" content="article">
+`
+	}()) + `<meta name="generator" content="Motion">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' https: http: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; base-uri 'none'">
+<style>` + siteCSS + `</style>
+</head>
+<body>
+<main>
+<header class="page-head">
+<div class="icon">` + iconHTML(page.Icon) + `</div>
+<h1>` + html.EscapeString(title) + `</h1>
+<div class="meta">Updated ` + page.UpdatedAt.UTC().Format("January 2, 2006") + `</div>
+</header>
+<article>
+` + body.String() + `
+</article>
+` + childList.String() + comments.String() + `
+<footer>Published with Motion · ` + time.Now().UTC().Format("2006-01-02") + `</footer>
+</main>
+</body>
+</html>`)
 }
 
 func renderPage(page model.Page, childPages []model.Page, files map[string]string, base string) string {
@@ -381,4 +495,8 @@ img{max-width:100%;height:auto;border-radius:10px}figure{margin:18px 0}figcaptio
 .children{margin-top:48px;border-top:1px solid var(--border);padding-top:20px}.children h2{font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .children ul{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:8px}.children a{display:inline-block;border:1px solid var(--border);border-radius:999px;padding:6px 12px;color:inherit;text-decoration:none;font-size:14px}.children a:hover{background:var(--card)}
 footer{margin-top:60px;color:var(--muted);font-size:12px}hr{border:0;border-top:1px solid var(--border);margin:24px 0}
+.muted{color:var(--muted)}.comments{margin-top:48px;border-top:1px solid var(--border);padding-top:20px}.comments h2{font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.comment{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:10px 0;background:var(--card)}.comment p{margin:6px 0 0}
+#comment-form{display:grid;gap:8px;margin-top:12px}#comment-form input,#comment-form textarea{border:1px solid var(--border);border-radius:7px;padding:8px 10px;background:var(--bg);color:var(--fg);font:inherit}#comment-form button{justify-self:start;border:0;border-radius:7px;background:var(--brand);color:#fff;padding:8px 14px;font:inherit}
+.unlock{display:grid;gap:10px;max-width:320px;margin:24px 0}.unlock input{border:1px solid var(--border);border-radius:7px;padding:9px 11px;background:var(--bg);color:var(--fg);font:inherit}.unlock button{border:0;border-radius:7px;background:var(--brand);color:#fff;padding:9px 14px;font:inherit}
 `

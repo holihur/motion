@@ -387,5 +387,12 @@
   "What should we decide?": "What should we decide?",
   "{n} vote(s)": "{n} vote(s)",
   "Question": "Question",
-  "Reopen": "Reopen"
+  "Reopen": "Reopen",
+  "Allow public comments": "Allow public comments",
+  "Expires at (optional)": "Expires at (optional)",
+  "No password": "No password",
+  "Password (optional)": "Password (optional)",
+  "Save settings": "Save settings",
+  "Settings saved": "Settings saved",
+  "{n} view(s)": "{n} view(s)"
 }

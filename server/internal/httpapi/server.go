@@ -190,6 +190,9 @@ func (s *Server) Router() http.Handler {
 	r.Get("/scim/v2/Users", s.scimUsers)
 	r.Get("/scim/v2/Users/{id}", s.scimUserByID)
 	r.Get("/p/{slug}", s.servePublicPage)
+	r.Post("/p/{slug}/unlock", s.unlockPublicPage)
+	r.Get("/p/{slug}/comments", s.listPublicComments)
+	r.Post("/p/{slug}/comments", s.postPublicComment)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/system/info", s.systemInfo)
@@ -283,6 +286,7 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("pages:read")).Get("/notifications/prefs", s.getNotifyPrefs)
 			r.With(s.requireScope("pages:read")).Put("/notifications/prefs", s.saveNotifyPrefs)
 			r.With(s.requireScope("pages:read")).Get("/proposals/{proposalID}", s.getProposal)
+			r.With(s.requireScope("pages:write")).Get("/pages/{pageID}/publish", s.publishStatus)
 			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/publish", s.publishPagePublic)
 			r.With(s.requireScope("pages:write")).Delete("/pages/{pageID}/publish", s.unpublishPagePublic)
 			r.With(s.requireScope("pages:write")).Post("/pages/{pageID}/blocks/{blockID}/vote", s.votePoll)

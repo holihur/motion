@@ -211,6 +211,10 @@ type Page struct {
 	UpdatedAt    time.Time           `bson:"updatedAt" json:"updatedAt"`
 	ArchivedAt   *time.Time          `bson:"archivedAt,omitempty" json:"archivedAt,omitempty"`
 	PublicSlug   string               `bson:"publicSlug,omitempty" json:"publicSlug,omitempty"`
+	PublicPasswordHash string         `bson:"publicPasswordHash,omitempty" json:"-"`
+	PublicExpiresAt    *time.Time     `bson:"publicExpiresAt,omitempty" json:"publicExpiresAt,omitempty"`
+	PublicViews        int64          `bson:"publicViews,omitempty" json:"publicViews,omitempty"`
+	PublicComment      bool           `bson:"publicComment,omitempty" json:"publicComment,omitempty"`
 }
 
 // PageSummary is the lightweight shape used by the sidebar tree.
@@ -229,6 +233,10 @@ type PageSummary struct {
 	Order     float64             `bson:"order" json:"order"`
 	UpdatedAt time.Time           `bson:"updatedAt" json:"updatedAt"`
 	PublicSlug string              `bson:"publicSlug,omitempty" json:"publicSlug,omitempty"`
+	PublicExpiresAt *time.Time     `bson:"publicExpiresAt,omitempty" json:"publicExpiresAt,omitempty"`
+	PublicViews int64              `bson:"publicViews,omitempty" json:"publicViews,omitempty"`
+	PublicComment bool             `bson:"publicComment,omitempty" json:"publicComment,omitempty"`
+	PublicLocked bool              `bson:"-" json:"publicLocked,omitempty"`
 	Text      string              `bson:"text,omitempty" json:"-"`
 	Snippet   string              `bson:"-" json:"snippet,omitempty"`
 }
@@ -279,6 +287,7 @@ type Comment struct {
 	AuthorName  string              `bson:"authorName" json:"authorName"`
 	ParentID    *primitive.ObjectID `bson:"parentId,omitempty" json:"parentId,omitempty"`
 	Mentions    []string            `bson:"mentions,omitempty" json:"mentions,omitempty"`
+	Public      bool                `bson:"public,omitempty" json:"public,omitempty"`
 	Resolved    bool                `bson:"resolved" json:"resolved"`
 	CreatedAt   time.Time           `bson:"createdAt" json:"createdAt"`
 	UpdatedAt   time.Time           `bson:"updatedAt" json:"updatedAt"`

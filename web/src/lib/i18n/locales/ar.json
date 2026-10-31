@@ -1309,5 +1309,12 @@
   "Tap another option to change your vote": "Tap another option to change your vote",
   "Vote": "Vote",
   "What should we decide?": "What should we decide?",
-  "{n} vote(s)": "{n} vote(s)"
+  "{n} vote(s)": "{n} vote(s)",
+  "Allow public comments": "Allow public comments",
+  "Expires at (optional)": "Expires at (optional)",
+  "No password": "No password",
+  "Password (optional)": "Password (optional)",
+  "Save settings": "Save settings",
+  "Settings saved": "Settings saved",
+  "{n} view(s)": "{n} view(s)"
 }

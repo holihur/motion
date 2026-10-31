@@ -90,6 +90,29 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const [publicSlug, setPublicSlug] = useState<string | null>(page.publicSlug ?? null)
   const [publishing, setPublishing] = useState(false)
   const [withChildren, setWithChildren] = useState(true)
+  const [pubPassword, setPubPassword] = useState("")
+  const [pubExpires, setPubExpires] = useState("")
+  const [pubComments, setPubComments] = useState(false)
+  const [pubViews, setPubViews] = useState<number | null>(null)
+  const [pubLocked, setPubLocked] = useState(false)
+
+  useEffect(() => {
+    if (!publishOpen) return
+    setPubPassword("")
+    setPubExpires("")
+    setPubComments(false)
+    setPubViews(null)
+    api.pages
+      .publishStatus(page.id)
+      .then((st) => {
+        if (st.slug) setPublicSlug(st.slug)
+        setPubLocked(st.locked)
+        if (st.expiresAt) setPubExpires(st.expiresAt.slice(0, 16))
+        setPubViews(st.views ?? 0)
+        setPubComments(!!st.comments)
+      })
+      .catch(() => undefined)
+  }, [publishOpen, page.id])
   const [enabledProviders, setEnabledProviders] = useState<Set<string>>(new Set())
   const [groups, setGroups] = useState<PublishGroup[]>([])
   const importRef = useRef<HTMLInputElement>(null)
@@ -496,6 +519,77 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
               </Button>
             </div>
           )}
+          <div className="space-y-2 rounded-lg border p-2.5">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="pub-password">{tr("Password (optional)")}</Label>
+                <Input
+                  id="pub-password"
+                  type="password"
+                  value={pubPassword}
+                  onChange={(e) => setPubPassword(e.target.value)}
+                  placeholder={pubLocked ? tr("Saved — leave blank to keep") : tr("No password")}
+                  autoComplete="off"
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pub-expires">{tr("Expires at (optional)")}</Label>
+                <div className="flex gap-1.5">
+                  <Input
+                    id="pub-expires"
+                    type="datetime-local"
+                    value={pubExpires}
+                    onChange={(e) => setPubExpires(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                  {pubExpires && (
+                    <Button variant="ghost" size="sm" className="h-8 shrink-0 px-2 text-[11px]" onClick={() => setPubExpires("")}>
+                      {tr("Clear")}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={pubComments}
+                onChange={(e) => setPubComments(e.target.checked)}
+                className="size-3.5 accent-[var(--brand)]"
+              />
+              {tr("Allow public comments")}
+              {typeof pubViews === "number" && (
+                <span className="ml-auto tabular-nums text-muted-foreground">{tr("{n} view(s)", { n: pubViews })}</span>
+              )}
+            </label>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 w-full text-[11px]"
+              disabled={publishing}
+              onClick={() => {
+                setPublishing(true)
+                api.pages
+                  .publish(page.id, {
+                    includeChildren: withChildren,
+                    password: pubPassword || undefined,
+                    expiresAt: pubExpires ? new Date(pubExpires).toISOString() : "",
+                    comments: pubComments,
+                  })
+                  .then((res) => {
+                    setPublicSlug(res.slug)
+                    setPubPassword("")
+                    useWorkspaceStore.getState().patchSummary(page.id, { publicSlug: res.slug })
+                    toast.success(tr("Settings saved"))
+                  })
+                  .catch((e) => toast.error(e instanceof Error ? e.message : tr("Could not save")))
+                  .finally(() => setPublishing(false))
+              }}
+            >
+              {tr("Save settings")}
+            </Button>
+          </div>
           <DialogFooter className="gap-1.5">
             {(publicSlug || page.publicSlug) ? (
               <>
@@ -528,7 +622,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
                   onClick={() => {
                     setPublishing(true)
                     api.pages
-                      .publish(page.id, withChildren)
+                      .publish(page.id, { includeChildren: withChildren })
                       .then((res) => {
                         setPublicSlug(res.slug)
                         useWorkspaceStore.getState().patchSummary(page.id, { publicSlug: res.slug })

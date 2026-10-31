@@ -1309,5 +1309,12 @@
   "Tap another option to change your vote": "点别的选项可改票",
   "Vote": "投票",
   "What should we decide?": "要决定什么？",
-  "{n} vote(s)": "{n} 票"
+  "{n} vote(s)": "{n} 票",
+  "Allow public comments": "允许公开评论",
+  "Expires at (optional)": "过期时间（可选）",
+  "No password": "无密码",
+  "Password (optional)": "访问密码（可选）",
+  "Save settings": "保存设置",
+  "Settings saved": "设置已保存",
+  "{n} view(s)": "{n} 次阅读"
 }

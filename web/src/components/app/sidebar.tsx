@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import {
   Check,
@@ -142,6 +142,7 @@ function SidebarContent() {
   const [showFavorites, setShowFavorites] = useState(true)
   const [filter, setFilter] = useState("")
   const [pendingProposals, setPendingProposals] = useState(0)
+  const newPageRef = useRef(false)
 
   const favorites = pages.filter((page) => page.favorite)
   const recent = [...pages]
@@ -174,15 +175,19 @@ function SidebarContent() {
   }, [activeId])
 
   async function onNewPage() {
+    if (newPageRef.current) return
     if (readOnly) {
       toast.error(tr("You only have view access"))
       return
     }
+    newPageRef.current = true
     try {
       const page = await createPage(null)
       navigate(`/page/${page.id}`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not create page")
+    } finally {
+      newPageRef.current = false
     }
   }
 

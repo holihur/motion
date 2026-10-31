@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Bot, ChevronRight, KeyRound, Plus, Server, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
@@ -21,6 +21,7 @@ export function WorkspaceAgentSettings() {
   const [servers, setServers] = useState<WorkspaceMCP[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
   const [openSkills, setOpenSkills] = useState<Set<string>>(new Set())
   const [openServers, setOpenServers] = useState<Set<string>>(new Set())
   const owner = Boolean(workspace && user && workspace.ownerId === user.id)
@@ -44,7 +45,8 @@ export function WorkspaceAgentSettings() {
   if (loading) return <div className="h-32 animate-pulse rounded-lg bg-muted/60" />
 
   async function save() {
-    if (saving) return
+    if (saving || savingRef.current) return
+    savingRef.current = true
     setSaving(true)
     try {
       const config = await api.workspaces.saveAgentConfig(workspace!.id, { skills, mcpServers: servers })
@@ -54,6 +56,7 @@ export function WorkspaceAgentSettings() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not save agent settings"))
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }

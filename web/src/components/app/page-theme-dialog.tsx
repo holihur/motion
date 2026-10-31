@@ -1,3 +1,4 @@
+import { useRef } from "react"
 import { Check } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
@@ -9,7 +10,10 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export function PageThemeDialog({ page, open, onOpenChange }: { page: PageSummary; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const choosingRef = useRef(false)
   async function choose(value: string) {
+    if (choosingRef.current) return
+    choosingRef.current = true
     try {
       await api.pages.update(page.id, { theme: value === "default" ? "" : value })
       useWorkspaceStore.getState().patchSummary(page.id, { theme: value === "default" ? "" : value })
@@ -18,6 +22,8 @@ export function PageThemeDialog({ page, open, onOpenChange }: { page: PageSummar
       toast.success(tr("Page color updated"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not update page color"))
+    } finally {
+      choosingRef.current = false
     }
   }
   return (

@@ -71,6 +71,7 @@ export function PageTree({
   const refreshPages = useWorkspaceStore((state) => state.refreshPages)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<{ id: string; position: "before" | "after" | "inside" } | null>(null)
+  const createPageRef = useRef(false)
 
   useEffect(() => {
     if (initialized.current || pages.length === 0) return
@@ -190,11 +191,15 @@ export function PageTree({
   }
 
   async function createFirstPage() {
+    if (createPageRef.current) return
+    createPageRef.current = true
     try {
       const page = await createPage(null)
       navigate(`/page/${page.id}`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not create page"))
+    } finally {
+      createPageRef.current = false
     }
   }
 
@@ -232,6 +237,8 @@ export function PageTree({
               key={tpl.id}
               type="button"
               onClick={async () => {
+                if (createPageRef.current) return
+                createPageRef.current = true
                 try {
                   const mod = await import("@/lib/templates")
                   const template = mod.PAGE_TEMPLATES.find((t) => t.id === tpl.id)
@@ -244,6 +251,8 @@ export function PageTree({
                   navigate(`/page/${page.id}`)
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : tr("Could not create page from template"))
+                } finally {
+                  createPageRef.current = false
                 }
               }}
               className="flex w-full items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition hover:border-brand/30 hover:bg-accent/40"

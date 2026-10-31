@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Check, Copy, Crown, Loader2, Mail, Trash2, UserPlus, Users } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
@@ -36,6 +36,8 @@ export function ShareDialog({
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<"editor" | "viewer">("editor")
   const [pending, setPending] = useState(false)
+  const pendingRef = useRef(false)
+  const memberBusyRef = useRef(false)
 
   const isOwner = workspace?.ownerId === user?.id
   const duplicateEmail = members.some((member) => member.email.toLowerCase() === email.trim().toLowerCase())
@@ -68,6 +70,8 @@ export function ShareDialog({
   async function invite(event: React.FormEvent) {
     event.preventDefault()
     if (!workspace || !email.trim() || pending) return
+    if (pendingRef.current) return
+    pendingRef.current = true
     setPending(true)
     try {
       await api.workspaces.invite(workspace.id, email.trim(), role)
@@ -79,28 +83,35 @@ export function ShareDialog({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not invite that person")
     } finally {
+      pendingRef.current = false
       setPending(false)
     }
   }
 
   async function changeRole(member: Member, nextRole: "editor" | "viewer") {
-    if (!workspace) return
+    if (!workspace || memberBusyRef.current) return
+    memberBusyRef.current = true
     try {
       await api.workspaces.updateMember(workspace.id, member.userId, nextRole)
       await refresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not change role")
+    } finally {
+      memberBusyRef.current = false
     }
   }
 
   async function removeMember(member: Member) {
-    if (!workspace) return
+    if (!workspace || memberBusyRef.current) return
+    memberBusyRef.current = true
     try {
       await api.workspaces.removeMember(workspace.id, member.userId)
       await refresh()
       toast.success(`${member.name} was removed`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not remove member")
+    } finally {
+      memberBusyRef.current = false
     }
   }
 

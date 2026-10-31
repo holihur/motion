@@ -56,6 +56,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const refreshPages = useWorkspaceStore((s) => s.refreshPages)
   const [tab, setTab] = useState<Tab>("file")
   const [busy, setBusy] = useState(false)
+  const busyRef = useRef(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -78,7 +79,8 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   /* ---------------- 批量文件导入：每个文件新建一页 ---------------- */
   async function onPickFiles(files: FileList | null) {
-    if (!files?.length || !activeId) return
+    if (!files?.length || !activeId || busyRef.current) return
+    busyRef.current = true
     const list = [...files].slice(0, 50)
     setBusy(true)
     setProgress({ done: 0, total: list.length })
@@ -111,6 +113,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         action: { label: tr("Retry"), onClick: () => void onPickFiles(files) },
       })
     } finally {
+      busyRef.current = false
       setBusy(false)
       setProgress(null)
     }
@@ -118,7 +121,8 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   /* ---------------- 直连导入 ---------------- */
   async function importDirect(kind: "notion" | "yuque" | "feishu") {
-    if (!activeId) return
+    if (!activeId || busyRef.current) return
+    busyRef.current = true
     setBusy(true)
     try {
       let result: { title: string; blocks: Block[] }
@@ -152,13 +156,15 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         action: { label: tr("Retry"), onClick: () => void importDirect(kind) },
       })
     } finally {
+      busyRef.current = false
       setBusy(false)
     }
   }
 
   /* ---------------- 批量导出 ---------------- */
   async function exportAll() {
-    if (!activeId) return
+    if (!activeId || busyRef.current) return
+    busyRef.current = true
     setBusy(true)
     const taskId = useTasksStore.getState().start(tr("Export workspace"))
     const tasks = useTasksStore.getState()
@@ -197,6 +203,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         action: { label: tr("Retry"), onClick: () => void exportAll() },
       })
     } finally {
+      busyRef.current = false
       setBusy(false)
     }
   }

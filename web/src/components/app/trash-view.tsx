@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { FileText, Home, RotateCcw, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -29,6 +29,7 @@ export function TrashView() {
   const [loading, setLoading] = useState(true)
   const [pendingDelete, setPendingDelete] = useState<PageSummary | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const busyRef = useRef(false)
 
   useEffect(() => {
     document.title = tr("Trash") + " · Motion"
@@ -49,6 +50,8 @@ export function TrashView() {
   }, [activeId, fetchTrash])
 
   async function restore(page: PageSummary) {
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(page.id)
     try {
       await restorePage(page.id)
@@ -56,11 +59,14 @@ export function TrashView() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not restore page")
     } finally {
+      busyRef.current = false
       setBusy(null)
     }
   }
 
   async function destroy(page: PageSummary) {
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(page.id)
     try {
       await deletePageForever(page.id)
@@ -69,6 +75,7 @@ export function TrashView() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not delete page")
     } finally {
+      busyRef.current = false
       setBusy(null)
     }
   }

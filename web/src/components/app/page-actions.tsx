@@ -123,6 +123,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const [groups, setGroups] = useState<PublishGroup[]>([])
   const importRef = useRef<HTMLInputElement>(null)
   const locked = Boolean(page.locked)
+  const actionLockRef = useRef(false)
   const [unlockConfirm, setUnlockConfirm] = useState(false)
 
   const isCurrent = location.pathname === `/page/${page.id}`
@@ -141,6 +142,14 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
       setEnabledProviders(new Set())
       setGroups([])
     }
+  }
+
+  function runOnce(task: () => Promise<unknown>) {
+    if (actionLockRef.current) return
+    actionLockRef.current = true
+    void Promise.resolve(task()).catch(() => undefined).finally(() => {
+      actionLockRef.current = false
+    })
   }
 
   async function onAddSubpage() {
@@ -385,7 +394,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
             {locked ? <LockOpen /> : <LockKeyhole />}
             {locked ? tr("Unlock page") : tr("Lock page")}
           </DropdownMenuItem>}
-          {!readOnly && <DropdownMenuItem onSelect={onToggleWatermark}>
+          {!readOnly && <DropdownMenuItem onSelect={() => runOnce(onToggleWatermark)}>
             <Droplets /> {page.watermark ? tr("Disable watermark") : tr("Enable watermark")}
           </DropdownMenuItem>}
           {!readOnly && <DropdownMenuSeparator />}
@@ -402,7 +411,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
             {page.favorite ? <StarOff /> : <Star />}
             {page.favorite ? tr("Remove from Favorites") : tr("Add to Favorites")}
           </DropdownMenuItem>}
-          {!readOnly && !locked && <DropdownMenuItem onSelect={() => void onAddSubpage()}>
+          {!readOnly && !locked && <DropdownMenuItem onSelect={() => runOnce(onAddSubpage)}>
             <FilePlus2 /> {tr("Add sub-page")}
           </DropdownMenuItem>}
           {!readOnly && !locked && <DropdownMenuItem onSelect={() => setStructure("split")}>
@@ -430,7 +439,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           {!readOnly && !locked && <DropdownMenuItem onSelect={() => setImportOpen(true)}>
             <ArrowDownToLine /> {tr("Import from other notes…")}
           </DropdownMenuItem>}
-          {!readOnly && !locked && <DropdownMenuItem onSelect={() => void onDuplicate()}>
+          {!readOnly && !locked && <DropdownMenuItem onSelect={() => runOnce(onDuplicate)}>
             <Copy /> {tr("Duplicate")}
           </DropdownMenuItem>}
           <DropdownMenuItem onSelect={() => void onCopyLink()}>
@@ -441,16 +450,16 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
               <Download /> {tr("Export")}
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-52">
-              <DropdownMenuItem onSelect={() => void onExport()}>
+              <DropdownMenuItem onSelect={() => runOnce(onExport)}>
                 <Download /> {tr("Export as Markdown")}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void exportFile("html")}>
+              <DropdownMenuItem onSelect={() => runOnce(() => exportFile("html"))}>
                 <FileCode2 /> {tr("Export as HTML")}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void exportFile("pdf")}>
+              <DropdownMenuItem onSelect={() => runOnce(() => exportFile("pdf"))}>
                 <FileText /> {tr("Export as PDF")}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => void exportFile("docx")}>
+              <DropdownMenuItem onSelect={() => runOnce(() => exportFile("docx"))}>
                 <FileType2 /> {tr("Export as Word")}
               </DropdownMenuItem>
             </DropdownMenuSubContent>
@@ -459,29 +468,29 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
             <Globe /> {publicSlug || page.publicSlug ? tr("Published to web") : tr("Publish to web")}
             {(publicSlug || page.publicSlug) && <span className="ml-auto size-1.5 rounded-full bg-emerald-500" />}
           </DropdownMenuItem>}
-          {!readOnly && enabledProviders.has("git") && <DropdownMenuItem onSelect={() => void onPublishGit()}>
+          {!readOnly && enabledProviders.has("git") && <DropdownMenuItem onSelect={() => runOnce(onPublishGit)}>
             <GitBranch /> {tr("Publish to Git")}
           </DropdownMenuItem>}
-          {!readOnly && enabledProviders.has("jira") && <DropdownMenuItem onSelect={() => void onPublishAtlassian("jira")}>
+          {!readOnly && enabledProviders.has("jira") && <DropdownMenuItem onSelect={() => runOnce(() => onPublishAtlassian("jira"))}>
             <Bug /> {tr("Publish to Jira")}
           </DropdownMenuItem>}
-          {!readOnly && enabledProviders.has("confluence") && <DropdownMenuItem onSelect={() => void onPublishAtlassian("confluence")}>
+          {!readOnly && enabledProviders.has("confluence") && <DropdownMenuItem onSelect={() => runOnce(() => onPublishAtlassian("confluence"))}>
             <BookOpen /> {tr("Publish to Confluence")}
           </DropdownMenuItem>}
-          {!readOnly && hasStorage && <DropdownMenuItem onSelect={() => void onPublishS3()}>
+          {!readOnly && hasStorage && <DropdownMenuItem onSelect={() => runOnce(onPublishS3)}>
             <CloudUpload /> {tr("Publish to object storage")}
           </DropdownMenuItem>}
-          {!readOnly && enabledProviders.has("ssh") && <DropdownMenuItem onSelect={() => void onPublishSSH()}>
+          {!readOnly && enabledProviders.has("ssh") && <DropdownMenuItem onSelect={() => runOnce(onPublishSSH)}>
             <CloudUpload /> {tr("Publish via SSH")}
           </DropdownMenuItem>}
           {!readOnly && groups.length > 0 && <DropdownMenuSeparator />}
           {!readOnly && groups.map((group) => (
-            <DropdownMenuItem key={group.id} onSelect={() => void publishGroup(group)}>
+            <DropdownMenuItem key={group.id} onSelect={() => runOnce(() => publishGroup(group))}>
               <CloudUpload /> {group.name}
             </DropdownMenuItem>
           ))}
           {!readOnly && !locked && <DropdownMenuSeparator />}
-          {!readOnly && !locked && <DropdownMenuItem variant="destructive" onSelect={() => void onArchive()}>
+          {!readOnly && !locked && <DropdownMenuItem variant="destructive" onSelect={() => runOnce(onArchive)}>
             <Trash2 /> {tr("Move to Trash")}
           </DropdownMenuItem>}
         </DropdownMenuContent>
@@ -691,7 +700,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setUnlockConfirm(false)}>{tr("Cancel")}</Button>
-            <Button onClick={() => void confirmUnlock()}>{tr("Unlock")}</Button>
+            <Button onClick={() => runOnce(confirmUnlock)}>{tr("Unlock")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

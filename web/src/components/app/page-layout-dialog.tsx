@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ExternalLink, LayoutTemplate, Loader2, Plus, Unlink } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
@@ -43,8 +43,10 @@ export function PageLayoutDialog({ page, open, onOpenChange }: { page: PageSumma
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, page.id, page.layoutId, activeId])
 
+  const savingRef = useRef(false)
   async function apply() {
-    if (saving) return
+    if (saving || savingRef.current) return
+    savingRef.current = true
     setSaving(true)
     try {
       if (!selected && page.layoutId) {
@@ -61,11 +63,12 @@ export function PageLayoutDialog({ page, open, onOpenChange }: { page: PageSumma
       toast.success(selected ? tr("Layout applied") : tr("Layout detached"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not apply layout"))
-    } finally { setSaving(false) }
+    } finally { savingRef.current = false; setSaving(false) }
   }
 
   async function toggleLayoutPage() {
-    if (!full || saving) return
+    if (!full || saving || savingRef.current) return
+    savingRef.current = true
     setSaving(true)
     try {
       const enable = !full.isLayout
@@ -81,11 +84,12 @@ export function PageLayoutDialog({ page, open, onOpenChange }: { page: PageSumma
       window.dispatchEvent(new CustomEvent("motion:page-meta", { detail: { id: page.id, patch: { isLayout: enable } } }))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not update layout page"))
-    } finally { setSaving(false) }
+    } finally { savingRef.current = false; setSaving(false) }
   }
 
   async function createLayoutPage() {
-    if (!full || saving) return
+    if (!full || saving || savingRef.current) return
+    savingRef.current = true
     setSaving(true)
     try {
       const created = await api.pages.create({ workspaceId: full.workspaceId, title: tr("New layout") })
@@ -98,7 +102,7 @@ export function PageLayoutDialog({ page, open, onOpenChange }: { page: PageSumma
       toast.success(tr("Layout page created. Add the shared header above the placeholder."))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not create layout page"))
-    } finally { setSaving(false) }
+    } finally { savingRef.current = false; setSaving(false) }
   }
 
   return (

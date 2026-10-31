@@ -116,13 +116,18 @@ export function SearchDialog() {
     navigate(`/page/${pageId}`)
   }
 
+  const newPageRef = useRef(false)
   async function newPage() {
+    if (newPageRef.current) return
+    newPageRef.current = true
     try {
       const page = await createPage(null)
       setOpen(false)
       navigate(`/page/${page.id}`)
     } catch {
       setOpen(false)
+    } finally {
+      newPageRef.current = false
     }
   }
 

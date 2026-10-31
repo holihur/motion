@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom"
 import {
   ArrowRight,
@@ -38,6 +38,7 @@ export function AuthPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [pending, setPending] = useState(false)
+  const pendingRef = useRef(false)
   const [oidc, setOIDC] = useState<{ enabled: boolean; name: string } | null>(null)
   const [searchParams] = useSearchParams()
 
@@ -59,6 +60,7 @@ export function AuthPage() {
 
   async function submit(event?: React.FormEvent) {
     event?.preventDefault()
+    if (pendingRef.current) return
     setError("")
     if (mode === "register" && name.trim().length === 0) {
       setError(tr("Please tell us your name."))
@@ -72,6 +74,7 @@ export function AuthPage() {
       setError(tr("Password must be at least 8 characters."))
       return
     }
+    pendingRef.current = true
     setPending(true)
     try {
       if (mode === "login") {
@@ -83,12 +86,15 @@ export function AuthPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : tr("Something went wrong."))
     } finally {
+      pendingRef.current = false
       setPending(false)
     }
   }
 
   async function useDemo() {
+    if (pendingRef.current) return
     setError("")
+    pendingRef.current = true
     setPending(true)
     try {
       await login("demo@motion.app", "demo1234")
@@ -96,6 +102,7 @@ export function AuthPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Demo is unavailable.")
     } finally {
+      pendingRef.current = false
       setPending(false)
     }
   }

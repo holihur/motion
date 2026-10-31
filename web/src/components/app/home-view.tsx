@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   ArrowUpRight,
@@ -43,6 +43,7 @@ export function HomeView() {
   const [showOnboarding, setShowOnboarding] = useState(() => localStorage.getItem("motion.onboarding.dismissed") !== "1")
   const onboardingProgress = useOnboardingProgress()
   const [creatingTemplate, setCreatingTemplate] = useState("")
+  const createPageRef = useRef(false)
   const navigate = useNavigate()
 
   const workspace = workspaces.find((item) => item.id === activeId)
@@ -65,16 +66,21 @@ export function HomeView() {
   }, [pages.length])
 
   async function newPage() {
+    if (createPageRef.current) return
+    createPageRef.current = true
     try {
       const page = await createPage(null)
       navigate(`/page/${page.id}`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not create page")
+    } finally {
+      createPageRef.current = false
     }
   }
 
   async function useTemplate(template: PageTemplate) {
-    if (creatingTemplate) return
+    if (createPageRef.current) return
+    createPageRef.current = true
     setCreatingTemplate(template.id)
     try {
       const page = await createPage(null)
@@ -88,6 +94,7 @@ export function HomeView() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not create page from template"))
     } finally {
+      createPageRef.current = false
       setCreatingTemplate("")
     }
   }

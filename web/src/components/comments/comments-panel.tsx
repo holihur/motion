@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { CheckCheck, MessageSquare, MessageSquareReply, RotateCcw, Send, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
@@ -52,6 +52,7 @@ export function CommentsPanel({
   const [replyMentions, setReplyMentions] = useState<string[]>([])
   const [showResolved, setShowResolved] = useState(false)
   const [pending, setPending] = useState(false)
+  const pendingRef = useRef(false)
   const [deleteTarget, setDeleteTarget] = useState<Comment | null>(null)
 
   const { threads, resolved } = useMemo(() => {
@@ -72,7 +73,8 @@ export function CommentsPanel({
   }
 
   async function submitReply(rootId: string) {
-    if (!replyBody.trim() || pending) return
+    if (!replyBody.trim() || pending || pendingRef.current) return
+    pendingRef.current = true
     setPending(true)
     try {
       await api.pages.createComment(pageId, {
@@ -91,21 +93,27 @@ export function CommentsPanel({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not reply")
     } finally {
+      pendingRef.current = false
       setPending(false)
     }
   }
 
   async function toggleResolved(comment: Comment) {
+    if (pendingRef.current) return
+    pendingRef.current = true
     try {
       await api.pages.updateComment(comment.id, { resolved: !comment.resolved })
       onReload()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update comment")
+    } finally {
+      pendingRef.current = false
     }
   }
 
   async function removeComment() {
-    if (!deleteTarget) return
+    if (!deleteTarget || pendingRef.current) return
+    pendingRef.current = true
     setPending(true)
     try {
       await api.pages.deleteComment(deleteTarget.id)
@@ -115,6 +123,7 @@ export function CommentsPanel({
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not delete comment")
     } finally {
+      pendingRef.current = false
       setPending(false)
     }
   }

@@ -700,6 +700,7 @@ export function BlockEditor({
   function deleteBlock(index: number) {
     const blocksBefore = blocksRef.current
     const end = subtreeEndAt(blocksBefore, index)
+    const removed = blocksBefore.slice(index, end)
     const next = [...blocksBefore.slice(0, index), ...blocksBefore.slice(end)]
     if (next.length === 0) {
       const fresh = createBlock("paragraph")
@@ -708,8 +709,19 @@ export function BlockEditor({
       return
     }
     const target = blocksBefore[index - 1] ?? blocksBefore[end]
+    const at = index
     commit(next)
     focusSoon(target.id, index === 0 ? "start" : "end")
+    toast.success(tr("Block deleted"), {
+      action: {
+        label: tr("Undo"),
+        onClick: () => {
+          const current = blocksRef.current
+          const restored = [...current.slice(0, Math.min(at, current.length)), ...removed, ...current.slice(Math.min(at, current.length))]
+          commit(restored.map((b) => ({ ...b })))
+        },
+      },
+    })
   }
 
   function duplicateBlock(index: number) {

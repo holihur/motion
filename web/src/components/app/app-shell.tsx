@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect } from "react"
+import { lazy, Suspense, useEffect, useState } from "react"
 import { Navigate, Outlet, useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { useUIStore } from "@/stores/ui"
+import { tr } from "@/lib/i18n"
 import { Sidebar } from "@/components/app/sidebar"
 import { useWorkspaceRealtime } from "@/components/app/use-workspace-realtime"
 import { Splash } from "@/components/app/splash"
@@ -13,6 +14,9 @@ const SearchDialog = lazy(() =>
 )
 const SettingsDialog = lazy(() =>
   import("@/components/app/settings-dialog").then((module) => ({ default: module.SettingsDialog })),
+)
+const ShortcutsDialog = lazy(() =>
+  import("@/components/app/shortcuts-dialog").then((module) => ({ default: module.ShortcutsDialog })),
 )
 
 export function AppShell() {
@@ -25,6 +29,7 @@ export function AppShell() {
   const setSearchOpen = useUIStore((state) => state.setSearchOpen)
   const setSettingsOpen = useUIStore((state) => state.setSettingsOpen)
   const setSidebarOpen = useUIStore((state) => state.setSidebarOpen)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const navigate = useNavigate()
   const activeId = useWorkspaceStore((state) => state.activeId)
   useWorkspaceRealtime(activeId)
@@ -53,6 +58,8 @@ export function AppShell() {
         setSearchOpen(true)
       }
       if (event.key === "Escape") {
+        // Let open dialogs/menus handle Escape first.
+        if (document.querySelector('[role="dialog"], [role="menu"], [role="listbox"]')) return
         setSidebarOpen(false)
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "j") {
@@ -62,6 +69,12 @@ export function AppShell() {
       if ((event.metaKey || event.ctrlKey) && event.key === ",") {
         event.preventDefault()
         setSettingsOpen(true)
+      }
+      if (event.key === "?" && !event.metaKey && !event.ctrlKey) {
+        const target = event.target as HTMLElement | null
+        if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return
+        event.preventDefault()
+        setShortcutsOpen(true)
       }
     }
     window.addEventListener("keydown", onKeyDown)
@@ -93,6 +106,11 @@ export function AppShell() {
           <SettingsDialog />
         </Suspense>
       )}
+      {shortcutsOpen && (
+        <Suspense fallback={null}>
+          <ShortcutsDialog open onOpenChange={setShortcutsOpen} />
+        </Suspense>
+      )}
     </div>
   )
 }
@@ -100,7 +118,7 @@ export function AppShell() {
 
 function RouteSkeleton() {
   return (
-    <div className="flex h-full flex-col" aria-busy="true" aria-label="Loading page">
+    <div className="flex h-full flex-col" aria-busy="true" aria-label={tr("Loading page")}>
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-3">
         <Skeleton className="size-7 rounded-md" />
         <Skeleton className="h-4 w-40" />

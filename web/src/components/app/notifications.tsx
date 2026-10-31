@@ -102,9 +102,19 @@ export function NotificationBell() {
     if (n.pageId) {
       navigate(`/page/${n.pageId}`)
       if (n.blockId) {
-        window.setTimeout(() => {
-          window.dispatchEvent(new CustomEvent("motion:focus-block", { detail: { id: n.blockId } }))
-        }, 600)
+        // Wait for the page to render instead of racing a fixed timeout.
+        const blockId = n.blockId
+        let tries = 0
+        const timer = window.setInterval(() => {
+          tries++
+          const el = document.getElementById(`block-input-${blockId}`) ?? document.querySelector(`[data-block-id="${blockId}"]`)
+          if (el || tries >= 25) {
+            window.clearInterval(timer)
+            if (el) window.dispatchEvent(new CustomEvent("motion:focus-block", { detail: { id: blockId } }))
+          }
+        }, 200)
+      } else if (n.commentId) {
+        window.setTimeout(() => window.dispatchEvent(new CustomEvent("motion:open-comments")), 800)
       }
     }
   }

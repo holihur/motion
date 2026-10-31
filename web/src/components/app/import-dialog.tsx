@@ -21,12 +21,12 @@ import { inlineMarkdownToRich } from "@/lib/inline-markdown"
 type Tab = "file" | "notion" | "yuque" | "feishu" | "export"
 
 const GUIDES: { name: string; steps: string; formats: string }[] = [
-  { name: "Notion", steps: "打开页面 → 右上 ⋯ → 导出 → 选择 Markdown 或 HTML", formats: "Markdown / HTML" },
-  { name: "飞书文档", steps: "文档右上 ⋯ → 导出为 → Markdown / HTML", formats: "Markdown / HTML" },
-  { name: "语雀", steps: "文档右上 ⋯ → 导出 → Markdown / HTML（含图片需联网）", formats: "Markdown / HTML" },
-  { name: "Obsidian", steps: "本地库里的 .md 文件，可多选一次性导入", formats: "Markdown" },
-  { name: "印象笔记", steps: "客户端将笔记导出为 HTML 后导入", formats: "HTML" },
-  { name: "FlowUs / Wolai / 有道云", steps: "导出为 Markdown 或 HTML 后导入", formats: "Markdown / HTML" },
+  { name: "Notion", steps: tr("Open a page → top-right ⋯ → Export → Markdown or HTML"), formats: "Markdown / HTML" },
+  { name: "Feishu Docs", steps: tr("Doc top-right ⋯ → Export as → Markdown / HTML"), formats: "Markdown / HTML" },
+  { name: "Yuque", steps: tr("Doc top-right ⋯ → Export → Markdown / HTML (images need network)"), formats: "Markdown / HTML" },
+  { name: "Obsidian", steps: tr("Local .md files — select many at once"), formats: "Markdown" },
+  { name: "Evernote", steps: tr("Export notes as HTML from the client"), formats: "HTML" },
+  { name: "FlowUs / Wolai / Youdao", steps: tr("Export as Markdown or HTML first"), formats: "Markdown / HTML" },
 ]
 
 /** 后端直连返回的 blocks 只有 text(markdown)，补上 rich 富文本。 */
@@ -140,7 +140,9 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       const page = await createPageWithBlocks(activeId, (result.title || tr("Imported page")).slice(0, 120), enrichBlocksWithRich(result.blocks))
       await afterImport([page.id], 1)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : tr("Import failed"))
+      toast.error(e instanceof Error ? e.message : tr("Import failed"), {
+        action: { label: tr("Retry"), onClick: () => void importDirect(kind) },
+      })
     } finally {
       setBusy(false)
     }
@@ -171,8 +173,8 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const tabs: { id: Tab; label: string }[] = [
     { id: "file", label: tr("Import files") },
     { id: "notion", label: "Notion" },
-    { id: "yuque", label: "语雀" },
-    { id: "feishu", label: "飞书" },
+    { id: "yuque", label: "Yuque" },
+    { id: "feishu", label: "Feishu" },
     { id: "export", label: tr("Batch export") },
   ]
 
@@ -235,17 +237,17 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         {tab === "notion" && (
           <div className="space-y-3">
             <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground">
-              1. 打开 <a className="underline" href="https://www.notion.so/my-account/integrations" target="_blank" rel="noreferrer">Notion Integrations</a> 新建 Internal Integration 并复制 Token（以 <code>ntn_</code> 或 <code>secret_</code> 开头）
-              2. 把该 Integration 分享给要导入的页面（页面 ⋯ → 添加连接）
-              3. 粘贴页面链接回来导入。Token 仅保存在本工作区，可随时删除。
+              {tr("1. Create an Internal Integration at")} <a className="underline" href="https://www.notion.so/my-account/integrations" target="_blank" rel="noreferrer">Notion Integrations</a> {tr("and copy the token (starts with ntn_ or secret_)")}
+              <br />{tr("2. Share the integration with the page to import (page ⋯ → Add connections)")}
+              <br />{tr("3. Paste the page link back here. The token stays in this workspace and can be deleted anytime.")}
             </div>
             <div className="space-y-1.5">
-              <Label>Notion Token（已保存过可不填）</Label>
+              <Label>{tr("Notion token (skip if saved)")}</Label>
               <Input type="password" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} placeholder="ntn_…" autoComplete="off" />
             </div>
             <div className="space-y-1.5">
-              <Label>页面链接或 ID</Label>
-              <Input value={notionURL} onChange={(e) => setNotionURL(e.target.value)} placeholder="https://www.notion.so/… 或 32 位 ID" />
+              <Label>{tr("Page link or ID")}</Label>
+              <Input value={notionURL} onChange={(e) => setNotionURL(e.target.value)} placeholder="https://www.notion.so/… or 32-char ID" />
             </div>
             <Button className="w-full gap-2" disabled={busy || !activeId} onClick={() => void importDirect("notion")}>
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Link2 className="size-4" />}
@@ -257,15 +259,15 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         {tab === "yuque" && (
           <div className="space-y-3">
             <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground">
-              1. 语雀 头像 → 账户设置 → Token 新建并复制
-              2. 粘贴文档链接（如 <code>https://xxx.yuque.com/org/book/slug</code>）回来导入。
+              {tr("1. Yuque avatar → Settings → Token, create and copy one")}
+              <br />{tr("2. Paste the doc link back here (e.g.")} <code>https://xxx.yuque.com/org/book/slug</code>)
             </div>
             <div className="space-y-1.5">
-              <Label>语雀 Token（已保存过可不填）</Label>
-              <Input type="password" value={yuqueToken} onChange={(e) => setYuqueToken(e.target.value)} placeholder="语雀个人 Token" autoComplete="off" />
+              <Label>{tr("Yuque token (skip if saved)")}</Label>
+              <Input type="password" value={yuqueToken} onChange={(e) => setYuqueToken(e.target.value)} placeholder="Yuque token" autoComplete="off" />
             </div>
             <div className="space-y-1.5">
-              <Label>文档链接</Label>
+              <Label>{tr("Doc link")}</Label>
               <Input value={yuqueURL} onChange={(e) => setYuqueURL(e.target.value)} placeholder="https://….yuque.com/…/…/slug" />
             </div>
             <Button className="w-full gap-2" disabled={busy || !activeId} onClick={() => void importDirect("yuque")}>
@@ -278,9 +280,9 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         {tab === "feishu" && (
           <div className="space-y-3">
             <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground">
-              1. <a className="underline" href="https://open.feishu.cn/app" target="_blank" rel="noreferrer">飞书开放平台</a> 创建自建应用，开通 <code>docx:document:readonly</code> 权限并发布
-              2. 把要导入的文档分享给该应用（或开启“互联网可读”）
-              3. 填 App ID / App Secret，粘贴文档链接或 ID。
+              {tr("1. Create a custom app at")} <a className="underline" href="https://open.feishu.cn/app" target="_blank" rel="noreferrer">Feishu Open Platform</a> {tr("with docx:document:readonly permission and publish it")}
+              <br />{tr("2. Share the doc with the app (or turn on public web access)")}
+              <br />{tr("3. Fill App ID / App Secret, then paste the doc link or ID.")}
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
@@ -288,13 +290,13 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                 <Input value={feishuAppId} onChange={(e) => setFeishuAppId(e.target.value)} placeholder="cli_…" autoComplete="off" />
               </div>
               <div className="space-y-1.5">
-                <Label>App Secret（已保存过可不填）</Label>
+                <Label>{tr("App secret (skip if saved)")}</Label>
                 <Input type="password" value={feishuSecret} onChange={(e) => setFeishuSecret(e.target.value)} placeholder="…" autoComplete="off" />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>文档链接或 ID</Label>
-              <Input value={feishuId} onChange={(e) => setFeishuId(e.target.value)} placeholder="https://….feishu.cn/docx/… 或 Docx_…" />
+              <Label>{tr("Doc link or ID")}</Label>
+              <Input value={feishuId} onChange={(e) => setFeishuId(e.target.value)} placeholder="https://….feishu.cn/docx/… or Docx_…" />
             </div>
             <Button className="w-full gap-2" disabled={busy || !activeId} onClick={() => void importDirect("feishu")}>
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Link2 className="size-4" />}

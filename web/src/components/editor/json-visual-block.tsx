@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   Braces, Code2, Eye, Copy, Check, Plus, Trash2, LayoutGrid,
   ArrowRight, Diamond, Square, Circle, GitBranch, Eraser, Sparkles,
@@ -153,37 +153,37 @@ function edgePath(a: FlowNode, b: FlowNode, dir: "LR" | "TB") {
 
 const TEMPLATES: { name: string; desc: string; make: () => FlowData }[] = [
   {
-    name: "审批流", desc: "发起 → 审批 → 发布",
+    name: tr("Approval flow"), desc: tr("Submit → Review → Publish"),
     make: () => ({
       direction: "LR",
       nodes: [
-        { id: "start", label: "发起申请", x: 100, y: 220, color: "blue", shape: "ellipse" },
-        { id: "review", label: "审批", x: 320, y: 220, color: "amber", shape: "diamond" },
-        { id: "fix", label: "退回修改", x: 320, y: 330, color: "rose", shape: "rect" },
-        { id: "ship", label: "发布", x: 560, y: 220, color: "green", shape: "ellipse" },
+        { id: "start", label: tr("Submit request"), x: 100, y: 220, color: "blue", shape: "ellipse" },
+        { id: "review", label: tr("Approve"), x: 320, y: 220, color: "amber", shape: "diamond" },
+        { id: "fix", label: tr("Send back for revision"), x: 320, y: 330, color: "rose", shape: "rect" },
+        { id: "ship", label: tr("Launch"), x: 560, y: 220, color: "green", shape: "ellipse" },
       ],
       edges: [
         { from: "start", to: "review" },
-        { from: "review", to: "ship", label: "通过" },
-        { from: "review", to: "fix", label: "驳回" },
-        { from: "fix", to: "review", label: "重提" },
+        { from: "review", to: "ship", label: tr("Approved") },
+        { from: "review", to: "fix", label: tr("Rejected") },
+        { from: "fix", to: "review", label: tr("Resubmit") },
       ],
     }),
   },
   {
-    name: "产品上线", desc: "需求 → 开发 → 测试 → 上线",
+    name: tr("Product launch"), desc: tr("Requirement → Dev → Test → Launch"),
     make: () => ({
       direction: "LR",
       nodes: [
-        { id: "req", label: "需求评审", x: 95, y: 220, color: "violet" },
-        { id: "dev", label: "开发", x: 285, y: 220, color: "blue" },
-        { id: "test", label: "测试", x: 475, y: 220, color: "amber", shape: "diamond" },
-        { id: "live", label: "上线", x: 655, y: 220, color: "green", shape: "ellipse" },
+        { id: "req", label: tr("Requirement review"), x: 95, y: 220, color: "violet" },
+        { id: "dev", label: tr("Development"), x: 285, y: 220, color: "blue" },
+        { id: "test", label: tr("Test"), x: 475, y: 220, color: "amber", shape: "diamond" },
+        { id: "live", label: tr("Launch"), x: 655, y: 220, color: "green", shape: "ellipse" },
       ],
       edges: [
         { from: "req", to: "dev" },
         { from: "dev", to: "test" },
-        { from: "test", to: "live", label: "通过" },
+        { from: "test", to: "live", label: tr("Approved") },
         { from: "test", to: "dev", label: "bug" },
       ],
     }),
@@ -202,7 +202,7 @@ function LegacyPreview({ text }: { text: string }) {
   return (
     <div className="p-3">
       <div className="mb-2 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
-        这是旧版 JSON 图表，已保留显示。如需画流程图请点上方「清空重画」或新建流程图块。
+        {tr("Legacy JSON chart, kept for display. Use Clear & redraw above for flowcharts.")}
       </div>
       {chart ? (
         <div className="space-y-1.5">
@@ -220,6 +220,29 @@ function LegacyPreview({ text }: { text: string }) {
         <pre className="max-h-[280px] overflow-auto rounded-md border bg-muted/10 p-2 font-mono text-[11px] thin-scrollbar">{JSON.stringify(parsed, null, 2)}</pre>
       )}
     </div>
+  )
+}
+
+function InlineConfirm({ label, confirmLabel, onConfirm, className }: {
+  label: ReactNode
+  confirmLabel: string
+  onConfirm: () => void
+  className?: string
+}) {
+  const [arming, setArming] = useState(false)
+  useEffect(() => {
+    if (!arming) return
+    const timer = window.setTimeout(() => setArming(false), 3000)
+    return () => window.clearTimeout(timer)
+  }, [arming])
+  if (!arming) {
+    return <button type="button" onClick={() => setArming(true)} className={className}>{label}</button>
+  }
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button type="button" onClick={() => { setArming(false); onConfirm() }} className="rounded-md bg-destructive px-2 py-1 text-[11px] font-medium text-white">{confirmLabel}</button>
+      <button type="button" onClick={() => setArming(false)} className="rounded-md border px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-accent">{tr("Cancel")}</button>
+    </span>
   )
 }
 
@@ -276,7 +299,7 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
     const id = `n${uid().slice(0, 4)}`
     const next: FlowData = {
       ...laid,
-      nodes: [...laid.nodes, { id, label: `新节点 ${laid.nodes.length + 1}`, x: W / 2 + (Math.random() * 80 - 40), y: H / 2 + (Math.random() * 80 - 40), color: "violet", shape: "rect" }],
+      nodes: [...laid.nodes, { id, label: tr("New node {n}", { n: laid.nodes.length + 1 }), x: W / 2 + (Math.random() * 80 - 40), y: H / 2 + (Math.random() * 80 - 40), color: "violet", shape: "rect" }],
     }
     commit(next)
     setSelNode(id); setSelEdge(null); setEditingId(id)
@@ -291,8 +314,8 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
     setSelEdge(null)
   }
   function connect(a: string, b: string) {
-    if (a === b) { toast.error("不能连接到自己"); return }
-    if (laid.edges.some((e) => e.from === a && e.to === b)) { toast.error("这两点已经连过了"); return }
+    if (a === b) { toast.error(tr("Cannot connect to itself")); return }
+    if (laid.edges.some((e) => e.from === a && e.to === b)) { toast.error(tr("Already connected")); return }
     commit({ ...laid, edges: [...laid.edges, { from: a, to: b }] })
     setSelEdge(laid.edges.length); setSelNode(null)
   }
@@ -303,13 +326,13 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
   if (readOnly) {
     if (!parsed || isLegacyChart) return (
       <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
-        <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] text-muted-foreground"><GitBranch className="size-3 text-brand" />流程图</div>
+        <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] text-muted-foreground"><GitBranch className="size-3 text-brand" />{tr("Flowchart")}</div>
         {parsed ? <StaticCanvas flow={ensurePos(parsed.flow)} /> : <LegacyPreview text={block.text} />}
       </div>
     )
     return (
       <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
-        <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] text-muted-foreground"><GitBranch className="size-3 text-brand" />流程图 · {laid.nodes.length} 节点</div>
+        <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] text-muted-foreground"><GitBranch className="size-3 text-brand" />{tr("Flowchart")} · {tr("{n} nodes", { n: laid.nodes.length })}</div>
         <StaticCanvas flow={laid} />
       </div>
     )
@@ -320,18 +343,18 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
       {/* 顶栏 */}
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px]">
         <GitBranch className="size-3.5 text-brand" />
-        <span className="font-semibold tracking-wider uppercase">流程图</span>
-        <span className="text-muted-foreground/70 hidden sm:inline">点一点、拖一拖就能画 · 不用写代码</span>
-        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">{laid.nodes.length} 节点 · {laid.edges.length} 连线</span>
+        <span className="font-semibold tracking-wider uppercase">{tr("Flowchart")}</span>
+        <span className="text-muted-foreground/70 hidden sm:inline">{tr("Draw by pointing and dragging — no code needed")}</span>
+        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">{tr("{a} nodes · {b} edges", { a: laid.nodes.length, b: laid.edges.length })}</span>
         <div className="ml-auto flex items-center gap-1">
-          <button type="button" title="横向 / 纵向排布" onClick={() => commit(autoLayout({ ...laid, direction: laid.direction === "TB" ? "LR" : "TB" }))} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] hover:bg-accent">
-            <LayoutGrid className="size-3" />{laid.direction === "TB" ? "纵向" : "横向"}
+          <button type="button" title=tr("Toggle horizontal / vertical") onClick={() => commit(autoLayout({ ...laid, direction: laid.direction === "TB" ? "LR" : "TB" }))} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] hover:bg-accent">
+            <LayoutGrid className="size-3" />{laid.direction === "TB" ? tr("Vertical") : tr("Horizontal")}
           </button>
-          <button type="button" title="自动整理" onClick={() => commit(autoLayout(laid))} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] hover:bg-accent">
-            <Sparkles className="size-3" />整理
+          <button type="button" title="{tr("Auto layout")}" onClick={() => commit(autoLayout(laid))} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] hover:bg-accent">
+            <Sparkles className="size-3" />{tr("Tidy")}
           </button>
           <button type="button" onClick={() => setTab(tab === "canvas" ? "code" : "canvas")} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent">
-            {tab === "canvas" ? <><Code2 className="size-3" />数据</> : <><Eye className="size-3" />画布</>}
+            {tab === "canvas" ? <><Code2 className="size-3" />{tr("Data")}</> : <><Eye className="size-3" />{tr("Canvas")}</>}
           </button>
         </div>
       </div>
@@ -343,17 +366,17 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
             rows={Math.min(18, Math.max(6, block.text.split("\n").length + 1))}
             className="block w-full bg-transparent p-3 font-mono text-xs leading-5 outline-none"
           />
-          <div className="border-t border-border/60 px-2.5 py-1.5 text-[11px] text-muted-foreground">高级：这里是流程图存档（JSON），一般不需要手动改，回到画布点选编辑即可。</div>
+          <div className="border-t border-border/60 px-2.5 py-1.5 text-[11px] text-muted-foreground">{tr("Advanced: flowchart archive (JSON). No need to edit by hand — use the canvas.")}</div>
         </div>
       ) : !parsed ? (
         <div>
           {isLegacyChart || parseError ? <LegacyPreview text={block.text} /> : null}
           {parseError && !isLegacyChart && (
-            <div className="mx-3 mb-2 rounded-md bg-destructive/10 px-2.5 py-2 text-xs text-destructive">存档损坏（JSON 解析失败），可清空重画，老数据不会自动删除——先复制备份再清空。</div>
+            <div className="mx-3 mb-2 rounded-md bg-destructive/10 px-2.5 py-2 text-xs text-destructive">{tr("Archive corrupted (JSON parse failed). Clear & redraw; old data is kept — back it up first.")}</div>
           )}
           <div className="flex flex-wrap gap-1.5 border-t border-border/60 p-2.5">
-            <button type="button" onClick={() => { commit(TEMPLATES[0].make()); setSelNode(null); setSelEdge(null); setTab("canvas") }} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white">用审批流模板开始</button>
-            <button type="button" onClick={() => { commit({ nodes: [], edges: [], direction: "LR" }); setSelNode(null); setSelEdge(null) }} className="rounded-lg border px-3 py-1.5 text-xs hover:bg-accent">清空重画</button>
+            <button type="button" onClick={() => { commit(TEMPLATES[0].make()); setSelNode(null); setSelEdge(null); setTab("canvas") }} className="rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white">{tr("Start with the approval template")}</button>
+            <button type="button" onClick={() => { commit({ nodes: [], edges: [], direction: "LR" }); setSelNode(null); setSelEdge(null) }} className="rounded-lg border px-3 py-1.5 text-xs hover:bg-accent">{tr("Start over")}</button>
           </div>
         </div>
       ) : laid.nodes.length === 0 ? (
@@ -361,12 +384,12 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
         <div className="p-4 sm:p-6">
           <div className="mx-auto max-w-md rounded-2xl border border-dashed border-brand/40 bg-gradient-to-br from-brand-soft/40 to-transparent p-5 text-center">
             <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-xl bg-brand text-white"><GitBranch className="size-5" /></div>
-            <div className="text-sm font-semibold">从第一个节点开始</div>
-            <div className="mt-1 text-xs leading-5 text-muted-foreground">不用学语法：加节点 → 双击改字 → 拖动摆放 → 一键连线</div>
+            <div className="text-sm font-semibold">{tr("Start with your first node")}</div>
+            <div className="mt-1 text-xs leading-5 text-muted-foreground">{tr("No syntax to learn: add nodes → double-click to rename → drag to arrange → one-click connect")}</div>
             <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-              <button type="button" onClick={addNode} className="flex items-center gap-1 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white"><Plus className="size-3.5" />添加第一个节点</button>
+              <button type="button" onClick={addNode} className="flex items-center gap-1 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white"><Plus className="size-3.5" />{tr("Add your first node")}</button>
               {TEMPLATES.map((t) => (
-                <button key={t.name} type="button" title={t.desc} onClick={() => { commit(t.make()); setSelNode(null); setSelEdge(null); setConnectFrom(null) }} className="rounded-lg border px-3 py-1.5 text-xs hover:bg-accent">{t.name}模板</button>
+                <button key={t.name} type="button" title={t.desc} onClick={() => { commit(t.make()); setSelNode(null); setSelEdge(null); setConnectFrom(null) }} className="rounded-lg border px-3 py-1.5 text-xs hover:bg-accent">{t.name}{tr("Template")}</button>
               ))}
             </div>
           </div>
@@ -376,20 +399,20 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
           {/* 画布 */}
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1 px-2.5 pt-2">
-              <button type="button" onClick={addNode} className="flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1.5 text-xs font-medium text-white"><Plus className="size-3.5" />节点</button>
+              <button type="button" onClick={addNode} className="flex items-center gap-1 rounded-lg bg-brand px-2.5 py-1.5 text-xs font-medium text-white"><Plus className="size-3.5" />{tr("Node")}</button>
               {selNode ? (
                 <button
                   type="button"
                   onClick={() => setConnectFrom(connectFrom === selNode ? null : selNode)}
                   className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium ${connectFrom === selNode ? "bg-amber-500 text-white" : "border hover:bg-accent"}`}
                 >
-                  <Link2 className="size-3.5" />{connectFrom === selNode ? "点目标节点完成连线…" : "连线"}
+                  <Link2 className="size-3.5" />{connectFrom === selNode ? tr("Click a target node to finish connecting…") : "连线"}
                 </button>
               ) : (
-                <button type="button" disabled title="先点选一个节点" className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs opacity-40 border"><Link2 className="size-3.5" />连线</button>
+                <button type="button" disabled title={tr("Select a node first")} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs opacity-40 border"><Link2 className="size-3.5" />{tr("Connect")}</button>
               )}
-              {connectFrom && <span className="animate-pulse text-[11px] text-amber-600">正在连线：再点一个节点作为终点（点空白取消）</span>}
-              <div className="ml-auto hidden items-center gap-1 text-[11px] text-muted-foreground md:flex"><MousePointer2 className="size-3" />拖动节点 · 双击改字 · 点连线可改标注</div>
+              {connectFrom && <span className="animate-pulse text-[11px] text-amber-600">{tr("Connecting… click another node as the target (click empty space to cancel)")}</span>}
+              <div className="ml-auto hidden items-center gap-1 text-[11px] text-muted-foreground md:flex"><MousePointer2 className="size-3" />{tr("Drag nodes · double-click to rename · click connections to label")}</div>
             </div>
             <div className="overflow-auto p-2.5 thin-scrollbar">
               <svg
@@ -436,7 +459,7 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
                       {(e.label || active) && (
                         <g transform={`translate(${mx},${my})`}>
                           <rect x={-26} y={-10} width={52} height={18} rx={9} fill={active ? "#8b5cf6" : "white"} stroke={active ? "#8b5cf6" : "#e4e4e7"} />
-                          <text y={3.5} fontSize={10} textAnchor="middle" fill={active ? "white" : "#52525b"}>{e.label || "标注"}</text>
+                          <text y={3.5} fontSize={10} textAnchor="middle" fill={active ? "white" : "#52525b"}>{e.label || tr("Label")}</text>
                         </g>
                       )}
                     </g>
@@ -520,14 +543,14 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
             <div className="space-y-3 p-3">
               {sel && (
                 <div className="space-y-2 rounded-lg border bg-muted/20 p-2">
-                  <div className="text-[11px] font-semibold">节点设置</div>
+                  <div className="text-[11px] font-semibold">{tr("Node settings")}</div>
                   <input
                     value={sel.label}
                     onChange={(e) => commit({ ...laid, nodes: laid.nodes.map((m) => m.id === sel.id ? { ...m, label: e.target.value } : m) })}
                     className="w-full rounded-md border bg-background px-2 py-1 text-xs outline-none focus:border-brand"
                   />
                   <div className="flex gap-1">
-                    {([["rect", Square, "方框"], ["diamond", Diamond, "判断"], ["ellipse", Circle, "起止"]] as const).map(([k, Icon, tip]) => (
+                    {([["rect", Square, tr("Rectangle")], ["diamond", Diamond, tr("Decision")], ["ellipse", Circle, tr("Start/End")]] as const).map(([k, Icon, tip]) => (
                       <button key={k} type="button" title={tip}
                         onClick={() => commit({ ...laid, nodes: laid.nodes.map((m) => m.id === sel.id ? { ...m, shape: k } : m) })}
                         className={`flex flex-1 items-center justify-center gap-0.5 rounded-md border px-1 py-1 text-[11px] ${(sel.shape ?? "rect") === k ? "border-brand bg-brand-soft font-semibold" : "hover:bg-accent"}`}>
@@ -544,46 +567,52 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
                     ))}
                   </div>
                   <div className="flex gap-1">
-                    <button type="button" onClick={() => setConnectFrom(sel.id)} className="flex flex-1 items-center justify-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-accent"><ArrowRight className="size-3" />从此连线</button>
-                    <button type="button" onClick={() => delNode(sel.id)} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-destructive hover:bg-destructive/10"><Trash2 className="size-3" />删除</button>
+                    <button type="button" onClick={() => setConnectFrom(sel.id)} className="flex flex-1 items-center justify-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-accent"><ArrowRight className="size-3" />{tr("Connect from here")}</button>
+                    <button type="button" onClick={() => delNode(sel.id)} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-destructive hover:bg-destructive/10"><Trash2 className="size-3" />{tr("Delete")}</button>
                   </div>
                 </div>
               )}
               {selEdge !== null && laid.edges[selEdge] && (
                 <div className="space-y-2 rounded-lg border border-brand/30 bg-brand-soft/20 p-2">
-                  <div className="flex items-center gap-1 text-[11px] font-semibold"><Unlink className="size-3" />连线设置</div>
+                  <div className="flex items-center gap-1 text-[11px] font-semibold"><Unlink className="size-3" />{tr("Connection settings")}</div>
                   <div className="truncate text-[11px] text-muted-foreground">
                     {(byId.get(laid.edges[selEdge].from)?.label ?? "?") + " → " + (byId.get(laid.edges[selEdge].to)?.label ?? "?")}
                   </div>
                   <input
                     value={laid.edges[selEdge].label ?? ""}
-                    placeholder="标注，如：通过 / 驳回（可空）"
+                    placeholder=tr("Label, e.g. Approved / Rejected (optional)")
                     onChange={(e) => {
                       const edges = laid.edges.map((x, k) => k === selEdge ? { ...x, label: e.target.value } : x)
                       commit({ ...laid, edges })
                     }}
                     className="w-full rounded-md border bg-background px-2 py-1 text-xs outline-none focus:border-brand"
                   />
-                  <button type="button" onClick={() => delEdge(selEdge)} className="flex w-full items-center justify-center gap-1 rounded-md px-2 py-1 text-[11px] text-destructive hover:bg-destructive/10"><Trash2 className="size-3" />删除这条连线</button>
+                  <button type="button" onClick={() => delEdge(selEdge)} className="flex w-full items-center justify-center gap-1 rounded-md px-2 py-1 text-[11px] text-destructive hover:bg-destructive/10"><Trash2 className="size-3" />{tr("Delete this connection")}</button>
                 </div>
               )}
               {!sel && selEdge === null && (
                 <div className="rounded-lg border border-dashed p-2 text-[11px] leading-5 text-muted-foreground">
-                  点一个<b>节点</b>改字换色，<br />点一条<b>连线</b>加标注，<br />拖节点随意摆放。
+                  {tr("Click a")}<b>{tr("Node")}</b>{tr("Rename and recolor,")}<br />{tr("Click a")}<b>{tr("Connection")}</b>{tr("add labels,")}<br />{tr("drag nodes anywhere.")}
                 </div>
               )}
               <div className="space-y-1">
-                <div className="text-[11px] font-semibold text-muted-foreground">快捷操作</div>
+                <div className="text-[11px] font-semibold text-muted-foreground">{tr("Quick actions")}</div>
                 <div className="flex flex-wrap gap-1">
-                  <button type="button" onClick={addNode} className="rounded-md border px-2 py-1 text-[11px] hover:bg-accent">+ 节点</button>
-                  <button type="button" onClick={() => commit(autoLayout(laid))} className="rounded-md border px-2 py-1 text-[11px] hover:bg-accent">自动整理</button>
-                  <button type="button" onClick={() => { void navigator.clipboard.writeText(block.text).then(() => { toast.success(tr("Copied")); setCopied(true); setTimeout(() => setCopied(false), 1200) }) }} className="flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-accent">{copied ? <Check className="size-3 text-green-600" /> : <Copy className="size-3" />}复制数据</button>
+                  <button type="button" onClick={addNode} className="rounded-md border px-2 py-1 text-[11px] hover:bg-accent">+ {tr("Node")}</button>
+                  <button type="button" onClick={() => commit(autoLayout(laid))} className="rounded-md border px-2 py-1 text-[11px] hover:bg-accent">{tr("Auto layout")}</button>
+                  <button type="button" onClick={() => { void navigator.clipboard.writeText(block.text).then(() => { toast.success(tr("Copied")); setCopied(true); setTimeout(() => setCopied(false), 1200) }) }} className="flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-accent">{copied ? <Check className="size-3 text-green-600" /> : <Copy className="size-3" />}{tr("Copy data")}</button>
                 </div>
                 <div className="flex flex-wrap gap-1 pt-1">
                   {TEMPLATES.map((t) => (
-                    <button key={t.name} type="button" title={t.desc} onClick={() => { if (laid.nodes.length && !window.confirm("用模板会覆盖当前流程，继续吗？")) return; commit(t.make()); setSelNode(null); setSelEdge(null); setConnectFrom(null) }} className="rounded-md bg-muted px-2 py-1 text-[11px] hover:bg-accent">{t.name}模板</button>
+                    laid.nodes.length ? (
+                      <InlineConfirm key={t.name} label={<span title={t.desc}>{t.name}{tr("Template")}</span>} confirmLabel={tr("Confirm overwrite?")} onConfirm={() => { commit(t.make()); setSelNode(null); setSelEdge(null); setConnectFrom(null) }} className="rounded-md bg-muted px-2 py-1 text-[11px] hover:bg-accent" />
+                    ) : (
+                      <button key={t.name} type="button" title={t.desc} onClick={() => { commit(t.make()); setSelNode(null); setSelEdge(null); setConnectFrom(null) }} className="rounded-md bg-muted px-2 py-1 text-[11px] hover:bg-accent">{t.name}{tr("Template")}</button>
+                    )
                   ))}
-                  <button type="button" onClick={() => { if (!laid.nodes.length || window.confirm("清空所有节点和连线？")) { commit({ nodes: [], edges: [], direction: "LR" }); setSelNode(null); setSelEdge(null) } }} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent"><Eraser className="size-3" />清空</button>
+                  {laid.nodes.length ? (
+                    <InlineConfirm label={<span className="flex items-center gap-1"><Eraser className="size-3" />{tr("Clear")}</span>} confirmLabel={tr("Confirm clear?")} onConfirm={() => { commit({ nodes: [], edges: [], direction: "LR" }); setSelNode(null); setSelEdge(null) }} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent" />
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -592,7 +621,7 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
       )}
       {/* 底栏小字 */}
       <div className="hidden border-t border-border/60 px-2.5 py-1 text-[11px] text-muted-foreground sm:block">
-        <Braces className="mr-1 inline size-3" />自动存为结构化数据 · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => setTab(tab === "canvas" ? "code" : "canvas")}>查看</button> · 老的 Mermaid 流程请用 <code className="rounded bg-muted px-1">diagram</code> 块
+        <Braces className="mr-1 inline size-3" />{tr("Auto-saved as structured data")} · <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => setTab(tab === "canvas" ? "code" : "canvas")}>{tr("View")}</button> · {tr("For classic Mermaid use the")} <code className="rounded bg-muted px-1">diagram</code> 块
       </div>
     </div>
   )
@@ -601,7 +630,7 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
 function StaticCanvas({ flow }: { flow: FlowData }) {
   const laid = ensurePos(flow)
   const byId = new Map(laid.nodes.map((n) => [n.id, n]))
-  if (!laid.nodes.length) return <div className="p-6 text-center text-xs text-muted-foreground">（空流程图）</div>
+  if (!laid.nodes.length) return <div className="p-6 text-center text-xs text-muted-foreground">{tr("(Empty flowchart)")}</div>
   return (
     <div className="overflow-auto p-2.5 thin-scrollbar">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[480px] h-[320px] rounded-lg border bg-muted/20">

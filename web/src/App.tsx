@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react"
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom"
 import { Splash } from "@/components/app/splash"
+import { RouteErrorBoundary } from "@/components/app/route-error-boundary"
 
 const AuthPage = lazy(() =>
   import("@/components/auth/auth-page").then((module) => ({ default: module.AuthPage })),
@@ -36,10 +37,10 @@ export default function App() {
     <BrowserRouter>
       <Suspense fallback={<Splash />}>
         <Routes>
-          <Route path="/login" element={<AuthPage />} />
+          <Route path="/login" element={<RouteErrorBoundary><AuthPage /></RouteErrorBoundary>} />
           <Route path="/auth/callback" element={<OIDCCallbackPage />} />
           <Route path="/ops" element={<OpsView />} />
-          <Route element={<AppShell />}>
+          <Route element={<RouteErrorBoundary><AppShell /></RouteErrorBoundary>}>
             <Route index element={<HomeView />} />
             <Route path="page/:pageId" element={<PageRoute />} />
             <Route path="inbox" element={<AgentInboxView />} />

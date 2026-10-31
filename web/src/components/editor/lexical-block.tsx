@@ -14,11 +14,13 @@ import {
 } from "lexical"
 import {
   Bold,
+  Check,
   Code2,
   Italic,
   Link2,
   Strikethrough,
   Underline,
+  X,
 } from "lucide-react"
 import { LexicalComposer } from "@lexical/react/LexicalComposer"
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin"
@@ -368,6 +370,8 @@ function FloatingToolbar() {
   const [editor] = useLexicalComposerContext()
   const [rect, setRect] = useState<{ left: number; top: number } | null>(null)
   const [formats, setFormats] = useState<Set<TextFormatType>>(new Set())
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkURL, setLinkURL] = useState("https://")
 
   useEffect(() => {
     function readSelection() {
@@ -439,7 +443,7 @@ function FloatingToolbar() {
 
   return createPortal(
     <div
-      className="fixed z-[70] flex -translate-x-1/2 items-center gap-0.5 rounded-lg border bg-popover p-1 shadow-xl animate-in fade-in-0 zoom-in-95"
+      className="fixed z-40 flex -translate-x-1/2 items-center gap-0.5 rounded-lg border bg-popover p-1 shadow-xl animate-in fade-in-0 zoom-in-95"
       style={{ left: rect.left, top: rect.top }}
       onMouseDown={(event) => event.preventDefault()}
     >
@@ -459,17 +463,43 @@ function FloatingToolbar() {
         </button>
       ))}
       <span className="mx-0.5 h-5 w-px bg-border" />
-      <button
-        type="button"
-        aria-label={tr("Link")}
-        onClick={() => {
-          const url = window.prompt(tr("Link URL"), "https://")
-          if (url) editor.dispatchCommand(TOGGLE_LINK_COMMAND, url)
-        }}
-        className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground"
-      >
-        <Link2 className="size-3.5" />
-      </button>
+      {linkOpen ? (
+        <form
+          className="flex items-center gap-1"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (linkURL.trim()) editor.dispatchCommand(TOGGLE_LINK_COMMAND, linkURL.trim())
+            setLinkOpen(false)
+          }}
+        >
+          <input
+            autoFocus
+            value={linkURL}
+            onChange={(e) => setLinkURL(e.target.value)}
+            placeholder={tr("Link URL")}
+            inputMode="url"
+            className="h-7 w-44 rounded-md border bg-background px-2 text-xs outline-none focus:border-brand"
+          />
+          <button type="submit" aria-label={tr("Apply")} className="flex size-7 items-center justify-center rounded-md bg-brand text-xs font-medium text-white">
+            <Check className="size-3.5" />
+          </button>
+          <button type="button" aria-label={tr("Cancel")} onClick={() => setLinkOpen(false)} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent">
+            <X className="size-3.5" />
+          </button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          aria-label={tr("Link")}
+          onClick={() => {
+            setLinkURL("https://")
+            setLinkOpen(true)
+          }}
+          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground"
+        >
+          <Link2 className="size-3.5" />
+        </button>
+      )}
     </div>,
     document.body,
   )

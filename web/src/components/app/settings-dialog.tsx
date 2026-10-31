@@ -664,7 +664,7 @@ function DeveloperSettings() {
               variant="outline"
               size="icon-sm"
               onClick={() => void navigator.clipboard.writeText(newToken).then(() => toast.success("Token copied"))}
-              aria-label="Copy token"
+              aria-label={tr("Copy token")}
             >
               <Copy className="size-3.5" />
             </Button>

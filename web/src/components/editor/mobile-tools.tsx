@@ -12,7 +12,7 @@ export function MobileToolButton({
       type="button"
       onClick={() => { if ("vibrate" in navigator) try { navigator.vibrate(10) } catch {}; onClick() }}
       aria-label={label}
-      className="flex min-w-[56px] flex-col items-center gap-1 rounded-xl px-2.5 py-2 text-[11px] font-medium text-muted-foreground transition active:scale-95 active:bg-accent touch-manipulation"
+      className="flex min-w-[56px] flex-col items-center gap-1 rounded-xl px-2.5 py-2 text-[11px] font-medium text-muted-foreground transition outline-none active:scale-95 active:bg-accent touch-manipulation focus-visible:ring-2 focus-visible:ring-ring/50"
     >
       <span className="flex size-7 items-center justify-center rounded-lg bg-muted/60">{children}</span>
       <span className="text-[9px] leading-none">{label}</span>

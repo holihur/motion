@@ -212,14 +212,21 @@ export function AgentInboxView() {
     }
   }
 
+  const [deleteTarget, setDeleteTarget] = useState<Agent | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
   async function deleteAgent(agent: Agent) {
-    if (!confirm(tr("Delete agent “{name}”?", { name: agent.name }))) return
+    if (deleting) return
+    setDeleting(true)
     try {
       await api.agents.remove(agent.id)
       toast.success(tr("Agent deleted"))
+      setDeleteTarget(null)
       await load()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not delete agent"))
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -394,7 +401,7 @@ export function AgentInboxView() {
                               <Pencil className="size-3" /> {tr("Edit")}
                             </Button>
                             {!agent.isDefault && (
-                              <Button variant="ghost" size="sm" className="h-7 gap-1 text-[11px] text-muted-foreground hover:text-destructive" onClick={() => void deleteAgent(agent)}>
+                              <Button variant="ghost" size="sm" className="h-7 gap-1 text-[11px] text-muted-foreground hover:text-destructive" onClick={() => setDeleteTarget(agent)}>
                                 <Trash2 className="size-3" /> {tr("Delete")}
                               </Button>
                             )}
@@ -426,6 +433,22 @@ export function AgentInboxView() {
         onRetry={retryWithReason}
         reviewing={reviewing}
       />
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{tr("Delete agent")}</DialogTitle>
+            <DialogDescription>
+              {deleteTarget ? tr("Delete agent “{name}”?", { name: deleteTarget.name }) : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>{tr("Cancel")}</Button>
+            <Button variant="destructive" disabled={deleting} onClick={() => { if (deleteTarget) void deleteAgent(deleteTarget) }}>
+              {deleting && <Loader2 className="size-3.5 animate-spin" />} {tr("Delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <TemplateDialog
         open={templateOpen}
         onOpenChange={setTemplateOpen}
@@ -442,7 +465,7 @@ export function AgentInboxView() {
         onOpenProposal={(p) => { setDetailAgent(null); setSelected(p) }}
         onDispatch={(id) => { setDetailAgent(null); setDispatchAgent(id); setTab("pending") }}
         onEdit={(a) => { setDetailAgent(null); setAgentDialog({ open: true, agent: a }) }}
-        onDelete={(a) => { setDetailAgent(null); void deleteAgent(a) }}
+        onDelete={(a) => { setDetailAgent(null); setDeleteTarget(a) }}
       />
       <AgentDialog
         open={agentDialog.open}
@@ -771,7 +794,7 @@ function AgentDetailDialog({ agent, runs, proposals, reviewing, onClose, onOpenP
           {agentRuns.length === 0 && <div className="text-[11px] text-muted-foreground">{tr("No runs yet")}</div>}
           {agentRuns.slice(0, 5).map((r) => (
             <div key={r.id} className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs">
-              <span className="size-1.5 shrink-0 rounded-full" style={{
+              <span title={r.status} className="size-1.5 shrink-0 rounded-full" style={{
                 background: r.status === "succeeded" ? "#10b981" : r.status === "failed" ? "#ef4444" : r.status === "running" ? "#3b82f6" : "#a1a1aa",
               }} />
               <span className="min-w-0 flex-1 truncate text-muted-foreground">“{r.prompt}”</span>
@@ -840,7 +863,7 @@ function RunsList({ runs, loading, reviewing, onRetry }: {
     <div className="space-y-2">
       {runs.map((run) => (
         <div key={run.id} className="flex items-start gap-3 rounded-xl border bg-card px-3 py-2.5">
-          <span className="mt-1.5 size-2 shrink-0 rounded-full" style={{
+          <span title={run.status} className="mt-1.5 size-2 shrink-0 rounded-full" style={{
             background: run.status === "succeeded" ? "#10b981" : run.status === "failed" ? "#ef4444" : run.status === "running" ? "#3b82f6" : "#a1a1aa",
           }} />
           <div className="min-w-0 flex-1">

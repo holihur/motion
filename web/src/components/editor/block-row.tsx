@@ -32,6 +32,7 @@ import { toast } from "sonner"
 import type { Block, BlockType, Comment, Member } from "@/lib/types"
 import { BLOCK_LABELS, SLASH_COMMANDS } from "@/components/editor/commands"
 import { CALLOUT_COLORS, CALLOUT_EMOJI } from "@/lib/covers"
+import { EmojiPicker } from "@/components/editor/emoji-picker"
 import { cn, formatRelative } from "@/lib/utils"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { useTableBlock } from "@/components/editor/use-table-block"
@@ -370,9 +371,15 @@ export function BlockRow(props: BlockRowProps) {
               CALLOUT_COLORS[color] ?? CALLOUT_COLORS.amber,
             )}
           >
-            <button type="button" onClick={() => { if (readOnly) return; const next = prompt(tr("Callout icon"), icon) ?? icon; if (next) onUpdate({ icon: next }) }} className={cn("mt-[1px] shrink-0 select-none text-[17px] leading-6", !readOnly && "cursor-pointer hover:scale-110")} title={readOnly ? undefined : tr("Change icon")}>
-              {icon}
-            </button>
+            {readOnly ? (
+              <span className="mt-[1px] shrink-0 select-none text-[17px] leading-6">{icon}</span>
+            ) : (
+              <EmojiPicker value={icon} onSelect={(next) => { if (next) onUpdate({ icon: next }) }}>
+                <button type="button" className="mt-[1px] shrink-0 cursor-pointer select-none text-[17px] leading-6 transition hover:scale-110" title={tr("Change icon")}>
+                  {icon}
+                </button>
+              </EmojiPicker>
+            )}
             {renderEditable("text-[15px] leading-[1.7] py-0")}
           </div>
         )
@@ -521,9 +528,9 @@ export function BlockRow(props: BlockRowProps) {
                             <button
                               type="button"
                               onClick={() => sortByColumn(columnIndex)}
-                              aria-label="Sort column"
-                              title="Sort column"
-                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition group-hover/head:text-muted-foreground hover:bg-accent hover:text-foreground"
+                              aria-label={tr("Sort column")}
+                              title={tr("Sort column")}
+                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/head:text-muted-foreground hover:bg-accent hover:text-foreground"
                             >
                               <ArrowUp className="size-3" />
                             </button>
@@ -533,7 +540,7 @@ export function BlockRow(props: BlockRowProps) {
                               type="button"
                               onClick={() => setAlignment(columnIndex, aligns[columnIndex] === "left" ? "center" : aligns[columnIndex] === "center" ? "right" : "left")}
                               aria-label={tr("Align column")}
-                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition group-hover/head:text-muted-foreground hover:bg-accent hover:text-foreground"
+                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/head:text-muted-foreground hover:bg-accent hover:text-foreground"
                             >
                               {aligns[columnIndex] === "center" ? <AlignCenter className="size-3" /> : aligns[columnIndex] === "right" ? <AlignRight className="size-3" /> : <AlignLeft className="size-3" />}
                             </button>
@@ -542,7 +549,7 @@ export function BlockRow(props: BlockRowProps) {
                             <button
                               type="button"
                               onClick={() => removeColumn(columnIndex)}
-                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition group-hover/head:text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
+                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/head:text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
                               aria-label={tr("Delete column")}
                             >
                               <X className="size-3" />
@@ -584,7 +591,7 @@ export function BlockRow(props: BlockRowProps) {
                         {!readOnly && table.rows.length > 1 && <button
                           type="button"
                           onClick={() => removeRow(rowIndex)}
-                          className="flex size-6 items-center justify-center rounded text-muted-foreground/0 transition group-hover/row:text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
+                          className="flex size-6 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/row:text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
                           aria-label={tr("Delete row")}
                         >
                           <X className="size-3" />
@@ -661,7 +668,14 @@ export function BlockRow(props: BlockRowProps) {
                 className="block w-full resize-y bg-transparent p-3 font-mono text-[12px] leading-5 outline-none placeholder:text-muted-foreground/50"
               />
             ) : (
-              <div className="group/diagram relative cursor-zoom-in" onClick={() => setDiagramZoom(true)} title={tr("Click to zoom")}>
+              <div
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDiagramZoom(true) } }}
+                className="group/diagram relative cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-brand/40 rounded-lg"
+                onClick={() => setDiagramZoom(true)}
+                title={tr("Click to zoom")}
+              >
                 <MermaidDiagram source={block.text} />
                 <span className="pointer-events-none absolute right-2 top-2 hidden items-center gap-1 rounded-md border bg-background/85 px-2 py-1 text-[10px] text-muted-foreground shadow-sm backdrop-blur group-hover/diagram:flex">
                   <Maximize2 className="size-3" /> {tr("Click to zoom")}
@@ -685,7 +699,7 @@ export function BlockRow(props: BlockRowProps) {
             >
               <hr className={style === "dashed" ? "border-dashed" : style === "dotted" ? "border-dotted" : "border-solid"} style={{ borderColor: "var(--border)" }} />
               {!readOnly && (
-                <div className="mt-1 hidden justify-center gap-1 opacity-0 transition-opacity group-hover/divider:opacity-100 group-focus-within/divider:opacity-100 sm:flex">
+                <div className="mt-1 hidden justify-center gap-1 opacity-0 transition-opacity max-md:opacity-100 group-hover/divider:opacity-100 group-focus-within/divider:opacity-100 sm:flex">
                   {["solid","dashed","dotted"].map((s) => (
                     <button key={s} type="button" onClick={() => onUpdate({ color: s })} className={cn("rounded px-2 py-0.5 text-[10px] capitalize", style===s ? "bg-accent font-medium" : "text-muted-foreground hover:bg-accent")}>{s}</button>
                   ))}
@@ -825,12 +839,12 @@ export function BlockRow(props: BlockRowProps) {
               type="button"
               onClick={(event) => onInsertAfter(event.currentTarget.getBoundingClientRect())}
               className="flex size-5 items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground"
-              aria-label="Add block below"
+              aria-label={tr("Add block below")}
             >
               <Plus className="size-3.5" />
             </button>
           </TooltipTrigger>
-          <TooltipContent>Add block below</TooltipContent>
+          <TooltipContent>{tr("Add block below")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -843,13 +857,13 @@ export function BlockRow(props: BlockRowProps) {
                 onDragStart()
               }}
               onDragEnd={onDragEnd}
-              className="flex size-5 cursor-grab items-center justify-center rounded text-muted-foreground opacity-[0.12] transition hover:bg-accent hover:text-foreground hover:opacity-100 group-hover/block:opacity-100 active:cursor-grabbing"
-              aria-label="Drag block"
+              className="flex size-7 cursor-grab items-center justify-center rounded text-muted-foreground opacity-60 transition hover:bg-accent hover:text-foreground hover:opacity-100 group-hover/block:opacity-100 active:cursor-grabbing md:size-5 md:opacity-[0.12]"
+              aria-label={tr("Drag block")}
             >
               <GripVertical className="size-3.5" />
             </button>
           </TooltipTrigger>
-          <TooltipContent>Drag to move</TooltipContent>
+          <TooltipContent>{tr("Drag to move")}</TooltipContent>
         </Tooltip>
         <BlockMenu
           block={block}
@@ -874,7 +888,7 @@ export function BlockRow(props: BlockRowProps) {
             <button
               type="button"
               className="flex size-5 items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground data-[state=open]:bg-accent"
-              aria-label="Block options"
+              aria-label={tr("Block options")}
             >
               <MoreHorizontal className="size-3.5" />
             </button>
@@ -995,7 +1009,7 @@ export function BlockRow(props: BlockRowProps) {
           trigger={
             <button
               type="button"
-              aria-label="Block options"
+              aria-label={tr("Block options")}
               className="flex size-6 items-center justify-center rounded text-muted-foreground/40 hover:bg-accent hover:text-foreground data-[state=open]:bg-accent"
             >
               <MoreVertical className="size-3.5" />

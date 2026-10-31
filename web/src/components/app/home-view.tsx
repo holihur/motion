@@ -131,7 +131,7 @@ export function HomeView() {
             type="button"
             onClick={() => setSettingsOpen(true)}
             className="ml-1 rounded-full ring-offset-2 transition hover:ring-2 hover:ring-border"
-            aria-label="Open settings"
+            aria-label={tr("Open settings")}
           >
             <Avatar className="size-6">
               <AvatarFallback>{initials(user?.name ?? "M")}</AvatarFallback>
@@ -174,6 +174,20 @@ export function HomeView() {
             )}
           </div>
 
+          {!showOnboarding && (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem("motion.onboarding.dismissed")
+                  setShowOnboarding(true)
+                }}
+                className="text-[11px] text-muted-foreground/70 underline-offset-4 hover:text-foreground hover:underline"
+              >
+                {tr("Replay the 60-second tour")}
+              </button>
+            </div>
+          )}
           {showOnboarding && (
             <OnboardingCard
               hasPages={pages.length > 0}
@@ -268,7 +282,7 @@ export function HomeView() {
                           trigger={
                             <button
                               type="button"
-                              aria-label="Page options"
+                              aria-label={tr("Page options")}
                               className="flex size-7 items-center justify-center rounded-md bg-background/80 text-muted-foreground shadow-sm ring-1 ring-border transition hover:bg-accent hover:text-foreground data-[state=open]:bg-accent"
                             >
                               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">

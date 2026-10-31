@@ -206,7 +206,7 @@ export function MentionPlugin({ members }: { members: Member[] }) {
   return createPortal(
     <div
       data-mention-popup
-      className="fixed z-[60] w-72 overflow-hidden rounded-xl border bg-popover p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95"
+      className="fixed z-40 w-72 overflow-hidden rounded-xl border bg-popover p-1.5 shadow-2xl animate-in fade-in-0 zoom-in-95"
       style={{ left: Math.min(popup.left, window.innerWidth - 300), top: Math.min(popup.top, window.innerHeight - 240) }}
     >
       <div className="px-2 pb-1.5 pt-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">

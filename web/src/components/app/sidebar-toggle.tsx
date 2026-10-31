@@ -3,6 +3,7 @@ import { useUIStore } from "@/stores/ui"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { tr } from "@/lib/i18n"
 
 export function SidebarToggle({ className }: { className?: string }) {
   const toggleCollapsed = useUIStore((state) => state.toggleSidebarCollapsed)
@@ -14,7 +15,7 @@ export function SidebarToggle({ className }: { className?: string }) {
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="Toggle sidebar"
+          aria-label={tr("Toggle sidebar")}
           className={cn("text-muted-foreground", className)}
           onClick={() => {
             if (window.innerWidth < 768) setSidebarOpen(true)

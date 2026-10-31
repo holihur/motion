@@ -221,7 +221,7 @@ function SidebarContent() {
             icon={<Inbox className="size-3.5" />}
             label={tr("Agent Inbox")}
             trailing={pendingProposals > 0 ? (
-              <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700 dark:text-amber-300">
+              <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
                 {pendingProposals}
               </span>
             ) : undefined}
@@ -474,7 +474,7 @@ function FavoriteRow({ page, active, readOnly = false }: { page: PageSummary; ac
         trigger={
           <button
             type="button"
-            aria-label="Page options"
+            aria-label={tr("Page options")}
             className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-sidebar-border/70 hover:text-foreground group-hover/fav:opacity-100 data-[state=open]:bg-sidebar-border/70 data-[state=open]:opacity-100 max-md:opacity-100"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">

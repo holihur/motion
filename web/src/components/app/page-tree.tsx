@@ -343,8 +343,32 @@ function TreeItem({
   onDragEnd: () => void
 }) {
   const navigate = useNavigate()
+  const pages = useWorkspaceStore((st) => st.pages)
+  const refreshPages = useWorkspaceStore((st) => st.refreshPages)
   const isActive = activeId === node.id
   const hasChildren = node.children.length > 0
+
+  async function moveVertical(dir: -1 | 1) {
+    if (readOnly) return
+    const siblings = pages
+      .filter((p) => (p.parentId ?? null) === (node.parentId ?? null))
+      .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title))
+    const idx = siblings.findIndex((p) => p.id === node.id)
+    const target = siblings[idx + dir]
+    if (!target) return
+    const without = siblings.filter((p) => p.id !== node.id)
+    const targetIdx = without.findIndex((p) => p.id === target.id)
+    const insert = dir === -1 ? targetIdx : targetIdx + 1
+    const before = without[insert - 1]
+    const after = without[insert]
+    const order = before && after ? (before.order + after.order) / 2 : before ? before.order + 1024 : after ? after.order - 1024 : 1024
+    try {
+      await api.pages.move(node.id, { parentId: node.parentId ?? null, order })
+      await refreshPages()
+    } catch {
+      toast.error(tr("Could not move page"))
+    }
+  }
   const isOpen = expanded.has(node.id)
   const rowRef = useRef<HTMLDivElement>(null)
 
@@ -440,6 +464,8 @@ function TreeItem({
           <PageActionsMenu
             page={node}
             readOnly={readOnly}
+            onMoveUp={() => void moveVertical(-1)}
+            onMoveDown={() => void moveVertical(1)}
             align="start"
             trigger={
               <button

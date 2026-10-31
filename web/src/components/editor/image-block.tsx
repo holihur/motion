@@ -424,6 +424,13 @@ export function ImageBlock({
                 loading="lazy"
                 decoding="async"
                 onError={() => setImageError(true)}
+                onLoad={(e) => {
+                  const img = e.currentTarget
+                  if (img.naturalWidth && img.naturalHeight) {
+                    img.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`
+                  }
+                }}
+                style={{ aspectRatio: "16 / 9" }}
                 className="max-h-[440px] w-full bg-muted/30 object-contain"
               />
             </button>

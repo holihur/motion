@@ -442,6 +442,7 @@ export function FileBlock({
             src={iframeSrc}
             title={name}
             loading="lazy"
+            sandbox="allow-same-origin allow-presentation"
             className={cn("w-full bg-white", pdfExpanded ? "h-[800px]" : "h-[480px]")}
           />
         </div>

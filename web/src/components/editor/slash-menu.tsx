@@ -138,7 +138,7 @@ export function SlashMenu({
             />
           </div>
         </div>
-        <div ref={listRef} className="max-h-[min(300px,50svh)] overflow-y-auto p-1.5 thin-scrollbar">
+        <div ref={listRef} role="listbox" aria-label={tr("Search blocks")} className="max-h-[min(300px,50svh)] overflow-y-auto p-1.5 thin-scrollbar">
           {commands.length === 0 ? (
             <div className="px-2 py-6 text-center text-xs text-muted-foreground">
               {tr("No matching blocks")}
@@ -155,6 +155,8 @@ export function SlashMenu({
                     <button
                       key={command.type}
                       type="button"
+                      role="option"
+                      aria-selected={globalIndex === state.selected}
                       data-index={globalIndex}
                       onMouseEnter={() => onHover(globalIndex)}
                       onMouseDown={(event) => event.preventDefault()}

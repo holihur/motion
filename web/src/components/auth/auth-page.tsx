@@ -104,9 +104,8 @@ export function AuthPage() {
     <div className="relative flex min-h-svh flex-col overflow-hidden bg-background lg:grid lg:grid-cols-[1.08fr_1fr]">
       {/* 呼吸雾：三层错峰起伏，营造呼吸感 */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 size-[42rem] rounded-full bg-brand/25 blur-3xl animate-breathe" />
-        <div className="absolute -bottom-52 right-[8%] size-[36rem] rounded-full bg-brand-two/25 blur-3xl animate-breathe-late" />
-        <div className="absolute left-[30%] top-[38%] size-[28rem] rounded-full bg-brand/15 blur-3xl animate-breathe-slower" />
+        <div className="absolute -left-40 -top-40 size-[40rem] rounded-full bg-brand/25 blur-3xl animate-breathe will-change-transform" />
+        <div className="absolute -bottom-52 right-[8%] size-[34rem] rounded-full bg-brand-two/25 blur-3xl animate-breathe-late will-change-transform" />
       </div>
 
       {/* Brand panel */}

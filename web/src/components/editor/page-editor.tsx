@@ -313,8 +313,15 @@ export function PageEditor() {
       if (patch.layoutId !== undefined) setPage((current) => (current ? { ...current, layoutId: patch.layoutId } : current))
       if ((patch as { isLayout?: boolean }).isLayout !== undefined) setPage((current) => (current ? { ...current, isLayout: (patch as { isLayout?: boolean }).isLayout } : current))
     }
+    function onOpenComments() {
+      setCommentsOpen(true)
+    }
+    window.addEventListener("motion:open-comments", onOpenComments)
     window.addEventListener("motion:page-meta", onMeta)
-    return () => window.removeEventListener("motion:page-meta", onMeta)
+    return () => {
+      window.removeEventListener("motion:open-comments", onOpenComments)
+      window.removeEventListener("motion:page-meta", onMeta)
+    }
   }, [pageId])
 
   useEffect(() => {
@@ -1181,7 +1188,7 @@ export function PageEditor() {
               "hidden items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] sm:flex",
               liveStatus === "connected"
                 ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                : "border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-200",
+                : "border-amber-500/20 bg-amber-500/15 text-amber-800 dark:text-amber-200",
             )}
             title={liveStatus === "connected" ? "Live collaboration connected" : "Reconnecting…"}
           >
@@ -1288,7 +1295,7 @@ export function PageEditor() {
       </header>
 
       {(liveStatus === "disconnected" || !online) && (
-        <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-1.5 text-[11px] text-amber-900 dark:text-amber-100">
+        <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/15 px-4 py-1.5 text-[11px] text-amber-900 dark:text-amber-100">
           <AlertCircle className="size-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">
             {!online
@@ -1298,7 +1305,7 @@ export function PageEditor() {
           <button
             type="button"
             onClick={() => realtimeRef.current?.retryNow()}
-            className="shrink-0 rounded border border-amber-600/30 px-2 py-0.5 font-medium transition hover:bg-amber-500/10"
+            className="shrink-0 rounded border border-amber-600/30 px-2 py-0.5 font-medium transition hover:bg-amber-500/15"
           >
             {tr("Retry now")}
           </button>
@@ -1306,7 +1313,7 @@ export function PageEditor() {
       )}
 
       {pageLocked && (
-        <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-1.5 text-[11px] text-amber-900 dark:text-amber-100">
+        <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/15 px-4 py-1.5 text-[11px] text-amber-900 dark:text-amber-100">
           <LockKeyhole className="size-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">
             {tr("This page is locked{name}. Editing is paused to prevent accidents.", {
@@ -1314,7 +1321,7 @@ export function PageEditor() {
             })}
           </span>
           {page.role !== "viewer" && (
-            <button type="button" onClick={() => void unlockPage()} className="shrink-0 rounded border border-amber-600/30 px-2 py-0.5 font-medium transition hover:bg-amber-500/10">
+            <button type="button" onClick={() => void unlockPage()} className="shrink-0 rounded border border-amber-600/30 px-2 py-0.5 font-medium transition hover:bg-amber-500/15">
               {tr("Unlock")}
             </button>
           )}
@@ -1325,7 +1332,7 @@ export function PageEditor() {
       )}
 
       {page.archived && (
-        <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs text-amber-900 dark:text-amber-100">
+        <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/15 px-4 py-2 text-xs text-amber-900 dark:text-amber-100">
           {tr("This page is in Trash.")}
           <button
             type="button"

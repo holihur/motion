@@ -1,4 +1,5 @@
 import { Check, Languages } from "lucide-react"
+import { tr } from "@/lib/i18n"
 import { LANGUAGES, ensureLanguageLoaded, getLanguage, setLanguage, type Language } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,7 +20,7 @@ export function LanguageToggle({ compact = false }: { compact?: boolean }) {
           variant="ghost"
           size={compact ? "icon-sm" : "sm"}
           className="gap-1.5 text-muted-foreground"
-          aria-label="Switch language"
+          aria-label={tr("Switch language")}
         >
           <Languages className="size-4" />
           {!compact && <span className="text-xs">{current.native}</span>}

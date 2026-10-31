@@ -153,7 +153,7 @@ export function TrashView() {
                         className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                         disabled={busy === page.id}
                         onClick={() => setPendingDelete(page)}
-                        aria-label="Delete forever"
+                        aria-label={tr("Delete forever")}
                       >
                         <Trash2 className="size-4" />
                       </Button>

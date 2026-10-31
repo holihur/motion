@@ -61,13 +61,15 @@ interface PageActionsProps {
   trigger?: React.ReactNode
   readOnly?: boolean
   onRenameRequest?: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }
 
 function safeFilename(name: string) {
   return name.replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim() || "page"
 }
 
-export function PageActionsMenu({ page, align = "start", trigger, readOnly = false, onRenameRequest }: PageActionsProps) {
+export function PageActionsMenu({ page, align = "start", trigger, readOnly = false, onRenameRequest, onMoveUp, onMoveDown }: PageActionsProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const createPage = useWorkspaceStore((state) => state.createPage)
@@ -213,7 +215,9 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
       window.setTimeout(() => URL.revokeObjectURL(href), 1000)
       toast.success(tr("Export ready"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not export page"))
+      toast.error(error instanceof Error ? error.message : tr("Could not export page"), {
+        action: { label: tr("Retry"), onClick: () => void exportFile(format) },
+      })
     }
   }
 
@@ -318,7 +322,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           {trigger ?? (
             <button
               type="button"
-              aria-label="Page options"
+              aria-label={tr("Page options")}
               className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent"
             >
               <MoreHorizontal className="size-3.5" />
@@ -355,6 +359,12 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           </DropdownMenuItem>}
           {!readOnly && !locked && <DropdownMenuItem onSelect={() => setThemeOpen(true)}>
             <Palette /> {tr("Page color")}
+          </DropdownMenuItem>}
+          {!readOnly && !locked && onMoveUp && <DropdownMenuItem onSelect={onMoveUp}>
+            <ArrowUp /> {tr("Move up")}
+          </DropdownMenuItem>}
+          {!readOnly && !locked && onMoveDown && <DropdownMenuItem onSelect={onMoveDown}>
+            <ArrowDown /> {tr("Move down")}
           </DropdownMenuItem>}
           {!readOnly && !locked && <DropdownMenuItem onSelect={() => setLayoutOpen(true)}>
             <FileText /> {tr("Page layout")}

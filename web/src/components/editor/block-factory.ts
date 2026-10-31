@@ -1,4 +1,5 @@
 import type { Block, BlockType, TableData } from "@/lib/types"
+import { tr } from "@/lib/i18n"
 import { uid } from "@/lib/utils"
 import { defaultChartTable, defaultGanttTable } from "@/components/editor/data-blocks"
 import { defaultColumnsTable } from "@/components/editor/link-blocks"
@@ -46,13 +47,13 @@ export function createBlock(type: BlockType = "paragraph"): Block {
             {
               direction: "LR",
               nodes: [
-                { id: "start", label: "开始", x: 100, y: 220, color: "blue", shape: "ellipse" },
-                { id: "step", label: "双击改字", x: 320, y: 220, color: "violet", shape: "rect" },
-                { id: "check", label: "判断条件?", x: 540, y: 220, color: "amber", shape: "diamond" },
+                { id: "start", label: tr("Start"), x: 100, y: 220, color: "blue", shape: "ellipse" },
+                { id: "step", label: tr("Double-click to rename"), x: 320, y: 220, color: "violet", shape: "rect" },
+                { id: "check", label: tr("Condition?"), x: 540, y: 220, color: "amber", shape: "diamond" },
               ],
               edges: [
                 { from: "start", to: "step" },
-                { from: "step", to: "check", label: "下一步" },
+                { from: "step", to: "check", label: tr("Next") },
               ],
             },
             null,

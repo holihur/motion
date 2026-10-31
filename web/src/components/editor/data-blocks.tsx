@@ -4,6 +4,12 @@ import { toast } from "sonner"
 import type { Block, TableData } from "@/lib/types"
 import { tr } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 const PALETTE = ["#0ea5e9", "#8b5cf6", "#f59e0b", "#10b981", "#ef4444", "#ec4899", "#14b8a6", "#6366f1"]
 const GANTT_COLUMNS = ["Task", "Start", "End", "Progress"]
@@ -148,19 +154,20 @@ export function GanttBlock({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, rowIndex) => (
+                {rows.slice(0, 200).map((row, rowIndex) => (
                   <tr key={rowIndex} className="group/gantt-row">
                     <td className="border-b p-1"><input value={row[0]} onChange={(event) => setCell(rowIndex, 0, event.target.value)} className="h-7 w-full rounded border bg-background px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/25" /></td>
                     <td className="border-b p-1"><input type="date" value={row[1]} onChange={(event) => setCell(rowIndex, 1, event.target.value)} className="h-7 w-full rounded border bg-background px-1 outline-none" /></td>
                     <td className="border-b p-1"><input type="date" value={row[2]} onChange={(event) => setCell(rowIndex, 2, event.target.value)} className="h-7 w-full rounded border bg-background px-1 outline-none" /></td>
                     <td className="border-b p-1"><input type="number" min={0} max={100} value={row[3]} onChange={(event) => setCell(rowIndex, 3, event.target.value)} className="h-7 w-16 rounded border bg-background px-1.5 outline-none" /></td>
                     <td className="border-b p-1 text-center">
-                      {rows.length > 1 && <button type="button" onClick={() => save(rows.filter((_, index) => index !== rowIndex))} aria-label={tr("Delete task")} className="rounded p-1 text-muted-foreground opacity-0 transition group-hover/gantt-row:opacity-100 hover:bg-destructive/10 hover:text-destructive"><X className="size-3" /></button>}
+                      {rows.length > 1 && <button type="button" onClick={() => save(rows.filter((_, index) => index !== rowIndex))} aria-label={tr("Delete task")} className="rounded p-1 text-muted-foreground opacity-0 transition max-md:opacity-60 group-hover/gantt-row:opacity-100 hover:bg-destructive/10 hover:text-destructive"><X className="size-3" /></button>}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            {rows.length > 200 && <div className="px-1.5 py-1 text-[10px] text-muted-foreground">{tr("Showing first 200 of {n} rows", { n: rows.length })}</div>}
           </div>
           <button type="button" onClick={addTask} className="flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"><Plus className="size-3" /> {tr("Add task")}</button>
           <p className="text-[10px] text-muted-foreground">{tr("Dates use YYYY-MM-DD. Progress is 0–100.")}</p>
@@ -333,6 +340,9 @@ export function ChartBlock({
   const rows = table.rows.map((row) => [...row])
   const columns = table.columns.length >= 2 ? table.columns : defaultChartTable().columns
   const [editing, setEditing] = useState(false)
+  const [quickEdit, setQuickEdit] = useState(false)
+  const [quickLabel, setQuickLabel] = useState("")
+  const [quickValue, setQuickValue] = useState("")
   const titleRef = useRef<HTMLInputElement>(null)
   const type = block.language === "line" || block.language === "pie" ? block.language : "bar"
   const labels = rows.map((row) => row[0] ?? "")
@@ -393,15 +403,16 @@ export function ChartBlock({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row, rowIndex) => (
+                  {rows.slice(0, 200).map((row, rowIndex) => (
                     <tr key={rowIndex} className="group/chart-row">
                       <td className="border-b p-1"><input value={row[0] ?? ""} onChange={(event) => setCell(rowIndex, 0, event.target.value)} className="h-7 w-full rounded border bg-background px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/25" /></td>
                       {series.map((_, seriesIndex) => <td key={seriesIndex} className="border-b p-1"><input type="number" value={row[seriesIndex + 1] ?? ""} onChange={(event) => setCell(rowIndex, seriesIndex + 1, event.target.value)} className="h-7 w-20 rounded border bg-background px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring/25" /></td>)}
-                      <td className="border-b p-1 text-center"><button type="button" onClick={() => save(rows.filter((_, index) => index !== rowIndex))} aria-label={tr("Delete row")} className="rounded p-1 text-muted-foreground opacity-0 transition group-hover/chart-row:opacity-100 hover:bg-destructive/10 hover:text-destructive"><X className="size-3" /></button></td>
+                      <td className="border-b p-1 text-center"><button type="button" onClick={() => save(rows.filter((_, index) => index !== rowIndex))} aria-label={tr("Delete row")} className="rounded p-1 text-muted-foreground opacity-0 transition max-md:opacity-60 group-hover/chart-row:opacity-100 hover:bg-destructive/10 hover:text-destructive"><X className="size-3" /></button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              {rows.length > 200 && <div className="px-1.5 py-1 text-[10px] text-muted-foreground">{tr("Showing first 200 of {n} rows", { n: rows.length })}</div>}
             </div>
             <div className="flex flex-wrap gap-1.5">
               <button type="button" onClick={addRow} className="flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"><Plus className="size-3" /> {tr("Add row")}</button>
@@ -410,21 +421,71 @@ export function ChartBlock({
             {type === "pie" && <p className="text-[10px] text-muted-foreground">{tr("Pie charts use the first series.")}</p>}
           </div>
         ) : (
-          <div onClick={() => {
-            if (readOnly) return
-            const label = window.prompt(tr("Enter label to edit (exact)"))
-            if (!label) return
-            const idx = labels.findIndex((l) => l === label)
-            if (idx < 0) { toast.error(tr("Label not found")); return }
-            const val = window.prompt(tr("Enter new value for {label}", { label }), String(series[0]?.values[idx] ?? ""))
-            if (val === null) return
-            const num = Number(val)
-            if (Number.isNaN(num)) { toast.error(tr("Enter a valid number")); return }
-            setCell(idx, 1, String(num))
-          }} className={readOnly ? "" : "cursor-pointer"}>
+          <div
+            onClick={() => {
+              if (readOnly) return
+              setQuickLabel(labels[0] ?? "")
+              setQuickValue(String(series[0]?.values[0] ?? ""))
+              setQuickEdit(true)
+            }}
+            className={readOnly ? "" : "cursor-pointer"}
+          >
             <ChartGraph type={type} labels={labels} series={series} />
             {!readOnly && <div className="mt-1 text-center text-[10px] text-muted-foreground">{tr("Click chart to edit a value")}</div>}
           </div>
+          <Dialog open={quickEdit} onOpenChange={setQuickEdit}>
+            <DialogContent className="max-w-xs">
+              <DialogHeader>
+                <DialogTitle>{tr("Edit value")}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>{tr("Label")}</Label>
+                  <select
+                    value={quickLabel}
+                    onChange={(e) => {
+                      setQuickLabel(e.target.value)
+                      const idx = labels.findIndex((l) => l === e.target.value)
+                      if (idx >= 0) setQuickValue(String(series[0]?.values[idx] ?? ""))
+                    }}
+                    className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none"
+                  >
+                    {labels.map((l) => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{tr("Value")}</Label>
+                  <Input
+                    type="number"
+                    value={quickValue}
+                    onChange={(e) => setQuickValue(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setQuickEdit(false)}>{tr("Cancel")}</Button>
+                <Button
+                  onClick={() => {
+                    const idx = labels.findIndex((l) => l === quickLabel)
+                    if (idx < 0) {
+                      toast.error(tr("Label not found"))
+                      return
+                    }
+                    const num = Number(quickValue)
+                    if (quickValue.trim() === "" || Number.isNaN(num)) {
+                      toast.error(tr("Enter a valid number"))
+                      return
+                    }
+                    setCell(idx, 1, String(num))
+                    setQuickEdit(false)
+                  }}
+                >
+                  {tr("Save")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     </div>

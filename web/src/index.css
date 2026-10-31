@@ -293,9 +293,19 @@
 .animate-breathe { animation: breathe 9s ease-in-out infinite; }
 .animate-breathe-late { animation: breathe-late 12s ease-in-out infinite; }
 .animate-breathe-slower { animation: breathe 16s ease-in-out infinite; }
+@media (pointer: coarse) {
+  [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"] {
+    min-height: 2.5rem;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .animate-breathe, .animate-breathe-late, .animate-breathe-slower,
-  .animate-float-slow, .animate-float-slower { animation: none; }
+  .animate-float-slow, .animate-float-slower, .animate-rise { animation: none; }
+}
+@media print {
+  aside, header, nav, [data-print-hidden] { display: none !important; }
+  main { overflow: visible !important; height: auto !important; }
+  body { background: #fff; }
 }
 
 /* Lexical rich-text blocks */

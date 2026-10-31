@@ -39,7 +39,7 @@ func newFeishuClient(appID, appSecret string) *feishuClient {
 }
 
 func (c *feishuClient) auth(ctx context.Context) error {
-	if c.token != "" && time.Now().Before(tokenExpSafe(c.tokenExp)) {
+	if c.token != "" && time.Now().Before(c.tokenExp) {
 		return nil
 	}
 	body, _ := json.Marshal(map[string]string{"app_id": c.appID, "app_secret": c.appSecret})
@@ -71,7 +71,6 @@ func (c *feishuClient) auth(ctx context.Context) error {
 	return nil
 }
 
-func tokenExpSafe(t time.Time) time.Time { return t }
 
 func (c *feishuClient) get(ctx context.Context, path string, out any) error {
 	if err := c.auth(ctx); err != nil {

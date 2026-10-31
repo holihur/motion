@@ -421,6 +421,7 @@ export function ChartBlock({
             {type === "pie" && <p className="text-[10px] text-muted-foreground">{tr("Pie charts use the first series.")}</p>}
           </div>
         ) : (
+          <>
           <div
             onClick={() => {
               if (readOnly) return
@@ -486,6 +487,7 @@ export function ChartBlock({
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </>
         )}
       </div>
     </div>

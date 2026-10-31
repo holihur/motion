@@ -25,7 +25,7 @@ test("imports Markdown files into blocks", async ({ page, request }) => {
   await page.goto(`/page/${created.id}`)
 
   await page.locator("header").getByRole("button", { name: "Page options" }).click()
-  await page.getByRole("menuitem", { name: "Import Markdown" }).click()
+  await page.getByRole("menuitem", { name: "Import file (Markdown / HTML)" }).click()
   await page.locator('header input[type="file"][accept*=".md"]').setInputFiles({
     name: "notes.md",
     mimeType: "text/markdown",

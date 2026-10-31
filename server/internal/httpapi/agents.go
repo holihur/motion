@@ -377,13 +377,13 @@ func (s *Server) runAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeAudit(r.Context(), wsID, user.ID, user.Name, agent.ID, agent.Name,
 		"agent.run.queued", "agent", agent.ID.Hex(), "Queued task for "+agent.Name)
-	go s.executeAgentRun(agent, user, setting, prompt, pageHex, run.ID, false)
+	go s.executeAgentRun(agent, user, setting, prompt, pageHex, run.ID)
 	writeJSON(w, http.StatusAccepted, map[string]any{
 		"runId": runID.Hex(), "agentId": agent.ID.Hex(), "status": "queued",
 	})
 }
 
-func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting model.AISetting, prompt, pageHex string, runID primitive.ObjectID, scheduled bool) {
+func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting model.AISetting, prompt, pageHex string, runID primitive.ObjectID) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	fail := func(msg string) {
@@ -495,7 +495,6 @@ func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting mod
 		"action": "finished", "runId": runID.Hex(), "agentId": agent.ID.Hex(),
 		"proposalCount": len(proposals),
 	}, "")
-	_ = scheduled
 }
 
 // recordAutoProposals persists approved records for auto-apply runs so the
@@ -683,7 +682,7 @@ func (s *Server) executeScheduledRun(agent model.Agent) {
 	if _, err := s.store.AgentRuns.InsertOne(ctx, run); err != nil {
 		return
 	}
-	s.executeAgentRun(agent, owner, setting, prompt, pageHex, run.ID, true)
+	s.executeAgentRun(agent, owner, setting, prompt, pageHex, run.ID)
 }
 
 func (s *Server) currentUserName(r *http.Request) string {

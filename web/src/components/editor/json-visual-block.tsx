@@ -348,10 +348,10 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
         <span className="text-muted-foreground/70 hidden sm:inline">{tr("Draw by pointing and dragging — no code needed")}</span>
         <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">{tr("{a} nodes · {b} edges", { a: laid.nodes.length, b: laid.edges.length })}</span>
         <div className="ml-auto flex items-center gap-1">
-          <button type="button" title=tr("Toggle horizontal / vertical") onClick={() => commit(autoLayout({ ...laid, direction: laid.direction === "TB" ? "LR" : "TB" }))} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] hover:bg-accent">
+          <button type="button" title={tr("Toggle horizontal / vertical")} onClick={() => commit(autoLayout({ ...laid, direction: laid.direction === "TB" ? "LR" : "TB" }))} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] hover:bg-accent">
             <LayoutGrid className="size-3" />{laid.direction === "TB" ? tr("Vertical") : tr("Horizontal")}
           </button>
-          <button type="button" title="{tr("Auto layout")}" onClick={() => commit(autoLayout(laid))} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] hover:bg-accent">
+          <button type="button" title={tr("Auto layout")} onClick={() => commit(autoLayout(laid))} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] hover:bg-accent">
             <Sparkles className="size-3" />{tr("Tidy")}
           </button>
           <button type="button" onClick={() => setTab(tab === "canvas" ? "code" : "canvas")} className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent">
@@ -582,7 +582,7 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
                   </div>
                   <input
                     value={laid.edges[selEdge].label ?? ""}
-                    placeholder=tr("Label, e.g. Approved / Rejected (optional)")
+                    placeholder={tr("Label, e.g. Approved / Rejected (optional)")}
                     onChange={(e) => {
                       const edges = laid.edges.map((x, k) => k === selEdge ? { ...x, label: e.target.value } : x)
                       commit({ ...laid, edges })

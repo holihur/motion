@@ -1267,5 +1267,12 @@
   "Thick": "Thick",
   "Brand": "Brand",
   "Sky": "Sky",
-  "Double-click to expand / collapse": "Double-click to expand / collapse"
+  "Double-click to expand / collapse": "Double-click to expand / collapse",
+  "Converted {n} block(s)": "Converted {n} block(s)",
+  "Could not translate": "Could not translate",
+  "Select text first": "Select text first",
+  "Translate selection": "Translate selection",
+  "Wrap in toggle": "Wrap in toggle",
+  "{n} characters · {m} blocks": "{n} characters · {m} blocks",
+  "{n} chars": "{n} chars"
 }

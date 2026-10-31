@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Copy, Plus, Trash2, X } from "lucide-react"
+import { Copy, ListCollapse, Plus, Trash2, Type, X } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 import type { Block, BlockType, Comment, Member } from "@/lib/types"
 import { uid } from "@/lib/utils"
@@ -931,6 +938,46 @@ export function BlockEditor({
     focusSoon(target.id, first === 0 ? "start" : "end")
   }
 
+  function convertSelected(type: BlockType) {
+    const all = blocksRef.current
+    const expanded = expandedSelection()
+    if (expanded.size === 0) return
+    const next = all.map((block, index) => {
+      if (!expanded.has(index)) return block
+      if (block.type === type) return block
+      return {
+        ...createBlock(type),
+        id: block.id,
+        text: block.text,
+        rich: block.rich,
+        checked: block.checked,
+        indent: block.indent,
+      }
+    })
+    commit(next)
+    toast.success(tr("Converted {n} block(s)", { n: expanded.size }))
+  }
+
+  function wrapInToggle() {
+    const all = blocksRef.current
+    const expanded = expandedSelection()
+    if (expanded.size === 0) return
+    const first = Math.min(...expanded)
+    const header = createBlock("toggle")
+    header.text = tr("Toggle")
+    const next = [...all]
+    next.splice(first, 0, header)
+    const shifted = next.map((block, index) => {
+      if (index > first && expanded.has(index - 1) && (block.indent ?? 0) === 0) {
+        return { ...block, indent: 1 }
+      }
+      return block
+    })
+    commit(shifted)
+    clearSelection()
+    focusSoon(header.id, "end")
+  }
+
   function duplicateSelected() {
     const all = blocksRef.current
     const expanded = expandedSelection()
@@ -1141,6 +1188,27 @@ export function BlockEditor({
           >
             <Copy className="size-3.5" /> {tr("Copy")}
           </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+              >
+                <Type className="size-3.5" /> {tr("Turn into")}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-44">
+              {[["paragraph", "Text"], ["heading1", "Heading 1"], ["heading2", "Heading 2"], ["bulleted", "Bulleted list"], ["numbered", "Numbered list"], ["todo", "To-do list"], ["quote", "Quote"], ["callout", "Callout"], ["toggle", "Toggle"], ["code", "Code"]].map(([type, label]) => (
+                <DropdownMenuItem key={type} onSelect={() => convertSelected(type as BlockType)}>
+                  {tr(label)}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={wrapInToggle}>
+                <ListCollapse className="size-3.5" /> {tr("Wrap in toggle")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <button
             type="button"
             onClick={deleteSelected}

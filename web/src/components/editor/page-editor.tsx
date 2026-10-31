@@ -91,6 +91,20 @@ function emptyBlock(): Block {
   return { id: uid(), type: "paragraph", text: "", checked: false }
 }
 
+function PageStats({ blocks }: { blocks: { text: string }[] }) {
+  const stats = useMemo(() => {
+    let chars = 0
+    for (const b of blocks) chars += [...(b.text || "")].length
+    return { chars, blocks: blocks.length }
+  }, [blocks])
+  if (stats.chars === 0) return null
+  return (
+    <span title={tr("{n} characters · {m} blocks", { n: stats.chars, m: stats.blocks })} className="hidden shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground sm:block">
+      {tr("{n} chars", { n: stats.chars > 10000 ? `${(stats.chars / 1000).toFixed(1)}k` : String(stats.chars) })}
+    </span>
+  )
+}
+
 export function PageEditor() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
@@ -1194,6 +1208,7 @@ export function PageEditor() {
       <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
         <SidebarToggle />
         <Breadcrumbs page={page} title={title} icon={icon} />
+        <PageStats blocks={blocks} />
         {readOnly && (
           <span className="ml-1 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
             {tr("View only")}

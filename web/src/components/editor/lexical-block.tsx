@@ -17,7 +17,9 @@ import {
   Check,
   Code2,
   Italic,
+  Languages,
   Link2,
+  Loader2,
   Strikethrough,
   Underline,
   X,
@@ -47,6 +49,8 @@ import { caretOffset } from "@/lib/caret"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
+import { TRANSLATE_LANGS, translateText, type LangCode } from "@/lib/translate"
+import { toast } from "sonner"
 
 const INLINE_TRANSFORMERS = [BOLD_ITALIC_STAR, BOLD_STAR, ITALIC_STAR, INLINE_CODE, STRIKETHROUGH, LINK]
 
@@ -366,12 +370,61 @@ function EditableBridge({ editable }: { editable: boolean }) {
   return null
 }
 
+function TranslatePicker({ onPick, onClose }: { onPick: (lang: LangCode) => void; onClose: () => void }) {
+  return (
+    <span className="flex max-w-[220px] flex-wrap items-center gap-0.5 p-0.5">
+      {TRANSLATE_LANGS.map((l) => (
+        <button
+          key={l.code}
+          type="button"
+          onClick={() => onPick(l.code)}
+          className="rounded px-1.5 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
+        >
+          {l.label}
+        </button>
+      ))}
+      <button type="button" aria-label={tr("Cancel")} onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-accent">
+        <X className="size-3.5" />
+      </button>
+    </span>
+  )
+}
+
 function FloatingToolbar() {
   const [editor] = useLexicalComposerContext()
   const [rect, setRect] = useState<{ left: number; top: number } | null>(null)
   const [formats, setFormats] = useState<Set<TextFormatType>>(new Set())
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkURL, setLinkURL] = useState("https://")
+  const [translateOpen, setTranslateOpen] = useState(false)
+  const [translating, setTranslating] = useState(false)
+
+  function selectedText(): string {
+    let text = ""
+    editor.getEditorState().read(() => {
+      const selection = $getSelection()
+      if ($isRangeSelection(selection)) text = selection.getTextContent()
+    })
+    return text
+  }
+
+  async function translateSelection(lang: LangCode) {
+    const source = selectedText()
+    if (!source.trim() || translating) return
+    setTranslating(true)
+    try {
+      const out = await translateText(source, lang)
+      editor.update(() => {
+        const selection = $getSelection()
+        if ($isRangeSelection(selection)) selection.insertText(out)
+      })
+      toast.success(tr("Applied"))
+    } catch {
+      toast.error(tr("Could not translate"))
+    } finally {
+      setTranslating(false)
+    }
+  }
 
   useEffect(() => {
     function readSelection() {
@@ -463,7 +516,15 @@ function FloatingToolbar() {
         </button>
       ))}
       <span className="mx-0.5 h-5 w-px bg-border" />
-      {linkOpen ? (
+      {translateOpen ? (
+        <TranslatePicker
+          onPick={(lang) => {
+            void translateSelection(lang)
+            setTranslateOpen(false)
+          }}
+          onClose={() => setTranslateOpen(false)}
+        />
+      ) : linkOpen ? (
         <form
           className="flex items-center gap-1"
           onSubmit={(e) => {
@@ -500,6 +561,22 @@ function FloatingToolbar() {
           <Link2 className="size-3.5" />
         </button>
       )}
+      <button
+        type="button"
+        aria-label={tr("Translate selection")}
+        title={tr("Translate selection")}
+        onClick={() => {
+          if (!selectedText().trim()) {
+            toast.error(tr("Select text first"))
+            return
+          }
+          setLinkOpen(false)
+          setTranslateOpen((v) => !v)
+        }}
+        className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground"
+      >
+        {translating ? <Loader2 className="size-3.5 animate-spin" /> : <Languages className="size-3.5" />}
+      </button>
     </div>,
     document.body,
   )

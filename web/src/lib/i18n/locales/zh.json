@@ -1267,5 +1267,12 @@
   "Thick": "粗",
   "Brand": "品牌",
   "Sky": "天蓝",
-  "Double-click to expand / collapse": "双击展开 / 折叠"
+  "Double-click to expand / collapse": "双击展开 / 折叠",
+  "Converted {n} block(s)": "已转换 {n} 个块",
+  "Could not translate": "翻译失败",
+  "Select text first": "先选中文本",
+  "Translate selection": "翻译选中",
+  "Wrap in toggle": "包进折叠块",
+  "{n} characters · {m} blocks": "{n} 字 · {m} 个块",
+  "{n} chars": "{n} 字"
 }

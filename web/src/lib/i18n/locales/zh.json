@@ -1496,5 +1496,22 @@
   "Opening your workspace\u2026": "正在打开工作区…",
   "Paste the OPS_TOKEN": "粘贴 OPS_TOKEN",
   "Search emoji": "搜索表情",
-  "Update an existing page": "更新已有页面"
+  "Update an existing page": "更新已有页面",
+  "Data size {size} \u00b7 storage {storage}": "数据大小 {size} · 存储 {storage}",
+  "Healthy": "正常",
+  "Last saved {time}": "上次保存 {time}",
+  "Environment variables are used as defaults until you save these settings.": "在保存这些设置前，将使用环境变量作为默认值。",
+  "Hide password": "隐藏密码",
+  "Show password": "显示密码",
+  "{name} is here": "{name} 在这里",
+  "View {n} comments": "查看 {n} 条评论",
+  "Revoke {name}": "撤销 {name}",
+  "Password protection requires HTTPS or localhost.": "密码保护需要 HTTPS 或 localhost 环境。",
+  "No table found": "未找到表格",
+  "This browser cannot read .xlsx files": "此浏览器无法读取 .xlsx 文件",
+  "Invalid .xlsx file": ".xlsx 文件无效",
+  "Invalid .xlsx directory": ".xlsx 目录无效",
+  "Unsupported .xlsx compression": "不支持该 .xlsx 压缩方式",
+  "No worksheet found": "未找到工作表",
+  "File is too large (max 20 MB)": "文件过大（最大 20 MB）"
 }

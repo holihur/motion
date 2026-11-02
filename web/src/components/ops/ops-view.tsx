@@ -270,7 +270,7 @@ export function OpsView() {
             <LockKeyhole className="size-3.5" /> Lock Ops
           </Button>
           <div className="flex items-center gap-2">
-          {justSaved && <span className="flex items-center gap-1 text-xs font-medium text-emerald-600"><CheckCircle2 className="size-3.5" /> Saved</span>}
+          {justSaved && <span className="flex items-center gap-1 text-xs font-medium text-emerald-600"><CheckCircle2 className="size-3.5" /> {tr("Saved")}</span>}
           <Button size="sm" className="gap-1.5" onClick={() => void save()} disabled={pending || !canSave}>
             {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
             Save changes
@@ -628,16 +628,16 @@ export function OpsView() {
                 </div>
                 <div className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
                   <Database className="size-3" />
-                  Data size {formatBytes(stats?.dataSize ?? 0)} · storage {formatBytes(stats?.storageSize ?? 0)}
-                  {stats && <span className="ml-auto flex items-center gap-1"><CheckCircle2 className="size-3 text-emerald-500" /> Healthy</span>}
+                  {tr("Data size {size} · storage {storage}", { size: formatBytes(stats?.dataSize ?? 0), storage: formatBytes(stats?.storageSize ?? 0) })}
+                  {stats && <span className="ml-auto flex items-center gap-1"><CheckCircle2 className="size-3 text-emerald-500" /> {tr("Healthy")}</span>}
                 </div>
               </section>
 
               <div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-[11px] text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <Users className="size-3" /> Last saved {settings ? "just now" : "—"}
+                  <Users className="size-3" /> {tr("Last saved {time}", { time: settings ? tr("just now") : "—" })}
                 </span>
-                <span>Environment variables are used as defaults until you save these settings.</span>
+                <span>{tr("Environment variables are used as defaults until you save these settings.")}</span>
               </div>
             </div>
           )}

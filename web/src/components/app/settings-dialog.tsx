@@ -757,7 +757,7 @@ function DeveloperSettings() {
                   size="icon-sm"
                   className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => void revoke(token)}
-                  aria-label={`Revoke ${token.name}`}
+                  aria-label={tr("Revoke {name}", { name: token.name })}
                 >
                   <Trash2 className="size-3.5" />
                 </Button>

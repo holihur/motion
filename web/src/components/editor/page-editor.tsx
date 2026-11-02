@@ -1376,14 +1376,14 @@ export function PageEditor() {
                 <Tooltip key={person.clientId}>
                   <TooltipTrigger asChild>
                     <span
-                      aria-label={`${person.name} is here`}
+                      aria-label={tr("{name} is here", { name: person.name })}
                       className="flex size-6 items-center justify-center rounded-full border-2 border-background text-[9px] font-semibold text-white shadow-sm"
                       style={{ backgroundColor: person.color }}
                     >
                       {initials(person.name)}
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent>{person.name} is here</TooltipContent>
+                  <TooltipContent>{tr("{name} is here", { name: person.name })}</TooltipContent>
                 </Tooltip>
               ))}
               {collaboratorsForDisplay.length > 5 && (

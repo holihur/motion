@@ -1496,5 +1496,22 @@
   "Opening your workspace\u2026": "Opening your workspace…",
   "Paste the OPS_TOKEN": "Paste the OPS_TOKEN",
   "Search emoji": "Search emoji",
-  "Update an existing page": "Update an existing page"
+  "Update an existing page": "Update an existing page",
+  "Data size {size} \u00b7 storage {storage}": "Data size {size} · storage {storage}",
+  "Healthy": "Healthy",
+  "Last saved {time}": "Last saved {time}",
+  "Environment variables are used as defaults until you save these settings.": "Environment variables are used as defaults until you save these settings.",
+  "Hide password": "Hide password",
+  "Show password": "Show password",
+  "{name} is here": "{name} is here",
+  "View {n} comments": "View {n} comments",
+  "Revoke {name}": "Revoke {name}",
+  "Password protection requires HTTPS or localhost.": "Password protection requires HTTPS or localhost.",
+  "No table found": "No table found",
+  "This browser cannot read .xlsx files": "This browser cannot read .xlsx files",
+  "Invalid .xlsx file": "Invalid .xlsx file",
+  "Invalid .xlsx directory": "Invalid .xlsx directory",
+  "Unsupported .xlsx compression": "Unsupported .xlsx compression",
+  "No worksheet found": "No worksheet found",
+  "File is too large (max 20 MB)": "File is too large (max 20 MB)"
 }

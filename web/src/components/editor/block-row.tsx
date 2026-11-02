@@ -1353,7 +1353,7 @@ export function BlockRow(props: BlockRowProps) {
           <PopoverTrigger asChild>
             <button
               type="button"
-              aria-label={`View ${commentCount} comment${commentCount === 1 ? "" : "s"}`}
+              aria-label={tr("View {n} comments", { n: commentCount })}
               className="ml-1 mt-1 flex h-5 shrink-0 items-center gap-1 rounded-full bg-brand-soft px-1.5 text-[10px] font-medium text-brand transition hover:bg-brand/15"
             >
               <MessageSquare className="size-3" />

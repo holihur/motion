@@ -1,3 +1,5 @@
+import { tr } from "@/lib/i18n"
+
 export type ImportedTable = {
   columns: string[]
   rows: string[][]
@@ -150,7 +152,7 @@ function parseSpreadsheetXML(text: string): ImportedTable {
 function parseHTMLTable(text: string): ImportedTable {
   const doc = new DOMParser().parseFromString(text, "text/html")
   const table = doc.querySelector("table")
-  if (!table) throw new Error("No table found")
+  if (!table) throw new Error(tr("No table found"))
   const rows = Array.from(table.querySelectorAll("tr")).map((tr) =>
     Array.from(tr.querySelectorAll("th,td")).map((cell) => cell.textContent ?? ""),
   ).filter((row) => row.some((cell) => cell.trim() !== ""))
@@ -167,7 +169,7 @@ function columnIndex(ref: string, fallback: number): number {
 }
 
 async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
-  if (typeof DecompressionStream === "undefined") throw new Error("This browser cannot read .xlsx files")
+  if (typeof DecompressionStream === "undefined") throw new Error(tr("This browser cannot read .xlsx files"))
   const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))
   return new Uint8Array(await new Response(stream).arrayBuffer())
 }
@@ -182,13 +184,13 @@ async function readZip(buffer: ArrayBuffer): Promise<Map<string, Uint8Array>> {
       break
     }
   }
-  if (eocd < 0) throw new Error("Invalid .xlsx file")
+  if (eocd < 0) throw new Error(tr("Invalid .xlsx file"))
   const count = view.getUint16(eocd + 10, true)
   let cursor = view.getUint32(eocd + 16, true)
   const files = new Map<string, Uint8Array>()
   const decoder = new TextDecoder()
   for (let index = 0; index < count; index++) {
-    if (view.getUint32(cursor, true) !== 0x02014b50) throw new Error("Invalid .xlsx directory")
+    if (view.getUint32(cursor, true) !== 0x02014b50) throw new Error(tr("Invalid .xlsx directory"))
     const method = view.getUint16(cursor + 10, true)
     const compressedSize = view.getUint32(cursor + 20, true)
     const nameLength = view.getUint16(cursor + 28, true)
@@ -203,7 +205,7 @@ async function readZip(buffer: ArrayBuffer): Promise<Map<string, Uint8Array>> {
     let content: Uint8Array
     if (method === 0) content = compressed
     else if (method === 8) content = await inflateRaw(compressed)
-    else throw new Error("Unsupported .xlsx compression")
+    else throw new Error(tr("Unsupported .xlsx compression"))
     files.set(name.replace(/\\/g, "/"), content)
     cursor += 46 + nameLength + extraLength + commentLength
   }
@@ -242,12 +244,12 @@ async function parseXLSX(file: File): Promise<ImportedTable> {
   const shared = sharedFile ? parseSharedStrings(decoder.decode(sharedFile)) : []
   const sheets = [...files.keys()].filter((name) => /^xl\/worksheets\/sheet\d+\.xml$/.test(name)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
   const sheet = sheets[0]
-  if (!sheet) throw new Error("No worksheet found")
+  if (!sheet) throw new Error(tr("No worksheet found"))
   return parseSheet(decoder.decode(files.get(sheet)!), shared)
 }
 
 export async function parseTableImport(file: File): Promise<ImportedTable> {
-  if (file.size > 20 * 1024 * 1024) throw new Error("File is too large (max 20 MB)")
+  if (file.size > 20 * 1024 * 1024) throw new Error(tr("File is too large (max 20 MB)"))
   const name = file.name.toLowerCase()
   if (name.endsWith(".xlsx")) return parseXLSX(file)
   const text = await file.text()

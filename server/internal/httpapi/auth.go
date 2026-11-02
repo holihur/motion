@@ -148,7 +148,11 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now().UTC()
-	count, _ := s.store.Users.CountDocuments(ctx, bson.M{})
+	count, countErr := s.store.Users.CountDocuments(ctx, bson.M{})
+	if countErr != nil {
+		writeErr(w, http.StatusInternalServerError, "could not create account")
+		return
+	}
 	user := model.User{
 		ID:        primitive.NewObjectID(),
 		Name:      req.Name,

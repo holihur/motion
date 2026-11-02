@@ -1400,5 +1400,9 @@
   "Download JSONL": "Download JSONL",
   "Clear style": "Clear style",
   "Column style": "Column style",
-  "Row style": "Row style"
+  "Row style": "Row style",
+  "Allow search engines to index this page": "Allow search engines to index this page",
+  "Could not import file": "Could not import file",
+  "Import CSV, JSONL or Excel": "Import CSV, JSONL or Excel",
+  "Imported {n} row(s)": "Imported {n} row(s)"
 }

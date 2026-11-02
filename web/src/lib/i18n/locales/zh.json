@@ -1400,5 +1400,9 @@
   "Download JSONL": "下载 JSONL",
   "Clear style": "清除样式",
   "Column style": "列样式",
-  "Row style": "行样式"
+  "Row style": "行样式",
+  "Allow search engines to index this page": "允许搜索引擎收录此页面",
+  "Could not import file": "导入文件失败",
+  "Import CSV, JSONL or Excel": "导入 CSV、JSONL 或 Excel",
+  "Imported {n} row(s)": "已导入 {n} 行"
 }

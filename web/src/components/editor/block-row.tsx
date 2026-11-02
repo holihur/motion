@@ -37,6 +37,7 @@ import {
   ChevronRight,
   Table2,
   Trash2,
+  Upload,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -77,6 +78,7 @@ import { PasswordBlock } from "@/components/editor/password-block"
 import { CodeBlock } from "@/components/editor/code-block"
 import { CurlBlock } from "@/components/editor/curl-block"
 import { TableCell } from "@/components/editor/table-cell"
+import { parseTableImport } from "@/lib/table-import"
 import { DatabaseBlock } from "@/components/editor/database-block"
 import { JsonVisualBlock } from "@/components/editor/json-visual-block"
 import { ChartBlock, GanttBlock } from "@/components/editor/data-blocks"
@@ -251,6 +253,7 @@ export function BlockRow(props: BlockRowProps) {
   } = props
 
   const locked = Boolean(block.locked)
+  const tableImportRef = useRef<HTMLInputElement>(null)
   const readOnly = pageReadOnly || locked
   const textStyled = TEXT_STYLE_TYPES.has(block.type)
   const aligned = ALIGN_STYLE_TYPES.has(block.type)
@@ -733,6 +736,34 @@ export function BlockRow(props: BlockRowProps) {
                 </button>
                 <button type="button" onClick={downloadJSONL} title={tr("Download JSONL")} className="rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground">JSONL</button>
                 <button type="button" onClick={downloadExcel} title={tr("Download Excel")} className="rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground">Excel</button>
+                {!readOnly && <>
+                  <input
+                    ref={tableImportRef}
+                    type="file"
+                    accept=".csv,.tsv,.tab,.json,.jsonl,.ndjson,.xlsx,.xlsm,.xls"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0]
+                      event.target.value = ""
+                      if (!file) return
+                      void parseTableImport(file).then((imported) => {
+                        updateTable({
+                          ...table,
+                          columns: imported.columns,
+                          rows: imported.rows,
+                          header: true,
+                          widths: imported.columns.map(() => 160),
+                          align: imported.columns.map(() => "left"),
+                          columnStyles: undefined,
+                          rowStyles: undefined,
+                          query: undefined,
+                        })
+                        toast.success(tr("Imported {n} row(s)", { n: imported.rows.length }))
+                      }).catch((error) => toast.error(error instanceof Error ? error.message : tr("Could not import file")))
+                    }}
+                  />
+                  <button type="button" onClick={() => tableImportRef.current?.click()} title={tr("Import CSV, JSONL or Excel")} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"><Upload className="size-3" /> {tr("Import")}</button>
+                </>}
               </div>
             </div>
             <div className="max-h-[65vh] overflow-auto">

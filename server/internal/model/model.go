@@ -238,6 +238,7 @@ type Page struct {
 	PublicExpiresAt    *time.Time          `bson:"publicExpiresAt,omitempty" json:"publicExpiresAt,omitempty"`
 	PublicViews        int64               `bson:"publicViews,omitempty" json:"publicViews,omitempty"`
 	PublicComment      bool                `bson:"publicComment,omitempty" json:"publicComment,omitempty"`
+	PublicIndex        bool                `bson:"publicIndex,omitempty" json:"publicIndex,omitempty"`
 }
 
 // PageSummary is the lightweight shape used by the sidebar tree.

@@ -101,6 +101,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
   const [pubPassword, setPubPassword] = useState("")
   const [pubExpires, setPubExpires] = useState("")
   const [pubComments, setPubComments] = useState(false)
+  const [pubIndex, setPubIndex] = useState(false)
   const [pubViews, setPubViews] = useState<number | null>(null)
   const [pubLocked, setPubLocked] = useState(false)
 
@@ -109,6 +110,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     setPubPassword("")
     setPubExpires("")
     setPubComments(false)
+    setPubIndex(false)
     setPubViews(null)
     api.pages
       .publishStatus(page.id)
@@ -118,6 +120,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
         if (st.expiresAt) setPubExpires(st.expiresAt.slice(0, 16))
         setPubViews(st.views ?? 0)
         setPubComments(!!st.comments)
+        setPubIndex(!!st.index)
       })
       .catch(() => undefined)
   }, [publishOpen, page.id])
@@ -630,6 +633,15 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
                 <span className="ml-auto tabular-nums text-muted-foreground">{tr("{n} view(s)", { n: pubViews })}</span>
               )}
             </label>
+            <label className="flex cursor-pointer items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={pubIndex}
+                onChange={(e) => setPubIndex(e.target.checked)}
+                className="size-3.5 accent-[var(--brand)]"
+              />
+              {tr("Allow search engines to index this page")}
+            </label>
             <Button
               variant="outline"
               size="sm"
@@ -643,6 +655,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
                     password: pubPassword || undefined,
                     expiresAt: pubExpires ? new Date(pubExpires).toISOString() : "",
                     comments: pubComments,
+                    index: pubIndex,
                   })
                   .then((res) => {
                     setPublicSlug(res.slug)

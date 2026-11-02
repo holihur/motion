@@ -6,10 +6,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -82,9 +82,10 @@ var exportJobs = struct {
 	items map[string]*exportJob
 }{items: map[string]*exportJob{}}
 
-func touchExportJob(id string) *exportJob {
-	exportJobs.Lock()
-	defer exportJobs.Unlock()
+// At most two workspace exports run at once; each job buffers its ZIP in memory.
+var exportSlots = make(chan struct{}, 2)
+
+func touchExportJobLocked(id string) *exportJob {
 	// Evict stale jobs (10min TTL) on access.
 	for key, job := range exportJobs.items {
 		if time.Since(job.CreatedAt) > 10*time.Minute {
@@ -92,6 +93,18 @@ func touchExportJob(id string) *exportJob {
 		}
 	}
 	return exportJobs.items[id]
+}
+
+func touchExportJob(id string) *exportJob {
+	exportJobs.Lock()
+	defer exportJobs.Unlock()
+	return touchExportJobLocked(id)
+}
+
+func updateExportJob(job *exportJob, update func(*exportJob)) {
+	exportJobs.Lock()
+	defer exportJobs.Unlock()
+	update(job)
 }
 
 // POST /workspaces/{workspaceID}/export/jobs?format=md|html — start a background export.
@@ -110,15 +123,28 @@ func (s *Server) createExportJob(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "format must be md or html")
 		return
 	}
+	select {
+	case exportSlots <- struct{}{}:
+	default:
+		writeErr(w, http.StatusTooManyRequests, "another export is already running; try again later")
+		return
+	}
 	job := &exportJob{
 		ID: primitive.NewObjectID().Hex(), WorkspaceID: wsID,
 		Format: format, Status: "queued", CreatedAt: time.Now().UTC(),
 	}
 	exportJobs.Lock()
+	touchExportJobLocked("")
+	if len(exportJobs.items) >= 100 {
+		exportJobs.Unlock()
+		<-exportSlots
+		writeErr(w, http.StatusTooManyRequests, "too many export jobs; try again later")
+		return
+	}
 	exportJobs.items[job.ID] = job
 	exportJobs.Unlock()
 	go s.runExportJob(job)
-	writeJSON(w, http.StatusAccepted, map[string]any{"jobId": job.ID, "status": job.Status})
+	writeJSON(w, http.StatusAccepted, map[string]any{"jobId": job.ID, "status": "queued"})
 }
 
 // GET /workspaces/{workspaceID}/export/jobs/{jobID} — poll progress.
@@ -132,18 +158,18 @@ func (s *Server) getExportJob(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "workspace not found")
 		return
 	}
-	job := touchExportJob(chiURLParam(r, "jobID"))
+	exportJobs.Lock()
+	job := touchExportJobLocked(chiURLParam(r, "jobID"))
 	if job == nil || job.WorkspaceID != wsID {
+		exportJobs.Unlock()
 		writeErr(w, http.StatusNotFound, "export job not found or expired")
 		return
 	}
-	size := 0
-	if job.Data != nil {
-		size = len(job.Data)
-	}
+	status, done, total, size, jobErr := job.Status, job.Done, job.Total, len(job.Data), job.Error
+	exportJobs.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"jobId": job.ID, "status": job.Status,
-		"done": job.Done, "total": job.Total, "size": size, "error": job.Error,
+		"jobId": job.ID, "status": status,
+		"done": done, "total": total, "size": size, "error": jobErr,
 	})
 }
 
@@ -158,52 +184,55 @@ func (s *Server) downloadExportJob(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "workspace not found")
 		return
 	}
-	job := touchExportJob(chiURLParam(r, "jobID"))
+	exportJobs.Lock()
+	job := touchExportJobLocked(chiURLParam(r, "jobID"))
 	if job == nil || job.WorkspaceID != wsID {
+		exportJobs.Unlock()
 		writeErr(w, http.StatusNotFound, "export job not found or expired")
 		return
 	}
 	if job.Status != "done" || job.Data == nil {
+		exportJobs.Unlock()
 		writeErr(w, http.StatusConflict, "export is not ready yet")
 		return
 	}
+	data := job.Data
+	exportJobs.Unlock()
 	filename := "motion-export.zip"
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
-	w.Header().Set("Content-Length", strconv.Itoa(len(job.Data)))
-	_, _ = w.Write(job.Data)
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	_, _ = w.Write(data)
 }
 
 func (s *Server) runExportJob(job *exportJob) {
+	defer func() { <-exportSlots }()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	job.Status = "running"
+	updateExportJob(job, func(j *exportJob) { j.Status = "running" })
 	asHTML := job.Format == "html"
 	cur, err := s.store.Pages.Find(ctx, bson.M{"workspaceId": job.WorkspaceID, "archived": false})
 	if err != nil {
-		job.Status = "failed"
-		job.Error = "could not load pages"
+		updateExportJob(job, func(j *exportJob) { j.Status = "failed"; j.Error = "could not load pages" })
 		return
 	}
 	defer cur.Close(ctx)
 	var pages []model.Page
 	if err := cur.All(ctx, &pages); err != nil {
-		job.Status = "failed"
-		job.Error = "could not load pages"
+		updateExportJob(job, func(j *exportJob) { j.Status = "failed"; j.Error = "could not load pages" })
 		return
 	}
 	if len(pages) > 2000 {
 		pages = pages[:2000]
 	}
-	job.Total = len(pages)
+	updateExportJob(job, func(j *exportJob) { j.Total = len(pages) })
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	used := map[string]int{}
 	for i, page := range pages {
 		select {
 		case <-ctx.Done():
-			job.Status = "failed"
-			job.Error = "export timed out"
+			updateExportJob(job, func(j *exportJob) { j.Status = "failed"; j.Error = "export timed out" })
 			return
 		default:
 		}
@@ -221,7 +250,7 @@ func (s *Server) runExportJob(job *exportJob) {
 			data, renderErr = export.HTML(page)
 			ext = ".html"
 			if renderErr != nil {
-				job.Done = i + 1
+				updateExportJob(job, func(j *exportJob) { j.Done = i + 1 })
 				continue
 			}
 		} else {
@@ -231,15 +260,13 @@ func (s *Server) runExportJob(job *exportJob) {
 		if err == nil {
 			_, _ = fw.Write(data)
 		}
-		job.Done = i + 1
+		updateExportJob(job, func(j *exportJob) { j.Done = i + 1 })
 	}
 	if err := zw.Close(); err != nil {
-		job.Status = "failed"
-		job.Error = "could not build export"
+		updateExportJob(job, func(j *exportJob) { j.Status = "failed"; j.Error = "could not build export" })
 		return
 	}
-	job.Data = buf.Bytes()
-	job.Status = "done"
+	updateExportJob(job, func(j *exportJob) { j.Data = buf.Bytes(); j.Status = "done" })
 	s.writeAudit(ctx, job.WorkspaceID, primitive.NilObjectID, "export", primitive.NilObjectID, "",
 		"workspace.export", "workspace", job.WorkspaceID.Hex(),
 		fmt.Sprintf("Exported %d pages as %s (background job)", len(pages), job.Format))

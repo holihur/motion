@@ -16,6 +16,23 @@ import (
 
 var yuqueURLPattern = regexp.MustCompile(`https?://([^/]+)/([^/]+)/([^/]+)/([^/?#]+)`)
 
+func yuqueHostAllowed(host string) bool {
+	host = strings.ToLower(strings.TrimSpace(host))
+	return host == "yuque.com" || host == "www.yuque.com"
+}
+
+func yuqueClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if !yuqueHostAllowed(req.URL.Hostname()) {
+				return fmt.Errorf("yuque redirected to an unsupported host")
+			}
+			return nil
+		},
+	}
+}
+
 // ImportYuqueDoc fetches a Yuque doc (markdown body) into Motion blocks.
 // docInput may be a full doc URL or "login/book/slug".
 func ImportYuqueDoc(ctx context.Context, token, docInput string) (Result, error) {
@@ -25,7 +42,11 @@ func ImportYuqueDoc(ctx context.Context, token, docInput string) (Result, error)
 	}
 	host, login, book, slug := "yuque.com", "", "", ""
 	if m := yuqueURLPattern.FindStringSubmatch(strings.TrimSpace(docInput)); m != nil {
-		host, login, book, slug = m[1], m[2], m[3], m[4]
+		parsed, err := url.Parse("https://" + m[1])
+		if err != nil || !yuqueHostAllowed(parsed.Hostname()) {
+			return Result{}, fmt.Errorf("unrecognized yuque link (only yuque.com is supported)")
+		}
+		host, login, book, slug = parsed.Hostname(), m[2], m[3], m[4]
 	} else {
 		parts := strings.Split(strings.Trim(strings.TrimSpace(docInput), "/"), "/")
 		if len(parts) == 3 {
@@ -41,7 +62,7 @@ func ImportYuqueDoc(ctx context.Context, token, docInput string) (Result, error)
 	}
 	req.Header.Set("X-Auth-Token", token)
 	req.Header.Set("Accept", "application/json")
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := yuqueClient(30 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return Result{}, fmt.Errorf("could not reach yuque: %w", err)
@@ -84,7 +105,7 @@ func TestYuqueToken(ctx context.Context, token string) error {
 		return err
 	}
 	req.Header.Set("X-Auth-Token", token)
-	client := &http.Client{Timeout: 20 * time.Second}
+	client := yuqueClient(20 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("could not reach yuque: %w", err)
@@ -252,4 +273,3 @@ func mdCells(line string) []string {
 	}
 	return parts
 }
-

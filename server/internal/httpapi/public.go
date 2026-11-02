@@ -67,6 +67,7 @@ func (s *Server) publishPagePublic(w http.ResponseWriter, r *http.Request) {
 		Password        *string `json:"password"`
 		ExpiresAt       *string `json:"expiresAt"`
 		Comments        *bool   `json:"comments"`
+		Index           *bool   `json:"index"`
 	}
 	_ = decodeJSON(r, &req)
 
@@ -93,6 +94,9 @@ func (s *Server) publishPagePublic(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Comments != nil {
 		settings["publicComment"] = *req.Comments
+	}
+	if req.Index != nil {
+		settings["publicIndex"] = *req.Index
 	}
 	if _, err := s.store.Pages.UpdateByID(r.Context(), page.ID, bson.M{"$set": settings}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not save publish settings")
@@ -159,7 +163,7 @@ func (s *Server) publishStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"slug": page.PublicSlug, "locked": locked,
 		"expiresAt": expires, "views": page.PublicViews,
-		"comments": page.PublicComment,
+		"comments": page.PublicComment, "index": page.PublicIndex,
 	})
 }
 
@@ -435,6 +439,9 @@ func (s *Server) servePublicPage(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "private, no-store")
 		w.Header().Set("Vary", "Cookie")
 	} else {
+		if !page.PublicIndex {
+			w.Header().Set("X-Robots-Tag", "noindex")
+		}
 		w.Header().Set("Cache-Control", "public, max-age=60")
 	}
 	_, _ = w.Write(data)

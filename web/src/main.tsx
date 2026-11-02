@@ -4,7 +4,10 @@ import App from "./App"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useThemeStore } from "@/stores/theme"
 import { ensureLanguageLoaded, getLanguage } from "@/lib/i18n"
+import { installClipboardFallback } from "@/lib/clipboard"
 import "./index.css"
+
+installClipboardFallback()
 
 function Root() {
   const isDark = useThemeStore((state) => state.isDark)

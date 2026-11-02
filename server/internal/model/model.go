@@ -194,6 +194,7 @@ type Page struct {
 	Icon               string              `bson:"icon" json:"icon"`
 	Cover              string              `bson:"cover" json:"cover"`
 	Theme              string              `bson:"theme,omitempty" json:"theme,omitempty"`
+	Width              string              `bson:"width,omitempty" json:"width,omitempty"`
 	LayoutID           string              `bson:"layoutId,omitempty" json:"layoutId,omitempty"`
 	IsLayout           bool                `bson:"isLayout,omitempty" json:"isLayout,omitempty"`
 	Blocks             []Block             `bson:"blocks" json:"blocks,omitempty"`
@@ -225,6 +226,7 @@ type PageSummary struct {
 	Icon            string              `bson:"icon" json:"icon"`
 	Cover           string              `bson:"cover" json:"cover"`
 	Theme           string              `bson:"theme,omitempty" json:"theme,omitempty"`
+	Width           string              `bson:"width,omitempty" json:"width,omitempty"`
 	LayoutID        string              `bson:"layoutId,omitempty" json:"layoutId,omitempty"`
 	IsLayout        bool                `bson:"isLayout,omitempty" json:"isLayout,omitempty"`
 	Favorite        bool                `bson:"favorite" json:"favorite"`

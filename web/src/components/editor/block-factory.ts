@@ -5,6 +5,9 @@ import { defaultChartTable, defaultGanttTable } from "@/components/editor/data-b
 import { defaultColumnsTable } from "@/components/editor/link-blocks"
 import { defaultForm } from "@/components/editor/form-block"
 
+const DEFAULT_CURL = `curl -X GET https://api.example.com/v1/items \\
+  -H 'Accept: application/json'`
+
 const DEFAULT_DIAGRAM = `flowchart LR
   Idea[Idea] --> Draft[Draft]
   Draft --> Review{Review}
@@ -15,7 +18,7 @@ export function createBlock(type: BlockType = "paragraph"): Block {
   return {
     id: uid(),
     type,
-    text: type === "diagram" ? DEFAULT_DIAGRAM : "",
+    text: type === "diagram" ? DEFAULT_DIAGRAM : type === "curl" ? DEFAULT_CURL : "",
     checked: false,
     ...(type === "code" ? { language: "auto" } : {}),
     ...(type === "callout" ? { color: "amber" } : {}),

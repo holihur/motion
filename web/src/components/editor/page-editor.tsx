@@ -49,7 +49,8 @@ import { SidebarToggle } from "@/components/app/sidebar-toggle"
 import { PageActionsMenu } from "@/components/app/page-actions"
 import { BlockEditor } from "@/components/editor/block-editor"
 import { EmojiPicker } from "@/components/editor/emoji-picker"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { BLOCK_LABELS } from "@/components/editor/commands"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { CoverPicker } from "@/components/editor/cover-picker"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -461,6 +462,7 @@ export function PageEditor() {
       if (patch.cover !== undefined) setCover(patch.cover)
       if (patch.watermark !== undefined) setPage((current) => (current ? { ...current, watermark: patch.watermark } : current))
       if (patch.theme !== undefined) setPage((current) => (current ? { ...current, theme: patch.theme } : current))
+      if (patch.width !== undefined) setPage((current) => (current ? { ...current, width: patch.width } : current))
       if (patch.layoutId !== undefined) setPage((current) => (current ? { ...current, layoutId: patch.layoutId } : current))
       if ((patch as { isLayout?: boolean }).isLayout !== undefined) setPage((current) => (current ? { ...current, isLayout: (patch as { isLayout?: boolean }).isLayout } : current))
     }
@@ -1256,6 +1258,19 @@ export function PageEditor() {
     ;(blockComments[comment.blockId] ??= []).push(comment)
   }
 
+  const navigableBlocks = blocks
+    .filter((block) => block.type !== "heading1" && block.type !== "heading2" && block.type !== "heading3" && block.type !== "toggleHeading1" && block.type !== "toggleHeading2" && block.type !== "toggleHeading3")
+    .filter((block) => block.text.trim() !== "" || block.type !== "paragraph")
+    .slice(0, 80)
+
+  function scrollToBlock(id: string) {
+    window.dispatchEvent(new CustomEvent("motion:scroll-block", { detail: { id } }))
+    window.location.hash = `block-${id}`
+    window.setTimeout(() => {
+      document.getElementById(`block-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" })
+    }, 120)
+  }
+
   if (!pageId) return null
 
   if (loading || (page && page.id !== pageId)) {
@@ -1316,7 +1331,7 @@ export function PageEditor() {
         <SidebarToggle />
         <Breadcrumbs page={page} title={title} icon={icon} />
         <PageStats blocks={blocks} />
-        {outline.length > 0 && (
+        {(outline.length > 0 || navigableBlocks.length > 0) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -1327,16 +1342,25 @@ export function PageEditor() {
                 <ListTree className="size-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="max-h-80 w-64 overflow-y-auto thin-scrollbar">
-              {outline.map((h) => (
-                <DropdownMenuItem
-                  key={h.id}
-                  onSelect={() => window.dispatchEvent(new CustomEvent("motion:scroll-block", { detail: { id: h.id } }))}
-                  className={h.level === 1 ? "font-medium" : ""}
-                >
-                  <span className="truncate" style={{ paddingLeft: (h.level - 1) * 12 }}>{h.text || tr("Untitled")}</span>
-                </DropdownMenuItem>
-              ))}
+            <DropdownMenuContent align="start" className="max-h-96 w-72 overflow-y-auto thin-scrollbar">
+              {outline.length > 0 && <>
+                <DropdownMenuLabel>{tr("Headings")}</DropdownMenuLabel>
+                {outline.map((h) => (
+                  <DropdownMenuItem key={h.id} onSelect={() => scrollToBlock(h.id)} className={h.level === 1 ? "font-medium" : ""}>
+                    <span className="truncate" style={{ paddingLeft: (h.level - 1) * 12 }}>{h.text || tr("Untitled")}</span>
+                  </DropdownMenuItem>
+                ))}
+              </>}
+              {navigableBlocks.length > 0 && <>
+                {outline.length > 0 && <DropdownMenuSeparator />}
+                <DropdownMenuLabel>{tr("Blocks")}</DropdownMenuLabel>
+                {navigableBlocks.map((block) => (
+                  <DropdownMenuItem key={block.id} onSelect={() => scrollToBlock(block.id)} className="gap-2">
+                    <span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[9px] text-muted-foreground">{tr(BLOCK_LABELS[block.type])}</span>
+                    <span className="truncate">{block.text.trim().split("\n")[0].slice(0, 60) || tr(BLOCK_LABELS[block.type])}</span>
+                  </DropdownMenuItem>
+                ))}
+              </>}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -1611,7 +1635,7 @@ export function PageEditor() {
           </div>
         )}
 
-        <div className={cn("mx-auto w-full max-w-3xl px-5 pb-28 sm:px-10", !cover && "pt-6")}>
+        <div className={cn("mx-auto w-full px-5 pb-28 sm:px-10", page.width === "full" ? "max-w-none" : page.width === "wide" ? "max-w-7xl" : "max-w-3xl lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl", !cover && "pt-6")}>
           {layoutHeader.length > 0 && (
             <div className="mb-5 border-b border-border/60 pb-3">
               <BlockEditor

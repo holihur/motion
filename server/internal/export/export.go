@@ -120,7 +120,7 @@ func (r *pdfRenderer) block(block model.Block) {
 		r.richBlock(block, "“", 10.5, 17, 16)
 	case "callout":
 		r.richBlock(block, "💡 ", 10.5, 17, 10)
-	case "code":
+	case "code", "curl":
 		r.code(block.Text)
 	case "divider":
 		r.ensure(14)

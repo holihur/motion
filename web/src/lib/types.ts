@@ -9,6 +9,7 @@ export type BlockType =
   | "quote"
   | "callout"
   | "code"
+  | "curl"
   | "divider"
   | "image"
   | "table"
@@ -203,6 +204,7 @@ export interface PageSummary {
   icon: string
   cover: string
   theme?: string
+  width?: "standard" | "wide" | "full"
   favorite: boolean
   archived: boolean
   locked?: boolean

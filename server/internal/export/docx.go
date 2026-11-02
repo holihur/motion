@@ -37,7 +37,7 @@ func DOCX(page model.Page) ([]byte, error) {
 			body.WriteString(docxRichParagraph(block, "“", 0, false, "F3F4F6", links))
 		case "callout":
 			body.WriteString(docxRichParagraph(block, "💡 ", 0, false, "E0F2FE", links))
-		case "code":
+		case "code", "curl":
 			body.WriteString(docxParagraph(block.Text, 18, false, "F3F4F6", "Courier New"))
 		case "divider":
 			body.WriteString(docxParagraph("────────────────", 0, false, ""))

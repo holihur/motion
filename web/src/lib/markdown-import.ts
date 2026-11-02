@@ -66,6 +66,10 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
         const diagram = markdownBlock("diagram", "")
         diagram.text = code.join("\n")
         out.push(diagram)
+      } else if (normalized === "curl") {
+        const curl = markdownBlock("curl", "")
+        curl.text = code.join("\n")
+        out.push(curl)
       } else {
         out.push(markdownBlock("code", code.join("\n"), { language }))
       }

@@ -19,6 +19,8 @@ function estimatedHeight(block: Block): number {
       return 44
     case "table":
       return 230
+    case "curl":
+      return 220
     case "diagram":
       return 280
     case "image":

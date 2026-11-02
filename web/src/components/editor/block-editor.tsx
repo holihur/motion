@@ -649,6 +649,9 @@ export function BlockEditor({
     const t = value.trim()
     return /^https?:\/\/[^\s]+$/.test(t) && !t.includes("\n")
   }
+  function isCurlLike(value: string) {
+    return /^\s*(?:\$\s*)?curl(?:\.exe)?\s+/i.test(value)
+  }
   function isMermaidLike(value: string) {
     return /^(graph|flowchart|sequenceDiagram|classDiagram|stateDiagram|stateDiagram-v2|erDiagram|gantt|pie|journey|gitGraph|mindmap|timeline|quadrantChart|requirementDiagram|C4Context|sankey-beta|block-beta|packet-beta|architecture-beta)\b/m.test(value.trim())
   }
@@ -681,6 +684,14 @@ export function BlockEditor({
     if (isSingleUrl(trimmed)) {
       const created = createBlock("bookmark")
       created.url = trimmed; created.text = trimmed
+      const currentEmpty = block.type === "paragraph" && block.text === ""
+      const next = currentEmpty ? [...blocksRef.current.slice(0, index), created, ...blocksRef.current.slice(index + 1)] : [...blocksRef.current.slice(0, index + 1), created, ...blocksRef.current.slice(index + 1)]
+      commit(next); focusNew(created.id, "end"); toast.success(tr("Pasted {n} block(s)", { n: 1 })); return
+    }
+    // curl command → curl request block
+    if (isCurlLike(trimmed)) {
+      const created = createBlock("curl")
+      created.text = trimmed
       const currentEmpty = block.type === "paragraph" && block.text === ""
       const next = currentEmpty ? [...blocksRef.current.slice(0, index), created, ...blocksRef.current.slice(index + 1)] : [...blocksRef.current.slice(0, index + 1), created, ...blocksRef.current.slice(index + 1)]
       commit(next); focusNew(created.id, "end"); toast.success(tr("Pasted {n} block(s)", { n: 1 })); return

@@ -58,6 +58,9 @@ func Markdown(page model.Page) []byte {
 				lang = ""
 			}
 			sb.WriteString("```" + lang + "\n" + text + "\n```\n\n")
+		case "curl":
+			numbered = 0
+			sb.WriteString("```bash\n" + text + "\n```\n\n")
 		case "divider":
 			numbered = 0
 			sb.WriteString("\n---\n\n")

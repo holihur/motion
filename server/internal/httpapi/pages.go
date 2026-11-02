@@ -29,6 +29,7 @@ var blockTypes = map[string]bool{
 	"quote":          true,
 	"callout":        true,
 	"code":           true,
+	"curl":           true,
 	"divider":        true,
 	"image":          true,
 	"table":          true,
@@ -256,6 +257,19 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		updates["theme"] = theme
+	}
+	if value, ok := raw["width"]; ok {
+		var width string
+		if err := json.Unmarshal(value, &width); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid page width")
+			return
+		}
+		width = strings.ToLower(strings.TrimSpace(width))
+		if width != "" && width != "standard" && width != "wide" && width != "full" {
+			writeErr(w, http.StatusBadRequest, "invalid page width")
+			return
+		}
+		updates["width"] = width
 	}
 	if value, ok := raw["favorite"]; ok {
 		var favorite bool

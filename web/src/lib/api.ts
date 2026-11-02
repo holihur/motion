@@ -570,6 +570,7 @@ export const api = {
         icon?: string
         cover?: string
         theme?: string
+        width?: "standard" | "wide" | "full"
         layoutId?: string
         isLayout?: boolean
         favorite?: boolean

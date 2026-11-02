@@ -71,6 +71,7 @@ import { DiagramLightbox, MermaidDiagram } from "@/components/editor/mermaid-dia
 import { LexicalBlock } from "@/components/editor/lexical-block"
 import { PasswordBlock } from "@/components/editor/password-block"
 import { CodeBlock } from "@/components/editor/code-block"
+import { CurlBlock } from "@/components/editor/curl-block"
 import { TableCell } from "@/components/editor/table-cell"
 import { DatabaseBlock } from "@/components/editor/database-block"
 import { JsonVisualBlock } from "@/components/editor/json-visual-block"
@@ -212,7 +213,7 @@ export function BlockRow(props: BlockRowProps) {
     "min-w-0 flex-1",
     textStyled && textColorClass(block.textColor),
     aligned && alignClass(block.align),
-    block.type === "code" && "py-2",
+    (block.type === "code" || block.type === "curl") && "py-2",
     blockBackground && cn("-mx-2 rounded-md px-2", blockBackground),
   )
 
@@ -343,23 +344,7 @@ export function BlockRow(props: BlockRowProps) {
             : block.type === "heading2"
               ? "text-[24px] font-semibold leading-[1.3] tracking-[-0.015em] py-1 mt-4"
               : "text-[19px] font-semibold leading-[1.4] py-1 mt-3"
-        return (
-          <div className="group/heading flex items-start gap-1">
-            {!readOnly && (
-              <button
-                type="button"
-                aria-label={block.collapsed ? tr("Expand section") : tr("Collapse section")}
-                aria-expanded={!block.collapsed}
-                onClick={onToggleCollapsed}
-                title={block.collapsed ? tr("Expand section") : tr("Collapse section")}
-                className="mt-[9px] flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition hover:bg-accent hover:text-foreground max-md:text-muted-foreground group-hover/heading:text-muted-foreground"
-              >
-                <ChevronRight className={cn("size-3.5 transition-transform", !block.collapsed && "rotate-90")} />
-              </button>
-            )}
-            <div className="min-w-0 flex-1">{renderEditable(headingClass)}</div>
-          </div>
-        )
+        return renderEditable(headingClass)
       }
       case "bulleted":
         return (
@@ -458,6 +443,8 @@ export function BlockRow(props: BlockRowProps) {
           </div>
         )
       }
+      case "curl":
+        return <CurlBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "code":
         return (
           <CodeBlock
@@ -973,6 +960,8 @@ export function BlockRow(props: BlockRowProps) {
           canMoveDown={canMoveDown}
           onComment={onCommentBlock ? () => onCommentBlock(block.id) : undefined}
           onCopyLink={copyBlockLink}
+          collapsed={block.collapsed}
+          onToggleCollapsed={onToggleCollapsed}
           trigger={
             <button
               type="button"
@@ -1095,6 +1084,8 @@ export function BlockRow(props: BlockRowProps) {
           canMoveDown={canMoveDown}
           onComment={onCommentBlock ? () => onCommentBlock(block.id) : undefined}
           onCopyLink={copyBlockLink}
+          collapsed={block.collapsed}
+          onToggleCollapsed={onToggleCollapsed}
           align="end"
           trigger={
             <button
@@ -1132,6 +1123,8 @@ function BlockMenu({
   canMoveDown = false,
   onComment,
   onCopyLink,
+  collapsed = false,
+  onToggleCollapsed,
   align = "start",
 }: {
   block: Block
@@ -1154,6 +1147,8 @@ function BlockMenu({
   canMoveDown?: boolean
   onComment?: () => void
   onCopyLink?: () => void
+  collapsed?: boolean
+  onToggleCollapsed?: () => void
   align?: "start" | "end"
 }) {
   const canColor = TEXT_STYLE_TYPES.has(block.type)

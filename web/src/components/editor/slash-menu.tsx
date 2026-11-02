@@ -7,7 +7,7 @@ import { isImeKeyEvent } from "@/lib/keyboard"
 
 const CATEGORY_ORDER = ["Basic", "Media", "Advanced", "Import"] as const
 const CATEGORY_MAP: Record<string, string> = {
-  paragraph: "Basic", heading1: "Basic", heading2: "Basic", heading3: "Basic", bulleted: "Basic", numbered: "Basic", todo: "Basic", quote: "Basic", callout: "Basic", code: "Basic", divider: "Basic", toc: "Basic",
+  paragraph: "Basic", heading1: "Basic", heading2: "Basic", heading3: "Basic", bulleted: "Basic", numbered: "Basic", todo: "Basic", quote: "Basic", callout: "Basic", code: "Basic", curl: "Basic", divider: "Basic", toc: "Basic",
   image: "Media", video: "Media", embed: "Media", bookmark: "Media", file: "Media", map: "Media", equation: "Media",
   table: "Advanced", database: "Advanced", jsonVisual: "Advanced", diagram: "Advanced", gantt: "Advanced", chart: "Advanced", columns: "Advanced", toggle: "Advanced", toggleHeading1: "Advanced", toggleHeading2: "Advanced", toggleHeading3: "Advanced", pageLink: "Advanced", breadcrumb: "Advanced", form: "Advanced", poll: "Advanced", qrcode: "Advanced", barcode: "Advanced", password: "Advanced", content: "Advanced",
 }

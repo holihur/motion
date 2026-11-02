@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import {
+  Check,
   CloudUpload,
   Copy,
   Download,
@@ -22,6 +23,7 @@ import {
   Link2,
   LockKeyhole,
   LockOpen,
+  Maximize2,
   MoreHorizontal,
   Palette,
   PencilLine,
@@ -230,6 +232,18 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     }
   }
 
+  async function onSetWidth(width: "standard" | "wide" | "full") {
+    try {
+      const updated = await api.pages.update(page.id, { width })
+      const next = updated.width ?? width
+      useWorkspaceStore.getState().patchSummary(page.id, { width: next })
+      window.dispatchEvent(new CustomEvent("motion:page-meta", { detail: { id: page.id, patch: { width: next } } }))
+      toast.success(tr("Page width updated"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not update page width"))
+    }
+  }
+
   async function onToggleWatermark() {
     try {
       const next = !page.watermark
@@ -432,6 +446,19 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           {!readOnly && !locked && <DropdownMenuItem onSelect={() => setLayoutOpen(true)}>
             <FileText /> {tr("Page layout")}
           </DropdownMenuItem>}
+          {!readOnly && !locked && <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Maximize2 /> {tr("Page width")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="w-44">
+              {(["standard", "wide", "full"] as const).map((width) => (
+                <DropdownMenuItem key={width} onSelect={() => void onSetWidth(width)}>
+                  {tr(width === "standard" ? "Standard" : width === "wide" ? "Wide" : "Full width")}
+                  {(page.width ?? "standard") === width && <Check className="ml-auto size-3.5" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>}
           {!readOnly && !locked && <DropdownMenuSeparator />}
           {!readOnly && !locked && <DropdownMenuItem onSelect={() => importRef.current?.click()}>
             <FileUp /> {tr("Import file (Markdown / HTML)")}

@@ -158,7 +158,11 @@ func renderPublic(page model.Page, childPages []model.Page, files map[string]str
 			if href == "" {
 				continue
 			}
-			childList.WriteString(`<li><a href="` + html.EscapeString(href) + `">` + iconHTML(child.Icon) + ` ` + html.EscapeString(titleOf(child)) + `</a></li>`)
+			icon := iconHTML(child.Icon)
+			if icon != "" {
+				icon += " "
+			}
+			childList.WriteString(`<li><a href="` + html.EscapeString(href) + `">` + icon + html.EscapeString(titleOf(child)) + `</a></li>`)
 		}
 		childList.WriteString(`</ul></nav>`)
 	}
@@ -207,7 +211,7 @@ load()})();</script>`)
 <body>
 <main>
 <header class="page-head">
-<div class="icon">` + iconHTML(page.Icon) + `</div>
+` + iconDiv(page.Icon) + `
 <h1>` + html.EscapeString(title) + `</h1>
 <div class="meta">Updated ` + page.UpdatedAt.UTC().Format("January 2, 2006") + `</div>
 </header>
@@ -234,7 +238,11 @@ func renderPage(page model.Page, childPages []model.Page, files map[string]strin
 			if href == "" {
 				continue
 			}
-			childList.WriteString(`<li><a href="` + html.EscapeString(href) + `">` + iconHTML(child.Icon) + ` ` + html.EscapeString(titleOf(child)) + `</a></li>`)
+			icon := iconHTML(child.Icon)
+			if icon != "" {
+				icon += " "
+			}
+			childList.WriteString(`<li><a href="` + html.EscapeString(href) + `">` + icon + html.EscapeString(titleOf(child)) + `</a></li>`)
 		}
 		childList.WriteString(`</ul></nav>`)
 	}
@@ -252,7 +260,7 @@ func renderPage(page model.Page, childPages []model.Page, files map[string]strin
 <body>
 <main>
 <header class="page-head">
-<div class="icon">` + iconHTML(page.Icon) + `</div>
+` + iconDiv(page.Icon) + `
 <h1>` + html.EscapeString(title) + `</h1>
 <div class="meta">Updated ` + page.UpdatedAt.UTC().Format("January 2, 2006") + `</div>
 </header>
@@ -275,9 +283,16 @@ func titleOf(page model.Page) string {
 
 func iconHTML(icon string) string {
 	if strings.TrimSpace(icon) == "" {
-		return "📄"
+		return ""
 	}
 	return html.EscapeString(icon)
+}
+
+func iconDiv(icon string) string {
+	if strings.TrimSpace(icon) == "" {
+		return ""
+	}
+	return `<div class="icon">` + html.EscapeString(icon) + `</div>`
 }
 
 func escapeLines(text string) string {
@@ -349,6 +364,8 @@ func renderBlock(block model.Block, files map[string]string, base string) string
 	case "code":
 		lang := html.EscapeString(block.Language)
 		return `<pre><code class="language-` + lang + `">` + html.EscapeString(block.Text) + `</code></pre>`
+	case "curl":
+		return `<pre><code class="language-bash">` + html.EscapeString(block.Text) + `</code></pre>`
 	case "divider":
 		return `<hr>`
 	case "image":

@@ -1417,5 +1417,9 @@
   "Hide column": "隐藏列",
   "Show all": "全部显示",
   "Visible columns": "显示的列",
-  "Table columns": "表格列"
+  "Table columns": "表格列",
+  "Formula": "公式",
+  "Insert formula": "插入公式",
+  "Clear formula": "清除公式",
+  "Formulas recalculate when cells change": "单元格变化时公式会自动重算"
 }

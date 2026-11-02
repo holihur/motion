@@ -1417,5 +1417,9 @@
   "Hide column": "Hide column",
   "Show all": "Show all",
   "Visible columns": "Visible columns",
-  "Table columns": "Table columns"
+  "Table columns": "Table columns",
+  "Formula": "数式",
+  "Insert formula": "数式を挿入",
+  "Clear formula": "数式をクリア",
+  "Formulas recalculate when cells change": "セルが変わると数式は自動で再計算されます"
 }

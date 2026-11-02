@@ -1417,5 +1417,9 @@
   "Hide column": "Hide column",
   "Show all": "Show all",
   "Visible columns": "Visible columns",
-  "Table columns": "Table columns"
+  "Table columns": "Table columns",
+  "Formula": "Formule",
+  "Insert formula": "Insérer une formule",
+  "Clear formula": "Effacer la formule",
+  "Formulas recalculate when cells change": "Les formules sont recalculées lorsque les cellules changent"
 }

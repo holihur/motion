@@ -1417,5 +1417,9 @@
   "Hide column": "Hide column",
   "Show all": "Show all",
   "Visible columns": "Visible columns",
-  "Table columns": "Table columns"
+  "Table columns": "Table columns",
+  "Formula": "Formel",
+  "Insert formula": "Formel einfügen",
+  "Clear formula": "Formel löschen",
+  "Formulas recalculate when cells change": "Formeln werden bei Zelländerungen neu berechnet"
 }

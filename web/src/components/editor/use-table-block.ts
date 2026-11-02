@@ -1,23 +1,39 @@
-import { useCallback } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 import type { Block, TableData } from "@/lib/types"
 import { tableColumnOrder, tableFrozenColumnIndexes, tableVisibleColumnIndexes } from "@/lib/table-layout"
+import { computeTableFormulas, formulaCellKey, isFormulaInput, remapFormulas } from "@/lib/table-formula"
 import { tr } from "@/lib/i18n"
 import { toast } from "sonner"
 
+const DEFAULT_TABLE: TableData = {
+  columns: ["Column 1", "Column 2", "Column 3"],
+  rows: [["", "", ""], ["", "", ""]],
+  header: true,
+}
+
 export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) => void) {
-  const table: TableData = block.table ?? {
-    columns: ["Column 1", "Column 2", "Column 3"],
-    rows: [["", "", ""], ["", "", ""]],
-    header: true,
-  }
+  const stored = block.table ?? DEFAULT_TABLE
+  // Always render recomputed values so a formula stays correct when another
+  // client (or an API client) changes one of the cells it references.
+  const table = useMemo(() => computeTableFormulas(stored), [stored])
   const widths = table.columns.map((_, i) => table.widths?.[i] ?? 160)
   const aligns = table.columns.map((_, i) => table.align?.[i] ?? "left")
 
-  const updateTable = useCallback((next: TableData) => onUpdate({ table: next }), [onUpdate])
+  const updateTable = useCallback((next: TableData) => onUpdate({ table: computeTableFormulas(next) }), [onUpdate])
+
+  // Persist repaired values (e.g. after a remote edit) so exports and the
+  // server keep finished numbers instead of stale ones.
+  useEffect(() => {
+    if (table !== stored) onUpdate({ table })
+  }, [table, stored, onUpdate])
 
   const setCell = useCallback((row: number, col: number, value: string) => {
     const rows = table.rows.map((r, i) => (i === row ? table.columns.map((_, c) => (c === col ? value : (r[c] ?? ""))) : r))
-    updateTable({ ...table, rows })
+    const formulas = { ...(table.formulas ?? {}) }
+    const key = formulaCellKey(row, col)
+    if (isFormulaInput(value)) formulas[key] = value.trim()
+    else delete formulas[key]
+    updateTable({ ...table, rows, formulas: Object.keys(formulas).length ? formulas : undefined })
   }, [table, updateTable])
 
   const addRow = useCallback(() => {
@@ -27,7 +43,11 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
 
   const removeRow = useCallback((index: number) => {
     if (table.rows.length <= 1) return
-    updateTable({ ...table, rows: table.rows.filter((_, i) => i !== index) })
+    updateTable({
+      ...table,
+      rows: table.rows.filter((_, i) => i !== index),
+      formulas: remapFormulas(table.formulas, (row, column) => (row === index ? null : { row: row > index ? row - 1 : row, column })),
+    })
   }, [table, updateTable])
 
   const addColumn = useCallback(() => {
@@ -57,6 +77,7 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
       columnOrder: table.columnOrder ? shift(table.columnOrder) : undefined,
       hiddenColumns: table.hiddenColumns ? shift(table.hiddenColumns) : undefined,
       frozenColumns: table.frozenColumns ? shift(table.frozenColumns) : undefined,
+      formulas: remapFormulas(table.formulas, (row, column) => (column === index ? null : { row, column: column > index ? column - 1 : column })),
       query: table.query ? { ...table.query, filters: table.query.filters.filter((filter) => filter.column !== removedName) } : undefined,
     })
   }, [table, widths, aligns, updateTable])
@@ -126,6 +147,29 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
     window.addEventListener("mouseup", onUp)
   }, [table, widths, updateTable])
 
+  const sortRows = useCallback((column: number, direction: "asc" | "desc") => {
+    const compare = (left: string, right: string) => {
+      const leftNumber = Number(left)
+      const rightNumber = Number(right)
+      if (left.trim() !== "" && right.trim() !== "" && !Number.isNaN(leftNumber) && !Number.isNaN(rightNumber)) return leftNumber - rightNumber
+      return left.localeCompare(right, undefined, { numeric: true })
+    }
+    const order = table.rows.map((_, index) => index).sort((a, b) => {
+      const result = compare(table.rows[a]?.[column] ?? "", table.rows[b]?.[column] ?? "")
+      return direction === "asc" ? result : -result
+    })
+    const positionOf = new Map<number, number>()
+    order.forEach((rowIndex, position) => positionOf.set(rowIndex, position))
+    updateTable({
+      ...table,
+      rows: order.map((rowIndex) => table.rows[rowIndex]),
+      formulas: remapFormulas(table.formulas, (row, col) => {
+        const position = positionOf.get(row)
+        return position === undefined ? null : { row: position, column: col }
+      }),
+    })
+  }, [table, updateTable])
+
   const copyTable = useCallback(() => {
     const indexes = tableVisibleColumnIndexes(table)
     const columns = indexes.map((index) => table.columns[index])
@@ -180,6 +224,6 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
   }, [table])
 
   return {
-    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, copyTable, downloadCSV, downloadJSONL, downloadExcel,
+    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, sortRows, copyTable, downloadCSV, downloadJSONL, downloadExcel,
   }
 }

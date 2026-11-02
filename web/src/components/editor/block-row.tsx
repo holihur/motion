@@ -35,6 +35,7 @@ import {
   Plus,
   RefreshCw,
   Rows3,
+  Sigma,
   Snowflake,
   ChevronRight,
   Table2,
@@ -81,6 +82,7 @@ import { CodeBlock } from "@/components/editor/code-block"
 import { CurlBlock } from "@/components/editor/curl-block"
 import { TableCell } from "@/components/editor/table-cell"
 import { parseTableImport } from "@/lib/table-import"
+import { columnLabel, formulaCellKey, isFormulaInput } from "@/lib/table-formula"
 import { tableColumnOrder, tableFrozenColumnIndexes, tableFrozenOffsets, tableVisibleColumnIndexes } from "@/lib/table-layout"
 import { DatabaseBlock } from "@/components/editor/database-block"
 import { JsonVisualBlock } from "@/components/editor/json-visual-block"
@@ -277,6 +279,7 @@ export function BlockRow(props: BlockRowProps) {
   const [longFolded, setLongFolded] = useState(true)
   const [calloutFolded, setCalloutFolded] = useState(false)
   const [tableSort, setTableSort] = useState<{ column: number; dir: "asc" | "desc" } | null>(null)
+  const [activeTableCell, setActiveTableCell] = useState<{ row: number; column: number } | null>(null)
 
   useEffect(() => {
     const el = editableRef.current
@@ -527,24 +530,29 @@ export function BlockRow(props: BlockRowProps) {
           />
         )
       case "table": {
-        const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, copyTable, downloadCSV, downloadJSONL, downloadExcel } = useTableBlock(block, onUpdate)
+        const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, sortRows, copyTable, downloadCSV, downloadJSONL, downloadExcel } = useTableBlock(block, onUpdate)
         const sortByColumn = (index: number, dir?: "asc" | "desc") => {
           const nextDir: "asc" | "desc" = dir ?? (tableSort?.column === index && tableSort.dir === "asc" ? "desc" : "asc")
-          const sorted = [...table.rows].sort((a, b) => {
-            const av = a[index] ?? ""
-            const bv = b[index] ?? ""
-            const an = Number(av)
-            const bn = Number(bv)
-            let cmp: number
-            if (av.trim() !== "" && bv.trim() !== "" && !Number.isNaN(an) && !Number.isNaN(bn)) {
-              cmp = an - bn
-            } else {
-              cmp = av.localeCompare(bv, undefined, { numeric: true })
-            }
-            return nextDir === "asc" ? cmp : -cmp
-          })
           setTableSort({ column: index, dir: nextDir })
-          updateTable({ ...table, rows: sorted })
+          sortRows(index, nextDir)
+        }
+        const formulaTarget = activeTableCell && activeTableCell.row >= 0 ? activeTableCell : null
+        const insertFormula = (name: string) => {
+          const target = formulaTarget ?? { row: Math.max(0, table.rows.length - 1), column: activeTableCell?.column ?? 0 }
+          const label = columnLabel(target.column)
+          const template = target.row > 0 ? `=${name}(${label}1:${label}${target.row})` : `=${name}(`
+          setCell(target.row, target.column, template)
+          window.setTimeout(() => {
+            const element = document.getElementById(`table-cell-${block.id}-${target.row}-${target.column}`) as HTMLInputElement | null
+            if (!element) return
+            element.focus()
+            element.setSelectionRange(template.length, template.length)
+          }, 30)
+        }
+        const clearFormula = () => {
+          if (!formulaTarget) return
+          if (!table.formulas?.[formulaCellKey(formulaTarget.row, formulaTarget.column)]) return
+          setCell(formulaTarget.row, formulaTarget.column, "")
         }
         const query = table.query ?? { match: "all" as const, filters: [] }
         const activeFilters = query.filters.filter((filter) => table.columns.includes(filter.column))
@@ -660,12 +668,24 @@ export function BlockRow(props: BlockRowProps) {
           const columns = Array.from({ length: width }, (_, index) => table.columns[index] ?? `Column ${index + 1}`)
           const rows = table.rows.map((row) => Array.from({ length: width }, (_, index) => row[index] ?? ""))
           while (rows.length < rowIndex + matrix.length) rows.push(Array.from({ length: width }, () => ""))
+          let formulas = table.formulas
+          if (formulas) {
+            const pasted = new Set<string>()
+            matrix.forEach((cells, rowOffset) => cells.forEach((_, columnOffset) => pasted.add(formulaCellKey(rowIndex + rowOffset, columnIndex + columnOffset))))
+            const kept = Object.entries(formulas).filter(([key]) => !pasted.has(key))
+            formulas = kept.length ? Object.fromEntries(kept) : undefined
+          }
+          const pastedFormulas: Record<string, string> = {}
           matrix.forEach((cells, rowOffset) => {
             cells.forEach((value, columnOffset) => {
-              rows[rowIndex + rowOffset][columnIndex + columnOffset] = value
+              const row = rowIndex + rowOffset
+              const column = columnIndex + columnOffset
+              rows[row][column] = value
+              if (isFormulaInput(value)) pastedFormulas[formulaCellKey(row, column)] = value.trim()
             })
           })
-          updateTable({ ...table, columns, rows })
+          if (Object.keys(pastedFormulas).length > 0) formulas = { ...(formulas ?? {}), ...pastedFormulas }
+          updateTable({ ...table, columns, rows, formulas })
           const lastRow = rowIndex + matrix.length - 1
           const lastColumn = columnIndex + Math.max(...matrix.map((row) => row.length)) - 1
           focusCell(lastRow, lastColumn)
@@ -869,7 +889,7 @@ export function BlockRow(props: BlockRowProps) {
                             align={aligns[columnIndex]}
                             onChange={(value) => setColumn(columnIndex, value)}
                             onKeyDown={(event) => handleCellKeyDown(event, -1, columnIndex)}
-                            onFocus={() => onFocusBlock?.(block.id)}
+                            onFocus={() => { setActiveTableCell({ row: -1, column: columnIndex }); onFocusBlock?.(block.id) }}
                             className="min-w-0 flex-1"
                             placeholder={`Column ${columnIndex + 1}`}
                           />
@@ -946,12 +966,13 @@ export function BlockRow(props: BlockRowProps) {
                           <TableCell
                             id={`table-cell-${block.id}-${rowIndex}-${columnIndex}`}
                             value={row[columnIndex] ?? ""}
+                            formula={table.formulas?.[formulaCellKey(rowIndex, columnIndex)]}
                             readOnly={readOnly}
                             align={aligns[columnIndex]}
                             onChange={(value) => setCell(rowIndex, columnIndex, value)}
                             onKeyDown={(event) => handleCellKeyDown(event, rowIndex, columnIndex)}
                             onPaste={(event) => pasteCells(event, rowIndex, columnIndex)}
-                            onFocus={() => onFocusBlock?.(block.id)}
+                            onFocus={() => { setActiveTableCell({ row: rowIndex, column: columnIndex }); onFocusBlock?.(block.id) }}
                             placeholder=" "
                           />
                         </td>
@@ -987,6 +1008,28 @@ export function BlockRow(props: BlockRowProps) {
               >
                 <Plus className="size-3" /> Column
               </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    title={tr("Insert formula")}
+                    className="ml-auto flex items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                  >
+                    <Sigma className="size-3" /> {tr("Formula")}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-60">
+                  <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{tr("Insert formula")}</div>
+                  {(["SUM", "AVERAGE", "COUNT", "MIN", "MAX", "MEDIAN"] as const).map((name) => (
+                    <DropdownMenuItem key={name} onSelect={() => insertFormula(name)} className="font-mono text-[11px] uppercase">{name}</DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem disabled={!formulaTarget || !table.formulas?.[formulaCellKey(formulaTarget.row, formulaTarget.column)]} onSelect={clearFormula}>
+                    <X className="mr-2 size-3.5" /> {tr("Clear formula")}
+                  </DropdownMenuItem>
+                  <div className="px-2 pb-1 pt-1.5 text-[10px] leading-snug text-muted-foreground">{tr("Formulas recalculate when cells change")}</div>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>}
           </div>
         )

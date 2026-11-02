@@ -1417,5 +1417,9 @@
   "Hide column": "Hide column",
   "Show all": "Show all",
   "Visible columns": "Visible columns",
-  "Table columns": "Table columns"
+  "Table columns": "Table columns",
+  "Formula": "सूत्र",
+  "Insert formula": "सूत्र डालें",
+  "Clear formula": "सूत्र हटाएँ",
+  "Formulas recalculate when cells change": "सेल बदलने पर सूत्र अपने आप फिर से गणना करते हैं"
 }

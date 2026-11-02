@@ -75,7 +75,42 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 		FrozenColumns: sanitizeFrozenColumns(table.FrozenColumns, len(columns)),
 		StickyHeader:  table.StickyHeader,
 		Widths:        widths, Align: align,
+		Formulas: sanitizeTableFormulas(table.Formulas, len(columns), len(cleaned), clean),
 	}
+}
+
+// sanitizeTableFormulas keeps only formulas that point at a real cell, start
+// with "=", and stay small enough to be safe to ship to the client.
+// NOTE: formula results are stored in Rows, so these entries are only needed to
+// keep the source editable; dropping one leaves the computed value intact.
+func sanitizeTableFormulas(formulas map[string]string, columns, rows int, clean func(string) string) map[string]string {
+	if len(formulas) == 0 || columns <= 0 || rows <= 0 {
+		return nil
+	}
+	out := make(map[string]string, len(formulas))
+	for key, value := range formulas {
+		if len(out) >= 200 {
+			break
+		}
+		parts := strings.SplitN(key, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		row, rowErr := strconv.Atoi(parts[0])
+		column, columnErr := strconv.Atoi(parts[1])
+		if rowErr != nil || columnErr != nil || row < 0 || row >= rows || column < 0 || column >= columns {
+			continue
+		}
+		formula := strings.TrimSpace(clean(value))
+		if !strings.HasPrefix(formula, "=") || len([]rune(formula)) > 500 {
+			continue
+		}
+		out[strconv.Itoa(row)+":"+strconv.Itoa(column)] = formula
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func sanitizeTableCellStyles(styles []*model.TableCellStyle, limit int) []*model.TableCellStyle {

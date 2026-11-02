@@ -74,6 +74,7 @@ export interface TableData {
   stickyHeader?: boolean
   widths?: number[]
   align?: ("left" | "center" | "right")[]
+  formulas?: Record<string, string>
 }
 
 export type DatabaseColumnType = "text" | "select" | "status" | "person" | "date" | "number"

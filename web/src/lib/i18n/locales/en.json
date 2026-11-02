@@ -394,5 +394,9 @@
   "Password (optional)": "Password (optional)",
   "Save settings": "Save settings",
   "Settings saved": "Settings saved",
-  "{n} view(s)": "{n} view(s)"
+  "{n} view(s)": "{n} view(s)",
+  "Formula": "Formula",
+  "Insert formula": "Insert formula",
+  "Clear formula": "Clear formula",
+  "Formulas recalculate when cells change": "Formulas recalculate when cells change"
 }

@@ -1417,5 +1417,9 @@
   "Hide column": "Hide column",
   "Show all": "Show all",
   "Visible columns": "Visible columns",
-  "Table columns": "Table columns"
+  "Table columns": "Table columns",
+  "Formula": "Формула",
+  "Insert formula": "Вставить формулу",
+  "Clear formula": "Очистить формулу",
+  "Formulas recalculate when cells change": "Формулы пересчитываются при изменении ячеек"
 }

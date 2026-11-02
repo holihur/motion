@@ -109,6 +109,7 @@ type TableData struct {
 	StickyHeader  *bool             `bson:"stickyHeader,omitempty" json:"stickyHeader,omitempty"`
 	Widths        []int             `bson:"widths,omitempty" json:"widths,omitempty"`
 	Align         []string          `bson:"align,omitempty" json:"align,omitempty"`
+	Formulas      map[string]string `bson:"formulas,omitempty" json:"formulas,omitempty"`
 }
 
 type DatabaseColumn struct {

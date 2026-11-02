@@ -1417,5 +1417,9 @@
   "Hide column": "Hide column",
   "Show all": "Show all",
   "Visible columns": "Visible columns",
-  "Table columns": "Table columns"
+  "Table columns": "Table columns",
+  "Formula": "صيغة",
+  "Insert formula": "إدراج صيغة",
+  "Clear formula": "مسح الصيغة",
+  "Formulas recalculate when cells change": "تُعاد حساب الصيغ تلقائيًا عند تغيير الخلايا"
 }

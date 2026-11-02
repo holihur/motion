@@ -4,6 +4,7 @@ import {
   AlignLeft,
   AlignRight,
   ArrowDown,
+  ArrowRight,
   ArrowUp,
   Check,
   ClipboardCopy,
@@ -1168,11 +1169,30 @@ function BlockMenu({
   const canColor = TEXT_STYLE_TYPES.has(block.type)
   const canAlign = ALIGN_STYLE_TYPES.has(block.type) || block.type === "image"
   const alignValue = block.align || (block.type === "image" ? "center" : "left")
+  const [customLanguage, setCustomLanguage] = useState("")
+  const [translating, setTranslating] = useState(false)
   const copyText = () => {
     void navigator.clipboard.writeText(block.text).then(
       () => toast.success(tr("Copied to clipboard")),
       () => toast.error(tr("Could not copy text")),
     )
+  }
+  async function translateBlock(label: string, key: string) {
+    if (translating) return
+    setTranslating(true)
+    toast.info(tr("Translating..."))
+    try {
+      const out = await translateText(block.text || block.caption || "", label)
+      if (!out) {
+        toast.error(tr("Could not translate this block. Configure AI in Settings first."))
+        return
+      }
+      const next = { ...(block.translations ?? {}), [key]: out }
+      onUpdate({ translations: next } as any)
+      toast.success(`${label} ✓`)
+    } finally {
+      setTranslating(false)
+    }
   }
   return (
     <DropdownMenu>
@@ -1420,21 +1440,41 @@ function BlockMenu({
           <DropdownMenuSubTrigger><Languages /> {tr("Translate")}</DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-44">
             {TRANSLATE_LANGS.map((l) => (
-              <DropdownMenuItem key={l.code} onSelect={async () => {
-                toast.info(tr("Translating..."))
-                const out = await translateText(block.text || block.caption || "", l.code as any)
-                if (!out) {
-                  toast.error(tr("Could not translate this block. Configure AI in Settings first."))
-                  return
-                }
-                const next = { ...(block.translations ?? {}), [l.code]: out }
-                onUpdate({ translations: next } as any)
-                toast.success(`${l.label} ✓`)
-              }}>
+              <DropdownMenuItem key={l.code} onSelect={() => void translateBlock(l.label, l.code)}>
                 <Globe className="size-3" /> {l.label} <span className="ml-auto text-[10px] text-muted-foreground">{l.code}</span>
                 {block.translations?.[l.code] && <Check className="ml-1 size-3 text-brand" />}
               </DropdownMenuItem>
             ))}
+            <div className="mt-1 flex items-center gap-1 border-t border-border/60 p-1.5">
+              <input
+                value={customLanguage}
+                onChange={(event) => setCustomLanguage(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return
+                  event.preventDefault()
+                  const label = customLanguage.trim()
+                  if (!label) return
+                  setCustomLanguage("")
+                  void translateBlock(label, label.slice(0, 40))
+                }}
+                placeholder={tr("Custom language…")}
+                className="h-7 min-w-0 flex-1 rounded border bg-background px-2 text-[11px] outline-none placeholder:text-muted-foreground/60 focus:border-brand/40"
+              />
+              <button
+                type="button"
+                aria-label={tr("Apply")}
+                disabled={!customLanguage.trim() || translating}
+                onClick={() => {
+                  const label = customLanguage.trim()
+                  if (!label) return
+                  setCustomLanguage("")
+                  void translateBlock(label, label.slice(0, 40))
+                }}
+                className="flex size-7 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
+              >
+                <ArrowRight className="size-3" />
+              </button>
+            </div>
             {block.translations && Object.keys(block.translations).length > 0 && (
               <DropdownMenuItem variant="destructive" onSelect={() => onUpdate({ translations: {} } as any)}><Trash2 /> {tr("Clear translations")}</DropdownMenuItem>
             )}

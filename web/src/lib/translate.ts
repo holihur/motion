@@ -19,7 +19,7 @@ export const TRANSLATE_LANGS = LANGS
 
 // Return null when AI translation is unavailable instead of storing a fake
 // "[LANG] original" marker as if it were a real translation.
-export async function translateText(text: string, target: LangCode): Promise<string | null> {
+export async function translateText(text: string, target: string): Promise<string | null> {
   if (!text.trim()) return text
   try {
     const res = await api.ai.chat({ message: `Translate the following to ${target} (only output translation, keep formatting):\n\n${text}` })

@@ -138,7 +138,7 @@ func sanitizeTranslations(in map[string]string) map[string]string {
 	out := make(map[string]string, 20)
 	for key, value := range in {
 		key = strings.TrimSpace(key)
-		if key == "" || len(key) > 16 {
+		if key == "" || len([]rune(key)) > 40 {
 			continue
 		}
 		value = truncateRunes(strings.TrimSpace(value), 5000)

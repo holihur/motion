@@ -18,6 +18,7 @@ import {
   Code2,
   Italic,
   Languages,
+  Send,
   Sparkles,
   Link2,
   Loader2,
@@ -50,7 +51,7 @@ import { caretOffset } from "@/lib/caret"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
-import { TRANSLATE_LANGS, rewriteText, translateText, type LangCode } from "@/lib/translate"
+import { TRANSLATE_LANGS, rewriteText, translateText } from "@/lib/translate"
 import { toast } from "sonner"
 
 const INLINE_TRANSFORMERS = [BOLD_ITALIC_STAR, BOLD_STAR, ITALIC_STAR, INLINE_CODE, STRIKETHROUGH, LINK]
@@ -371,19 +372,36 @@ function EditableBridge({ editable }: { editable: boolean }) {
   return null
 }
 
-function TranslatePicker({ onPick, onClose }: { onPick: (lang: LangCode) => void; onClose: () => void }) {
+function TranslatePicker({ onPick, onClose }: { onPick: (lang: string) => void; onClose: () => void }) {
+  const [custom, setCustom] = useState("")
+  const submit = () => {
+    const value = custom.trim()
+    if (value) onPick(value)
+  }
   return (
-    <span className="flex max-w-[220px] flex-wrap items-center gap-0.5 p-0.5">
+    <span className="flex max-w-[240px] flex-wrap items-center gap-0.5 p-0.5">
       {TRANSLATE_LANGS.map((l) => (
         <button
           key={l.code}
           type="button"
-          onClick={() => onPick(l.code)}
+          onClick={() => onPick(l.label)}
           className="rounded px-1.5 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
         >
           {l.label}
         </button>
       ))}
+      <span className="mt-1 flex w-full items-center gap-1 border-t border-border/60 pt-1">
+        <input
+          value={custom}
+          onChange={(event) => setCustom(event.target.value)}
+          onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); submit() } }}
+          placeholder={tr("Custom language…")}
+          className="h-7 min-w-0 flex-1 rounded border bg-background px-2 text-[11px] outline-none placeholder:text-muted-foreground/60 focus:border-brand/40"
+        />
+        <button type="button" onClick={submit} disabled={!custom.trim()} aria-label={tr("Apply")} className="flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40">
+          <Send className="size-3" />
+        </button>
+      </span>
       <button type="button" aria-label={tr("Cancel")} onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-accent">
         <X className="size-3.5" />
       </button>
@@ -401,6 +419,7 @@ const REWRITE_OPTIONS: [string, string][] = [
 
 function RewritePicker({ busy, onPick }: { busy: boolean; onPick: (instruction: string) => void }) {
   const [open, setOpen] = useState(false)
+  const [custom, setCustom] = useState("")
   const ref = useRef<HTMLSpanElement>(null)
   useEffect(() => {
     if (!open) return
@@ -422,7 +441,7 @@ function RewritePicker({ busy, onPick }: { busy: boolean; onPick: (instruction: 
         {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
       </button>
       {open && (
-        <span className="absolute bottom-full left-1/2 z-10 mb-1 flex w-28 -translate-x-1/2 flex-col overflow-hidden rounded-lg border bg-popover p-1 shadow-xl">
+        <span className="absolute bottom-full left-1/2 z-10 mb-1 flex w-56 -translate-x-1/2 flex-col overflow-hidden rounded-lg border bg-popover p-1 shadow-xl">
           {REWRITE_OPTIONS.map(([instruction, label]) => (
             <button
               key={instruction}
@@ -436,6 +455,39 @@ function RewritePicker({ busy, onPick }: { busy: boolean; onPick: (instruction: 
               {tr(label)}
             </button>
           ))}
+          <span className="mt-1 flex items-center gap-1 border-t border-border/60 pt-1">
+            <input
+              value={custom}
+              onChange={(event) => setCustom(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  const value = custom.trim()
+                  if (!value) return
+                  setCustom("")
+                  setOpen(false)
+                  onPick(value)
+                }
+              }}
+              placeholder={tr("Custom instruction…")}
+              className="h-7 min-w-0 flex-1 rounded border bg-background px-2 text-[11px] outline-none placeholder:text-muted-foreground/60 focus:border-brand/40"
+            />
+            <button
+              type="button"
+              aria-label={tr("Apply")}
+              disabled={!custom.trim() || busy}
+              onClick={() => {
+                const value = custom.trim()
+                if (!value) return
+                setCustom("")
+                setOpen(false)
+                onPick(value)
+              }}
+              className="flex size-7 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
+            >
+              <Send className="size-3" />
+            </button>
+          </span>
         </span>
       )}
     </span>
@@ -478,7 +530,7 @@ function FloatingToolbar() {
     }
   }
 
-  async function translateSelection(lang: LangCode) {
+  async function translateSelection(lang: string) {
     const source = selectedText()
     if (!source.trim() || translating) return
     setTranslating(true)

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
@@ -65,10 +66,13 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 	}
 	return &model.TableData{
 		Columns: columns, Rows: cleaned, Header: table.Header, RowNumbers: table.RowNumbers,
-		Query:        sanitizeTableQuery(table.Query, columns),
-		ColumnStyles: sanitizeTableCellStyles(table.ColumnStyles, len(columns)),
-		RowStyles:    sanitizeTableCellStyles(table.RowStyles, len(cleaned)),
-		Widths:       widths, Align: align,
+		Query:         sanitizeTableQuery(table.Query, columns),
+		ColumnStyles:  sanitizeTableCellStyles(table.ColumnStyles, len(columns)),
+		RowStyles:     sanitizeTableCellStyles(table.RowStyles, len(cleaned)),
+		ColumnOrder:   sanitizeTableColumnOrder(table.ColumnOrder, len(columns)),
+		HiddenColumns: sanitizeHiddenColumns(table.HiddenColumns, len(columns)),
+		FreezeFirst:   table.FreezeFirst,
+		Widths:        widths, Align: align,
 	}
 }
 
@@ -103,6 +107,58 @@ func sanitizeTableCellStyles(styles []*model.TableCellStyle, limit int) []*model
 		return nil
 	}
 	return out[:last+1]
+}
+
+func sanitizeTableColumnOrder(order []int, count int) []int {
+	if count <= 0 || len(order) == 0 {
+		return nil
+	}
+	seen := make([]bool, count)
+	out := make([]int, 0, count)
+	for _, index := range order {
+		if index >= 0 && index < count && !seen[index] {
+			seen[index] = true
+			out = append(out, index)
+		}
+	}
+	for index := 0; index < count; index++ {
+		if !seen[index] {
+			out = append(out, index)
+		}
+	}
+	identity := true
+	for index, value := range out {
+		if index != value {
+			identity = false
+			break
+		}
+	}
+	if identity {
+		return nil
+	}
+	return out
+}
+
+func sanitizeHiddenColumns(hidden []int, count int) []int {
+	if count <= 1 || len(hidden) == 0 {
+		return nil
+	}
+	seen := make([]bool, count)
+	out := make([]int, 0, len(hidden))
+	for _, index := range hidden {
+		if index >= 0 && index < count && !seen[index] {
+			seen[index] = true
+			out = append(out, index)
+		}
+	}
+	sort.Ints(out)
+	if len(out) >= count {
+		out = out[:count-1]
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func sanitizeTableQuery(query *model.TableQuery, columns []string) *model.TableQuery {

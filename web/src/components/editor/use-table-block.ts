@@ -1,5 +1,6 @@
 import { useCallback } from "react"
 import type { Block, TableData } from "@/lib/types"
+import { tableColumnOrder, tableVisibleColumnIndexes } from "@/lib/table-layout"
 import { tr } from "@/lib/i18n"
 import { toast } from "sonner"
 
@@ -38,19 +39,51 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
       rows: table.rows.map((r) => [...r, ""]),
       widths: [...widths, 160],
       align: [...aligns, "left"],
+      columnOrder: table.columnOrder ? [...table.columnOrder, table.columns.length] : undefined,
     })
   }, [table, widths, aligns, updateTable])
 
   const removeColumn = useCallback((index: number) => {
     if (table.columns.length <= 1) return
+    const removedName = table.columns[index]
+    const shift = (values: number[] | undefined) => values?.filter((value) => value !== index).map((value) => value > index ? value - 1 : value)
     updateTable({
       ...table,
       columns: table.columns.filter((_, i) => i !== index),
       rows: table.rows.map((r) => r.filter((_, i) => i !== index)),
       widths: widths.filter((_, i) => i !== index),
       align: aligns.filter((_, i) => i !== index),
+      columnStyles: table.columnStyles ? table.columnStyles.filter((_, i) => i !== index) : undefined,
+      columnOrder: table.columnOrder ? shift(table.columnOrder) : undefined,
+      hiddenColumns: table.hiddenColumns ? shift(table.hiddenColumns) : undefined,
+      query: table.query ? { ...table.query, filters: table.query.filters.filter((filter) => filter.column !== removedName) } : undefined,
     })
   }, [table, widths, aligns, updateTable])
+
+  const reorderColumn = useCallback((from: number, to: number) => {
+    if (from === to) return
+    const order = tableColumnOrder(table)
+    const fromIndex = order.indexOf(from)
+    const toIndex = order.indexOf(to)
+    if (fromIndex < 0 || toIndex < 0) return
+    order.splice(toIndex, 0, order.splice(fromIndex, 1)[0])
+    const identity = order.every((value, index) => value === index)
+    updateTable({ ...table, columnOrder: identity ? undefined : order })
+  }, [table, updateTable])
+
+  const toggleColumnHidden = useCallback((index: number) => {
+    const hidden = new Set(table.hiddenColumns ?? [])
+    if (hidden.has(index)) hidden.delete(index)
+    else {
+      if (tableVisibleColumnIndexes(table).length <= 1) return
+      hidden.add(index)
+    }
+    updateTable({ ...table, hiddenColumns: hidden.size ? [...hidden].sort((a, b) => a - b) : undefined })
+  }, [table, updateTable])
+
+  const toggleFreezeFirst = useCallback(() => {
+    updateTable({ ...table, freezeFirst: !table.freezeFirst })
+  }, [table, updateTable])
 
   const setColumn = useCallback((index: number, value: string) => {
     updateTable({ ...table, columns: table.columns.map((c, i) => (i === index ? value : c)) })
@@ -75,7 +108,9 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
   }, [table, widths, updateTable])
 
   const copyTable = useCallback(() => {
-    const tsv = [table.columns, ...table.rows].map((r) => table.columns.map((_, i) => r[i] ?? "").join("\t")).join("\n")
+    const indexes = tableVisibleColumnIndexes(table)
+    const columns = indexes.map((index) => table.columns[index])
+    const tsv = [columns, ...table.rows].map((r) => indexes.map((index) => r[index] ?? "").join("\t")).join("\n")
     void navigator.clipboard.writeText(tsv).then(
       () => toast.success(tr("Table copied")),
       () => toast.error(tr("Could not copy table")),
@@ -84,7 +119,9 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
 
   const downloadCSV = useCallback(() => {
     const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
-    const csv = "\ufeff" + [table.columns, ...table.rows].map((r) => table.columns.map((_, i) => esc(r[i] ?? "")).join(",")).join("\n")
+    const indexes = tableVisibleColumnIndexes(table)
+    const columns = indexes.map((index) => table.columns[index])
+    const csv = "\ufeff" + [columns, ...table.rows].map((r) => indexes.map((index) => esc(r[index] ?? "")).join(",")).join("\n")
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }))
     const link = document.createElement("a")
     link.href = url
@@ -95,7 +132,9 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
   }, [table])
 
   const downloadJSONL = useCallback(() => {
-    const lines = table.rows.map((row) => JSON.stringify(Object.fromEntries(table.columns.map((column, index) => [column, row[index] ?? ""]))))
+    const indexes = tableVisibleColumnIndexes(table)
+    const columns = indexes.map((index) => table.columns[index])
+    const lines = table.rows.map((row) => JSON.stringify(Object.fromEntries(columns.map((column, position) => [column, row[indexes[position]] ?? ""]))))
     const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "application/x-ndjson;charset=utf-8" }))
     const link = document.createElement("a")
     link.href = url
@@ -107,8 +146,10 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
 
   const downloadExcel = useCallback(() => {
     const esc = (value: string) => value.replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char] ?? char))
-    const header = table.columns.map((column) => `<Cell><Data ss:Type="String">${esc(column)}</Data></Cell>`).join("")
-    const rows = table.rows.map((row) => `<Row>${table.columns.map((_, index) => `<Cell><Data ss:Type="String">${esc(row[index] ?? "")}</Data></Cell>`).join("")}</Row>`).join("")
+    const indexes = tableVisibleColumnIndexes(table)
+    const columns = indexes.map((index) => table.columns[index])
+    const header = columns.map((column) => `<Cell><Data ss:Type="String">${esc(column)}</Data></Cell>`).join("")
+    const rows = table.rows.map((row) => `<Row>${indexes.map((index) => `<Cell><Data ss:Type="String">${esc(row[index] ?? "")}</Data></Cell>`).join("")}</Row>`).join("")
     const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Table"><Table><Row>${header}</Row>${rows}</Table></Worksheet></Workbook>`
     const url = URL.createObjectURL(new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }))
     const link = document.createElement("a")
@@ -120,6 +161,6 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
   }, [table])
 
   return {
-    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, copyTable, downloadCSV, downloadJSONL, downloadExcel,
+    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, copyTable, downloadCSV, downloadJSONL, downloadExcel,
   }
 }

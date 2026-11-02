@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -72,7 +74,8 @@ type exportJob struct {
 	Status      string // queued, running, done, failed
 	Done        int
 	Total       int
-	Data        []byte
+	Path        string
+	Size        int64
 	Error       string
 	CreatedAt   time.Time
 }
@@ -89,6 +92,9 @@ func touchExportJobLocked(id string) *exportJob {
 	// Evict stale jobs (10min TTL) on access.
 	for key, job := range exportJobs.items {
 		if time.Since(job.CreatedAt) > 10*time.Minute {
+			if job.Path != "" {
+				_ = os.Remove(job.Path)
+			}
 			delete(exportJobs.items, key)
 		}
 	}
@@ -165,7 +171,7 @@ func (s *Server) getExportJob(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "export job not found or expired")
 		return
 	}
-	status, done, total, size, jobErr := job.Status, job.Done, job.Total, len(job.Data), job.Error
+	status, done, total, size, jobErr := job.Status, job.Done, job.Total, job.Size, job.Error
 	exportJobs.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"jobId": job.ID, "status": status,
@@ -191,18 +197,24 @@ func (s *Server) downloadExportJob(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "export job not found or expired")
 		return
 	}
-	if job.Status != "done" || job.Data == nil {
+	if job.Status != "done" || job.Path == "" {
 		exportJobs.Unlock()
 		writeErr(w, http.StatusConflict, "export is not ready yet")
 		return
 	}
-	data := job.Data
+	path, size := job.Path, job.Size
 	exportJobs.Unlock()
+	file, err := os.Open(path)
+	if err != nil {
+		writeErr(w, http.StatusGone, "export file has expired")
+		return
+	}
+	defer file.Close()
 	filename := "motion-export.zip"
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
-	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-	_, _ = w.Write(data)
+	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	_, _ = io.Copy(w, file)
 }
 
 func (s *Server) runExportJob(job *exportJob) {
@@ -226,8 +238,20 @@ func (s *Server) runExportJob(job *exportJob) {
 		pages = pages[:2000]
 	}
 	updateExportJob(job, func(j *exportJob) { j.Total = len(pages) })
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
+	file, err := os.CreateTemp("", "motion-export-*.zip")
+	if err != nil {
+		updateExportJob(job, func(j *exportJob) { j.Status = "failed"; j.Error = "could not create export file" })
+		return
+	}
+	path := file.Name()
+	complete := false
+	defer func() {
+		_ = file.Close()
+		if !complete {
+			_ = os.Remove(path)
+		}
+	}()
+	zw := zip.NewWriter(file)
 	used := map[string]int{}
 	for i, page := range pages {
 		select {
@@ -266,7 +290,17 @@ func (s *Server) runExportJob(job *exportJob) {
 		updateExportJob(job, func(j *exportJob) { j.Status = "failed"; j.Error = "could not build export" })
 		return
 	}
-	updateExportJob(job, func(j *exportJob) { j.Data = buf.Bytes(); j.Status = "done" })
+	if err := file.Close(); err != nil {
+		updateExportJob(job, func(j *exportJob) { j.Status = "failed"; j.Error = "could not finish export" })
+		return
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		updateExportJob(job, func(j *exportJob) { j.Status = "failed"; j.Error = "could not finish export" })
+		return
+	}
+	complete = true
+	updateExportJob(job, func(j *exportJob) { j.Path = path; j.Size = info.Size(); j.Status = "done" })
 	s.writeAudit(ctx, job.WorkspaceID, primitive.NilObjectID, "export", primitive.NilObjectID, "",
 		"workspace.export", "workspace", job.WorkspaceID.Hex(),
 		fmt.Sprintf("Exported %d pages as %s (background job)", len(pages), job.Format))

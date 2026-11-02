@@ -67,6 +67,9 @@ export interface TableData {
   query?: TableQuery
   columnStyles?: (TableCellStyle | null)[]
   rowStyles?: (TableCellStyle | null)[]
+  columnOrder?: number[]
+  hiddenColumns?: number[]
+  freezeFirst?: boolean
   widths?: number[]
   align?: ("left" | "center" | "right")[]
 }

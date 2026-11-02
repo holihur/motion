@@ -12,6 +12,7 @@ import {
   Columns2,
   Copy,
   Download,
+  EyeOff,
   Globe,
   GripVertical,
   Filter,
@@ -79,6 +80,7 @@ import { CodeBlock } from "@/components/editor/code-block"
 import { CurlBlock } from "@/components/editor/curl-block"
 import { TableCell } from "@/components/editor/table-cell"
 import { parseTableImport } from "@/lib/table-import"
+import { tableColumnOrder, tableVisibleColumnIndexes } from "@/lib/table-layout"
 import { DatabaseBlock } from "@/components/editor/database-block"
 import { JsonVisualBlock } from "@/components/editor/json-visual-block"
 import { ChartBlock, GanttBlock } from "@/components/editor/data-blocks"
@@ -254,6 +256,7 @@ export function BlockRow(props: BlockRowProps) {
 
   const locked = Boolean(block.locked)
   const tableImportRef = useRef<HTMLInputElement>(null)
+  const [dragColumn, setDragColumn] = useState<number | null>(null)
   const readOnly = pageReadOnly || locked
   const textStyled = TEXT_STYLE_TYPES.has(block.type)
   const aligned = ALIGN_STYLE_TYPES.has(block.type)
@@ -523,7 +526,7 @@ export function BlockRow(props: BlockRowProps) {
           />
         )
       case "table": {
-        const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, copyTable, downloadCSV, downloadJSONL, downloadExcel } = useTableBlock(block, onUpdate)
+        const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, copyTable, downloadCSV, downloadJSONL, downloadExcel } = useTableBlock(block, onUpdate)
         const sortByColumn = (index: number) => {
           const dir: "asc" | "desc" = tableSort?.column === index && tableSort.dir === "asc" ? "desc" : "asc"
           const sorted = [...table.rows].sort((a, b) => {
@@ -570,6 +573,10 @@ export function BlockRow(props: BlockRowProps) {
             })
             return query.match === "any" ? results.some(Boolean) : results.every(Boolean)
           })
+        const columnIndexes = tableVisibleColumnIndexes(table)
+        const columnOrder = tableColumnOrder(table)
+        const firstVisibleColumn = columnIndexes[0]
+        const hiddenSet = new Set(table.hiddenColumns ?? [])
         const updateQuery = (next: TableQuery) => {
           updateTable({ ...table, query: next.filters.length ? next : undefined })
         }
@@ -665,7 +672,7 @@ export function BlockRow(props: BlockRowProps) {
             <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               <Table2 className="size-3" /> Table
               <span className="normal-case tracking-normal text-muted-foreground/60">
-                {table.columns.length} × {visibleRows.length}{activeFilters.length > 0 ? ` / ${table.rows.length}` : ""}
+                {columnIndexes.length}{columnIndexes.length !== table.columns.length ? `/${table.columns.length}` : ""} × {visibleRows.length}{activeFilters.length > 0 ? ` / ${table.rows.length}` : ""}
               </span>
               <div className="ml-auto flex items-center gap-0.5 normal-case tracking-normal">
                 {!readOnly && <button
@@ -719,6 +726,41 @@ export function BlockRow(props: BlockRowProps) {
                     </div>
                   </PopoverContent>
                 </Popover>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground ${hiddenSet.size ? "bg-accent text-foreground" : ""}`}>
+                      <Columns2 className="size-3" /> {tr("Table columns")}{hiddenSet.size ? ` ${hiddenSet.size}` : ""}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-64 p-2.5">
+                    <div className="mb-1.5 flex items-center justify-between text-[11px]">
+                      <span className="font-medium">{tr("Visible columns")}</span>
+                      {hiddenSet.size > 0 && <button type="button" onClick={() => updateTable({ ...table, hiddenColumns: undefined })} className="text-muted-foreground hover:text-foreground">{tr("Show all")}</button>}
+                    </div>
+                    <div className="max-h-64 space-y-0.5 overflow-auto">
+                      {columnOrder.map((columnIndex) => {
+                        const hidden = hiddenSet.has(columnIndex)
+                        return (
+                          <label key={columnIndex} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-[11px] hover:bg-accent">
+                            <input
+                              type="checkbox"
+                              checked={!hidden}
+                              disabled={!hidden && columnIndexes.length <= 1}
+                              onChange={() => toggleColumnHidden(columnIndex)}
+                              className="size-3.5 accent-[var(--brand)]"
+                            />
+                            <span className="min-w-0 flex-1 truncate">{table.columns[columnIndex] || tr("Column")}</span>
+                            {hidden && <EyeOff className="size-3 text-muted-foreground" />}
+                          </label>
+                        )
+                      })}
+                    </div>
+                    <label className="mt-2 flex cursor-pointer items-center gap-2 border-t border-border/60 pt-2 text-[11px]">
+                      <input type="checkbox" checked={Boolean(table.freezeFirst)} onChange={toggleFreezeFirst} className="size-3.5 accent-[var(--brand)]" />
+                      {tr("Freeze first column")}
+                    </label>
+                  </PopoverContent>
+                </Popover>
                 <button
                   type="button"
                   onClick={copyTable}
@@ -770,17 +812,24 @@ export function BlockRow(props: BlockRowProps) {
               <table className="w-full border-collapse text-sm" style={{ tableLayout: "fixed", minWidth: widths.reduce((sum, width) => sum + width, 0) + (table.rowNumbers ? 40 : 0) }}>
                 <colgroup>
                   {table.rowNumbers && <col style={{ width: 40 }} />}
-                  {widths.map((width, index) => <col key={index} style={{ width }} />)}
+                  {columnIndexes.map((columnIndex) => <col key={columnIndex} style={{ width: widths[columnIndex] }} />)}
                 </colgroup>
                 {table.header !== false && <thead className="sticky top-0 z-10">
                   <tr>
-                    {table.rowNumbers && <th className="border-b border-r border-border/60 bg-muted/35 px-2 text-center text-[10px] font-medium text-muted-foreground">#</th>}
-                    {table.columns.map((column, columnIndex) => (
-                      <th key={columnIndex} className={cn("group/head relative border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0", tableCellStyleClasses(table.columnStyles?.[columnIndex]))}>
+                    {table.rowNumbers && <th className={cn("border-b border-r border-border/60 bg-muted/35 px-2 text-center text-[10px] font-medium text-muted-foreground", table.freezeFirst && "sticky left-0 z-20")}>#</th>}
+                    {columnIndexes.map((columnIndex) => (
+                      <th
+                        key={columnIndex}
+                        className={cn("group/head relative border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0", tableCellStyleClasses(table.columnStyles?.[columnIndex]), table.freezeFirst && columnIndex === firstVisibleColumn && "sticky z-20")}
+                        style={table.freezeFirst && columnIndex === firstVisibleColumn ? { left: table.rowNumbers ? 40 : 0 } : undefined}
+                        onDragOver={(event) => { if (dragColumn !== null) { event.preventDefault(); event.dataTransfer.dropEffect = "move" } }}
+                        onDrop={(event) => { event.preventDefault(); if (dragColumn !== null && dragColumn !== columnIndex) reorderColumn(dragColumn, columnIndex); setDragColumn(null) }}
+                      >
                         <div className="flex items-center gap-0.5 px-1">
+                          {!readOnly && <span draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", String(columnIndex)); setDragColumn(columnIndex) }} onDragEnd={() => setDragColumn(null)} className="flex size-5 shrink-0 cursor-grab items-center justify-center rounded text-muted-foreground/0 transition active:cursor-grabbing max-md:text-muted-foreground group-hover/head:text-muted-foreground" title={tr("Drag to reorder column")}><GripVertical className="size-3" /></span>}
                           <TableCell
                             id={`table-cell-${block.id}-${-1}-${columnIndex}`}
-                            value={column}
+                            value={table.columns[columnIndex] ?? ""}
                             readOnly={readOnly}
                             header
                             align={aligns[columnIndex]}
@@ -815,6 +864,17 @@ export function BlockRow(props: BlockRowProps) {
                           {!readOnly && table.columns.length > 1 && (
                             <button
                               type="button"
+                              onClick={() => toggleColumnHidden(columnIndex)}
+                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/head:text-muted-foreground hover:bg-accent hover:text-foreground"
+                              aria-label={tr("Hide column")}
+                              title={tr("Hide column")}
+                            >
+                              <EyeOff className="size-3" />
+                            </button>
+                          )}
+                          {!readOnly && table.columns.length > 1 && (
+                            <button
+                              type="button"
                               onClick={() => removeColumn(columnIndex)}
                               className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/head:text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
                               aria-label={tr("Delete column")}
@@ -837,9 +897,9 @@ export function BlockRow(props: BlockRowProps) {
                 <tbody>
                   {visibleRows.map(({ row, rowIndex }, visibleIndex) => (
                     <tr key={rowIndex} className="group/row transition-colors hover:bg-brand-soft/15">
-                      {table.rowNumbers && <td className={cn("border-b border-r border-border/60 text-center text-[11px] tabular-nums text-muted-foreground", tableCellStyleClasses(table.rowStyles?.[rowIndex]))}>{visibleIndex + 1}</td>}
-                      {table.columns.map((_, columnIndex) => (
-                        <td key={columnIndex} className={cn("border-b border-r border-border/60 p-0 last:border-r-0", tableCellStyleClasses({ ...(table.rowStyles?.[rowIndex] ?? {}), ...(table.columnStyles?.[columnIndex] ?? {}) }))}>
+                      {table.rowNumbers && <td className={cn("border-b border-r border-border/60 text-center text-[11px] tabular-nums text-muted-foreground", table.freezeFirst && "sticky left-0 z-10 bg-card", tableCellStyleClasses(table.rowStyles?.[rowIndex]))}>{visibleIndex + 1}</td>}
+                      {columnIndexes.map((columnIndex) => (
+                        <td key={columnIndex} className={cn("border-b border-r border-border/60 p-0 last:border-r-0", table.freezeFirst && columnIndex === firstVisibleColumn && "sticky z-10 bg-card", tableCellStyleClasses({ ...(table.rowStyles?.[rowIndex] ?? {}), ...(table.columnStyles?.[columnIndex] ?? {}) }))} style={table.freezeFirst && columnIndex === firstVisibleColumn ? { left: table.rowNumbers ? 40 : 0 } : undefined}>
                           <TableCell
                             id={`table-cell-${block.id}-${rowIndex}-${columnIndex}`}
                             value={row[columnIndex] ?? ""}

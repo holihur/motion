@@ -1404,5 +1404,11 @@
   "Allow search engines to index this page": "允许搜索引擎收录此页面",
   "Could not import file": "导入文件失败",
   "Import CSV, JSONL or Excel": "导入 CSV、JSONL 或 Excel",
-  "Imported {n} row(s)": "已导入 {n} 行"
+  "Imported {n} row(s)": "已导入 {n} 行",
+  "Drag to reorder column": "拖动调整列顺序",
+  "Freeze first column": "冻结首列",
+  "Hide column": "隐藏列",
+  "Show all": "全部显示",
+  "Visible columns": "显示的列",
+  "Table columns": "表格列"
 }

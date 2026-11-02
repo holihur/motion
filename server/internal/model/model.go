@@ -95,15 +95,18 @@ type TableCellStyle struct {
 }
 
 type TableData struct {
-	Columns      []string          `bson:"columns" json:"columns"`
-	Rows         [][]string        `bson:"rows" json:"rows"`
-	Header       bool              `bson:"header" json:"header"`
-	RowNumbers   bool              `bson:"rowNumbers,omitempty" json:"rowNumbers,omitempty"`
-	Query        *TableQuery       `bson:"query,omitempty" json:"query,omitempty"`
-	ColumnStyles []*TableCellStyle `bson:"columnStyles,omitempty" json:"columnStyles,omitempty"`
-	RowStyles    []*TableCellStyle `bson:"rowStyles,omitempty" json:"rowStyles,omitempty"`
-	Widths       []int             `bson:"widths,omitempty" json:"widths,omitempty"`
-	Align        []string          `bson:"align,omitempty" json:"align,omitempty"`
+	Columns       []string          `bson:"columns" json:"columns"`
+	Rows          [][]string        `bson:"rows" json:"rows"`
+	Header        bool              `bson:"header" json:"header"`
+	RowNumbers    bool              `bson:"rowNumbers,omitempty" json:"rowNumbers,omitempty"`
+	Query         *TableQuery       `bson:"query,omitempty" json:"query,omitempty"`
+	ColumnStyles  []*TableCellStyle `bson:"columnStyles,omitempty" json:"columnStyles,omitempty"`
+	RowStyles     []*TableCellStyle `bson:"rowStyles,omitempty" json:"rowStyles,omitempty"`
+	ColumnOrder   []int             `bson:"columnOrder,omitempty" json:"columnOrder,omitempty"`
+	HiddenColumns []int             `bson:"hiddenColumns,omitempty" json:"hiddenColumns,omitempty"`
+	FreezeFirst   bool              `bson:"freezeFirst,omitempty" json:"freezeFirst,omitempty"`
+	Widths        []int             `bson:"widths,omitempty" json:"widths,omitempty"`
+	Align         []string          `bson:"align,omitempty" json:"align,omitempty"`
 }
 
 type DatabaseColumn struct {

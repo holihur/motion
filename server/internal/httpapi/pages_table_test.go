@@ -42,3 +42,18 @@ func TestSanitizeTableQuery(t *testing.T) {
 		t.Fatalf("unexpected filter: %#v", query.Filters[0])
 	}
 }
+
+func TestSanitizeTableColumnLayout(t *testing.T) {
+	if got := sanitizeTableColumnOrder([]int{0, 1, 2}, 3); got != nil {
+		t.Fatalf("identity order should be omitted: %#v", got)
+	}
+	if got := sanitizeTableColumnOrder([]int{2, 0}, 3); len(got) != 3 || got[0] != 2 || got[1] != 0 || got[2] != 1 {
+		t.Fatalf("unexpected order: %#v", got)
+	}
+	if got := sanitizeHiddenColumns([]int{1, 1, 9}, 3); len(got) != 1 || got[0] != 1 {
+		t.Fatalf("unexpected hidden columns: %#v", got)
+	}
+	if got := sanitizeHiddenColumns([]int{0, 1, 2}, 3); len(got) != 2 {
+		t.Fatalf("all columns must not be hidden: %#v", got)
+	}
+}

@@ -513,31 +513,84 @@ func tableCellStyleAttr(row, column *model.TableCellStyle) string {
 	return ` style="` + strings.Join(parts, ";") + `"`
 }
 
+func tableFrozenClass(frozen bool) string {
+	if frozen {
+		return ` class="frozen"`
+	}
+	return ""
+}
+
+func tableVisibleColumnIndexes(table *model.TableData) []int {
+	if table == nil {
+		return nil
+	}
+	order := table.ColumnOrder
+	if len(order) == 0 {
+		order = make([]int, len(table.Columns))
+		for index := range order {
+			order[index] = index
+		}
+	}
+	hidden := make(map[int]bool, len(table.HiddenColumns))
+	for _, index := range table.HiddenColumns {
+		hidden[index] = true
+	}
+	out := make([]int, 0, len(order))
+	seen := make([]bool, len(table.Columns))
+	for _, index := range order {
+		if index >= 0 && index < len(table.Columns) && !seen[index] && !hidden[index] {
+			seen[index] = true
+			out = append(out, index)
+		}
+	}
+	for index := range table.Columns {
+		if !seen[index] && !hidden[index] {
+			out = append(out, index)
+		}
+	}
+	return out
+}
+
 func renderTable(table *model.TableData, base string) string {
 	if table == nil || len(table.Columns) == 0 {
 		return ""
 	}
+	indexes := tableVisibleColumnIndexes(table)
+	if len(indexes) == 0 {
+		for index := range table.Columns {
+			indexes = append(indexes, index)
+		}
+	}
 	var b strings.Builder
 	b.WriteString(`<table><thead><tr>`)
 	if table.RowNumbers {
-		b.WriteString(`<th>#</th>`)
+		b.WriteString(`<th` + tableFrozenClass(table.FreezeFirst) + `>#</th>`)
 	}
-	for index, column := range table.Columns {
-		b.WriteString(`<th` + tableCellStyleAttr(nil, tableStyleAt(table.ColumnStyles, index)) + `>` + html.EscapeString(column) + `</th>`)
+	for position, index := range indexes {
+		column := table.Columns[index]
+		class := ""
+		if position == 0 {
+			class = tableFrozenClass(table.FreezeFirst)
+		}
+		b.WriteString(`<th` + class + tableCellStyleAttr(nil, tableStyleAt(table.ColumnStyles, index)) + `>` + html.EscapeString(column) + `</th>`)
 	}
 	b.WriteString(`</tr></thead><tbody>`)
 	for rowIndex, row := range table.Rows {
 		rowStyle := tableStyleAt(table.RowStyles, rowIndex)
 		b.WriteString(`<tr>`)
 		if table.RowNumbers {
-			b.WriteString(`<td` + tableCellStyleAttr(rowStyle, nil) + `>` + strconv.Itoa(rowIndex+1) + `</td>`)
+			b.WriteString(`<td` + tableFrozenClass(table.FreezeFirst) + tableCellStyleAttr(rowStyle, nil) + `>` + strconv.Itoa(rowIndex+1) + `</td>`)
 		}
-		for index := range table.Columns {
+		for position, index := range indexes {
 			cell := ""
 			if index < len(row) {
 				cell = row[index]
 			}
-			b.WriteString(`<td` + tableCellStyleAttr(rowStyle, tableStyleAt(table.ColumnStyles, index)) + `>` + escapeLines(cell) + `</td>`)
+			class := ""
+			if position == 0 {
+				class = tableFrozenClass(table.FreezeFirst)
+			}
+			b.WriteString(`<td` + class + tableCellStyleAttr(rowStyle, tableStyleAt(table.ColumnStyles, index)) + `>` + escapeLines(cell) + `</td>`)
 		}
 		b.WriteString(`</tr>`)
 	}
@@ -553,7 +606,7 @@ main{max-width:780px;margin:0 auto;padding:56px 24px 80px}.page-head .icon{font-
 .meta{color:var(--muted);font-size:13px;margin-bottom:36px}article h1{font-size:30px;margin:32px 0 12px}article h2{font-size:24px;margin:28px 0 10px}article h3{font-size:19px;margin:22px 0 8px}
 p{margin:10px 0}blockquote{border-left:3px solid var(--border);margin:16px 0;padding:2px 18px;color:var(--muted)}
 pre{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;overflow:auto;font-size:13px;line-height:1.6}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-table{border-collapse:collapse;width:100%;margin:18px 0;font-size:14px}th,td{border:1px solid var(--border);padding:8px 10px;text-align:left}th{background:var(--card)}
+table{border-collapse:collapse;width:100%;margin:18px 0;font-size:14px}th,td{border:1px solid var(--border);padding:8px 10px;text-align:left}th{background:var(--card)}th.frozen,td.frozen{position:sticky;left:0;z-index:1;background:var(--bg)}th.frozen{background:var(--card)}
 img{max-width:100%;height:auto;border-radius:10px}figure{margin:18px 0}figcaption{text-align:center;color:var(--muted);font-size:12px;margin-top:6px}
 .callout{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:16px 0;display:flex;gap:10px}
 .todo{display:flex;gap:8px;margin:8px 0}.todo input{margin-top:6px}.todo input:checked+span{color:var(--muted);text-decoration:line-through}

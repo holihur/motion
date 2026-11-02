@@ -1404,5 +1404,11 @@
   "Allow search engines to index this page": "Allow search engines to index this page",
   "Could not import file": "Could not import file",
   "Import CSV, JSONL or Excel": "Import CSV, JSONL or Excel",
-  "Imported {n} row(s)": "Imported {n} row(s)"
+  "Imported {n} row(s)": "Imported {n} row(s)",
+  "Drag to reorder column": "Drag to reorder column",
+  "Freeze first column": "Freeze first column",
+  "Hide column": "Hide column",
+  "Show all": "Show all",
+  "Visible columns": "Visible columns",
+  "Table columns": "Table columns"
 }

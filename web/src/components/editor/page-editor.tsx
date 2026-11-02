@@ -1152,7 +1152,7 @@ export function PageEditor() {
     if (!page) return
     try {
       const next = await toggleFavorite(page.id)
-      toast.success(next ? "Added to Favorites" : "Removed from Favorites")
+      toast.success(next ? tr("Added to Favorites") : tr("Removed from Favorites"))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : tr("Could not update Favorites"))
     }
@@ -1621,7 +1621,7 @@ export function PageEditor() {
                   type="button"
                   className="rounded-md bg-background/85 px-2 py-1 text-[11px] font-medium text-foreground shadow-sm backdrop-blur transition hover:bg-background"
                 >
-                  Change cover
+                  {tr("Change cover")}
                 </button>
               </CoverPicker>
               <button
@@ -1629,7 +1629,7 @@ export function PageEditor() {
                 onClick={() => onCoverChange("")}
                 className="rounded-md bg-background/85 px-2 py-1 text-[11px] font-medium text-muted-foreground shadow-sm backdrop-blur transition hover:bg-background hover:text-foreground"
               >
-                Remove
+                {tr("Remove")}
               </button>
             </div>}
           </div>
@@ -1766,7 +1766,7 @@ export function PageEditor() {
           style={{ left: selection.x, top: Math.min(selection.y + 8, window.innerHeight - 48) }}
         >
           <MessageSquarePlus className="size-3.5 text-brand" />
-          Comment
+          {tr("Comment")}
         </button>
       )}
 

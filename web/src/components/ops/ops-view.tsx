@@ -162,7 +162,7 @@ export function OpsView() {
   async function save() {
     if (!settings || pending) return
     if (!canSave) {
-      toast.error(issuerError || "Fix the highlighted administrator emails before saving.")
+      toast.error(issuerError || tr("Fix the highlighted administrator emails before saving."))
       return
     }
     setPending(true)
@@ -212,7 +212,7 @@ export function OpsView() {
     try {
       if (!token) return
       const result = await api.ops.applyUpdate(token)
-      toast.success(`Updated to ${result.version}`, {
+      toast.success(tr("Updated to {version}", { version: result.version }), {
         description: result.restarting ? "Motion is restarting now." : "Restart Motion to finish.",
         duration: 8000,
       })
@@ -230,7 +230,7 @@ export function OpsView() {
       const result = await api.ops.checkUpdate(token)
       setUpdateCheck(result)
       if (!result.latest) toast( tr("No update information available yet"))
-      else if (result.available) toast(`Update available: ${result.latest}`)
+      else if (result.available) toast(tr("Update available: {version}", { version: result.latest }))
       else toast.success( tr("Motion is up to date"))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : tr("Could not check for updates"))
@@ -264,7 +264,7 @@ export function OpsView() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
-            Back to workspace
+            {tr("Back to workspace")}
           </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={lock}>
             <LockKeyhole className="size-3.5" /> Lock Ops
@@ -273,7 +273,7 @@ export function OpsView() {
           {justSaved && <span className="flex items-center gap-1 text-xs font-medium text-emerald-600"><CheckCircle2 className="size-3.5" /> {tr("Saved")}</span>}
           <Button size="sm" className="gap-1.5" onClick={() => void save()} disabled={pending || !canSave}>
             {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-            Save changes
+            {tr("Save changes")}
           </Button>
           </div>
         </div>
@@ -483,7 +483,7 @@ export function OpsView() {
                           checked={clearSecret}
                           onChange={(event) => setClearSecret(event.target.checked)}
                         />
-                        Remove the saved secret
+                        {tr("Remove the saved secret")}
                       </label>
                     )}
                   </Field>
@@ -513,7 +513,7 @@ export function OpsView() {
                       }}
                       className="text-left text-[11px] font-medium text-brand hover:underline"
                     >
-                      Copy callback URL
+                      {tr("Copy callback URL")}
                     </button>
                   </Field>
                   <Field label={tr("Scopes")} htmlFor="ops-oidc-scopes" hint="Comma separated.">
@@ -580,7 +580,7 @@ export function OpsView() {
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <Button variant="outline" size="sm" onClick={() => void checkUpdate()} disabled={checking || applying}>
                     {checking ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
-                    Check for updates
+                    {tr("Check for updates")}
                   </Button>
                   {updateCheck?.available && (
                     <Button size="sm" onClick={() => void installUpdate()} disabled={applying}>
@@ -708,7 +708,7 @@ function OpsGate({
             }}
             className="mt-3 w-full text-center text-[11px] text-muted-foreground hover:text-foreground"
           >
-            Back to workspace
+            {tr("Back to workspace")}
           </button>
         </form>
       </div>

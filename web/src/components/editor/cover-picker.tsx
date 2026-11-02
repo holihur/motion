@@ -83,7 +83,7 @@ export function CoverPicker({
               onClick={applyUrl}
               className="h-8 shrink-0 rounded-md bg-primary px-2.5 text-[11px] font-medium text-primary-foreground transition hover:bg-primary/90"
             >
-              Apply
+              {tr("Apply")}
             </button>
           </div>
         </div>

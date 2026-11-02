@@ -346,7 +346,7 @@ export function AIPanel({
               onClick={() => navigate(`/page/${agentsPageId}`)}
               className="font-medium text-brand hover:underline"
             >
-              Open
+              {tr("Open")}
             </button>
           ) : (
             <button
@@ -356,7 +356,7 @@ export function AIPanel({
               className="flex items-center gap-1 font-medium text-brand hover:underline disabled:opacity-50"
             >
               {creatingAgents ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
-              Create
+              {tr("Create")}
             </button>
           )}
         </div>

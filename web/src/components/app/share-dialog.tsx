@@ -107,7 +107,7 @@ export function ShareDialog({
     try {
       await api.workspaces.removeMember(workspace.id, member.userId)
       await refresh()
-      toast.success(`${member.name} was removed`)
+      toast.success(tr("{name} was removed", { name: member.name }))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not remove member"))
     } finally {

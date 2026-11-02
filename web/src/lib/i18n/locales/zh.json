@@ -1513,5 +1513,15 @@
   "Invalid .xlsx directory": ".xlsx 目录无效",
   "Unsupported .xlsx compression": "不支持该 .xlsx 压缩方式",
   "No worksheet found": "未找到工作表",
-  "File is too large (max 20 MB)": "文件过大（最大 20 MB）"
+  "File is too large (max 20 MB)": "文件过大（最大 20 MB）",
+  "Added to Favorites": "已加入收藏",
+  "Copy callback URL": "复制回调地址",
+  "Fix the highlighted administrator emails before saving.": "请先修正标红的管理员邮箱再保存。",
+  "Paste your {provider} API key first": "请先粘贴 {provider} 的 API Key",
+  "Remove the saved secret": "移除已保存的密钥",
+  "Removed from Favorites": "已取消收藏",
+  "Restored \u201c{title}\u201d": "已恢复「{title}」",
+  "Update available: {version}": "有可用更新：{version}",
+  "Updated to {version}": "已更新到 {version}",
+  "{name} was removed": "已移除 {name}"
 }

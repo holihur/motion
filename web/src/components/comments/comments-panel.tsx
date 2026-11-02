@@ -268,7 +268,7 @@ export function CommentsPanel({
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDeleteTarget(null)}>{tr("Cancel")}</Button>
             <Button variant="destructive" disabled={pending} onClick={() => void removeComment()}>
-              Delete
+              {tr("Delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

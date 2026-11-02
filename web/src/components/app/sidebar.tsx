@@ -728,7 +728,7 @@ function CreateWorkspaceDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+              {tr("Cancel")}
             </Button>
             <Button type="submit" disabled={!name.trim() || pending}>
               {tr("Create workspace")}

@@ -55,7 +55,7 @@ export function TrashView() {
     setBusy(page.id)
     try {
       await restorePage(page.id)
-      toast.success(`Restored “${pageTitle(page.title)}”`)
+      toast.success(tr("Restored “{title}”", { title: pageTitle(page.title) }))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not restore page"))
     } finally {
@@ -91,7 +91,7 @@ export function TrashView() {
             className="flex items-center gap-1 rounded px-1 py-0.5 hover:bg-accent hover:text-foreground"
           >
             <Home className="size-3.5" />
-            Home
+            {tr("Home")}
           </button>
           <span className="text-muted-foreground/60">/</span>
           <span className="font-medium text-foreground">{tr("Trash")}</span>
@@ -104,7 +104,7 @@ export function TrashView() {
             <div>
               <h1 className="flex items-center gap-2.5 text-2xl font-semibold tracking-tight">
                 <Trash2 className="size-5 text-muted-foreground" />
-                Trash
+                {tr("Trash")}
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 {tr("Pages stay here until you restore or delete them forever.")}

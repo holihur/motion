@@ -421,7 +421,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           {!readOnly && !locked && <DropdownMenuItem
             onSelect={() => {
               void toggleFavorite(page.id).then((favorite) =>
-                toast.success(favorite ? "Added to Favorites" : "Removed from Favorites"),
+                toast.success(favorite ? tr("Added to Favorites") : tr("Removed from Favorites")),
               )
             }}
           >
@@ -805,10 +805,10 @@ function RenamePageDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+              {tr("Cancel")}
             </Button>
             <Button type="submit" disabled={pending}>
-              Save
+              {tr("Save")}
             </Button>
           </DialogFooter>
         </form>

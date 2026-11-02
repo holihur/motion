@@ -110,7 +110,7 @@ export function CommentComposer({
           />
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
+              {tr("Cancel")}
             </Button>
             <Button type="submit" disabled={!body.trim() || pending}>
               {pending && <Loader2 className="size-4 animate-spin" />}

@@ -190,7 +190,7 @@ export function SearchDialog() {
             <CommandGroup heading={tr("Quick actions")}>
               <CommandItem value="action-new-page" onSelect={() => void newPage()}>
                 <FilePlus2 />
-                New page
+                {tr("New page")}
               </CommandItem>
               <CommandItem
                 value="action-home"
@@ -200,7 +200,7 @@ export function SearchDialog() {
                 }}
               >
                 <Home />
-                Go home
+                {tr("Go home")}
               </CommandItem>
               <CommandItem
                 value="action-trash"
@@ -210,7 +210,7 @@ export function SearchDialog() {
                 }}
               >
                 <Trash2 />
-                Open trash
+                {tr("Open trash")}
               </CommandItem>
               <CommandItem
                 value="action-settings"
@@ -220,7 +220,7 @@ export function SearchDialog() {
                 }}
               >
                 <Settings />
-                Settings
+                {tr("Settings")}
               </CommandItem>
               <CommandItem
                 value="action-theme"
@@ -230,7 +230,7 @@ export function SearchDialog() {
                 }}
               >
                 <Moon />
-                Toggle theme
+                {tr("Toggle theme")}
               </CommandItem>
             </CommandGroup>
             {recent.length > 0 && (

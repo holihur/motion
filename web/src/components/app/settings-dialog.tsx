@@ -308,7 +308,7 @@ function WorkspaceSettings() {
                   )
               }}
             >
-              Delete forever
+              {tr("Delete forever")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -371,7 +371,7 @@ function AISettings() {
     event.preventDefault()
     if (pending) return
     if (!configured && providerInfo.key && !apiKey.trim()) {
-      toast.error(`Paste your ${providerInfo.label} API key first`)
+      toast.error(tr("Paste your {provider} API key first", { provider: providerInfo.label }))
       return
     }
     setPending(true)

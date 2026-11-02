@@ -257,7 +257,7 @@ export function HistoryDialog({
             <Button variant="ghost" onClick={() => setConfirmOpen(false)}>{tr("Cancel")}</Button>
             <Button onClick={() => void restore()} disabled={restoring}>
               {restoring && <Loader2 className="size-4 animate-spin" />}
-              Restore version
+              {tr("Restore version")}
             </Button>
           </DialogFooter>
         </DialogContent>

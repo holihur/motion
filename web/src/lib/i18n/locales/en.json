@@ -493,5 +493,15 @@
   "Invalid .xlsx directory": "Invalid .xlsx directory",
   "Unsupported .xlsx compression": "Unsupported .xlsx compression",
   "No worksheet found": "No worksheet found",
-  "File is too large (max 20 MB)": "File is too large (max 20 MB)"
+  "File is too large (max 20 MB)": "File is too large (max 20 MB)",
+  "Added to Favorites": "Added to Favorites",
+  "Copy callback URL": "Copy callback URL",
+  "Fix the highlighted administrator emails before saving.": "Fix the highlighted administrator emails before saving.",
+  "Paste your {provider} API key first": "Paste your {provider} API key first",
+  "Remove the saved secret": "Remove the saved secret",
+  "Removed from Favorites": "Removed from Favorites",
+  "Restored \u201c{title}\u201d": "Restored “{title}”",
+  "Update available: {version}": "Update available: {version}",
+  "Updated to {version}": "Updated to {version}",
+  "{name} was removed": "{name} was removed"
 }

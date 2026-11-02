@@ -122,7 +122,7 @@ export function MermaidDiagram({ source }: { source: string }) {
   if (!visible) {
     return (
       <div ref={wrapperRef} className="flex min-h-[140px] items-center justify-center rounded-lg border bg-muted/10 text-[11px] text-muted-foreground">
-        Diagram
+        {tr("Diagram")}
       </div>
     )
   }

@@ -693,7 +693,7 @@ export function BlockRow(props: BlockRowProps) {
         return (
           <div className="my-2 overflow-hidden rounded-lg border border-border/80 bg-card" onFocus={() => onFocusBlock?.(block.id)}>
             <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              <Table2 className="size-3" /> Table
+              <Table2 className="size-3" /> {tr("Table")}
               <span className="normal-case tracking-normal text-muted-foreground/60">
                 {columnIndexes.length}{columnIndexes.length !== table.columns.length ? `/${table.columns.length}` : ""} × {visibleRows.length}{activeFilters.length > 0 ? ` / ${table.rows.length}` : ""}
               </span>
@@ -1041,7 +1041,7 @@ export function BlockRow(props: BlockRowProps) {
             <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5">
               <Network className="size-3 text-muted-foreground" />
               <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Mermaid diagram
+                {tr("Mermaid diagram")}
               </span>
               {!diagramEditing && (
                 <div className="ml-auto flex items-center gap-1">

@@ -3,6 +3,7 @@ import { Search, X } from "lucide-react"
 import { EMOJIS, searchEmojis } from "@/lib/emoji"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
+import { tr } from "@/lib/i18n"
 
 export function EmojiPicker({
   value,
@@ -26,7 +27,7 @@ export function EmojiPicker({
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search emoji"
+            placeholder={tr("Search emoji")}
             autoFocus
             className="h-8 w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground/70"
           />
@@ -38,7 +39,7 @@ export function EmojiPicker({
         </div>
         <div className="mt-2 max-h-[248px] overflow-y-auto thin-scrollbar pr-1">
           {results.length === 0 ? (
-            <div className="py-8 text-center text-xs text-muted-foreground">No emoji found</div>
+            <div className="py-8 text-center text-xs text-muted-foreground">{tr("No emoji found")}</div>
           ) : (
             <div className="grid grid-cols-9 gap-0.5">
               {results.map((emoji, index) => (

@@ -468,5 +468,11 @@
   "The AI request failed": "The AI request failed",
   "Trash retention (days)": "Trash retention (days)",
   "When off, an administrator must create the account first.": "When off, an administrator must create the account first.",
-  "failed": "failed"
+  "failed": "failed",
+  "Add a block": "Add a block",
+  "No emoji found": "No emoji found",
+  "Opening your workspace\u2026": "Opening your workspace…",
+  "Paste the OPS_TOKEN": "Paste the OPS_TOKEN",
+  "Search emoji": "Search emoji",
+  "Update an existing page": "Update an existing page"
 }

@@ -35,11 +35,11 @@ export function OIDCCallbackPage() {
             <AlertTriangle className="size-5" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold">We couldn’t sign you in</h1>
+            <h1 className="text-lg font-semibold">{tr("We couldn’t sign you in")}</h1>
             <p className="mt-1 max-w-sm text-sm text-muted-foreground">{error}</p>
           </div>
           <Button asChild variant="outline">
-            <Link to="/login">Back to sign in</Link>
+            <Link to="/login">{tr("Back to sign in")}</Link>
           </Button>
         </>
       ) : (

@@ -601,7 +601,7 @@ export function OpsView() {
               </section>
 
               <section className="rounded-2xl border bg-card p-5">
-                <SectionTitle icon={Database} title="Instance health" description={tr("A quick snapshot of your Motion data.")} />
+                <SectionTitle icon={Database} title={tr("Instance health")} description={tr("A quick snapshot of your Motion data.")} />
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {stats &&
                     [
@@ -687,7 +687,7 @@ function OpsGate({
                 autoComplete="off"
                 value={token}
                 onChange={(event) => onTokenChange(event.target.value)}
-                placeholder="Paste the OPS_TOKEN"
+                placeholder={tr("Paste the OPS_TOKEN")}
                 className="pl-9 font-mono text-xs"
               />
             </div>

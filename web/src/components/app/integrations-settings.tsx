@@ -377,7 +377,7 @@ export function IntegrationsSettings() {
           <div className="space-y-1.5"><Label>{tr("Site URL")}</Label><Input value={confSite} disabled={!owner} onChange={(event) => setConfSite(event.target.value)} placeholder="https://acme.atlassian.net" /></div>
           <div className="space-y-1.5"><Label>{tr("Email")}</Label><Input value={confEmail} disabled={!owner} onChange={(event) => setConfEmail(event.target.value)} placeholder="you@example.com" /></div>
           <div className="space-y-1.5"><Label>{tr("Space ID")}</Label><Input value={confSpace} disabled={!owner} onChange={(event) => setConfSpace(event.target.value)} placeholder="123456" /></div>
-          <div className="space-y-1.5"><Label>{tr("Page ID (optional)")}</Label><Input value={confPage} disabled={!owner} onChange={(event) => setConfPage(event.target.value)} placeholder="Update an existing page" /></div>
+          <div className="space-y-1.5"><Label>{tr("Page ID (optional)")}</Label><Input value={confPage} disabled={!owner} onChange={(event) => setConfPage(event.target.value)} placeholder={tr("Update an existing page")} /></div>
           <div className="space-y-1.5"><Label>{tr("Parent page ID (optional)")}</Label><Input value={confParent} disabled={!owner} onChange={(event) => setConfParent(event.target.value)} placeholder="123456" /></div>
           <div className="space-y-1.5"><Label>{tr("API token")}</Label><Input type="password" value={confToken} disabled={!owner} onChange={(event) => setConfToken(event.target.value)} placeholder={confluence?.hasSecret ? tr("Saved — leave blank to keep") : tr("Atlassian API token")} /></div>
         </div>

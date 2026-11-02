@@ -25,7 +25,7 @@ export function SidebarToggle({ className }: { className?: string }) {
           <PanelLeft className="size-4" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent>Toggle sidebar</TooltipContent>
+      <TooltipContent>{tr("Toggle sidebar")}</TooltipContent>
     </Tooltip>
   )
 }

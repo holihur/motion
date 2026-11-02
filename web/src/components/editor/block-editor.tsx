@@ -1213,7 +1213,7 @@ export function BlockEditor({
       {!readOnly && <button
         type="button"
         onClick={appendBlock}
-        aria-label="Add a block"
+        aria-label={tr("Add a block")}
         className="group/add mt-1 flex min-h-[90px] w-full items-start gap-2 rounded-md pt-2 text-left outline-none"
       >
         <span className="flex h-6 items-center gap-1 text-[11px] text-muted-foreground/0 transition group-hover/add:text-muted-foreground/60">

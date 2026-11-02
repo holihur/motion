@@ -1490,5 +1490,11 @@
   "The AI request failed": "AI 请求失败",
   "Trash retention (days)": "回收站保留天数",
   "When off, an administrator must create the account first.": "关闭时，需要管理员先创建账号。",
-  "failed": "失败"
+  "failed": "失败",
+  "Add a block": "添加区块",
+  "No emoji found": "没有找到表情",
+  "Opening your workspace\u2026": "正在打开工作区…",
+  "Paste the OPS_TOKEN": "粘贴 OPS_TOKEN",
+  "Search emoji": "搜索表情",
+  "Update an existing page": "更新已有页面"
 }

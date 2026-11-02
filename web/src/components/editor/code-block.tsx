@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import hljs from "highlight.js/lib/common"
 import apache from "highlight.js/lib/languages/apache"
 import clojure from "highlight.js/lib/languages/clojure"
@@ -94,9 +94,25 @@ const ALIASES: Record<string, string> = {
 }
 
 function normalize(value: string) {
-  const key = value.trim().toLowerCase()
-  return ALIASES[key] ?? (LANGUAGES.some(([id]) => id === key) ? key : "auto")
+  return resolveLanguage(value) ?? "plaintext"
 }
+
+const LANGUAGE_LABELS = new Map<string, string>(LANGUAGES.map(([id, label]) => [label.toLowerCase(), id]))
+const LANGUAGE_IDS = new Set<string>(LANGUAGES.map(([id]) => id))
+
+function resolveLanguage(value: string): string | null {
+  const key = value.trim().toLowerCase()
+  if (!key) return null
+  return ALIASES[key] ?? LANGUAGE_LABELS.get(key) ?? (LANGUAGE_IDS.has(key) ? key : null)
+}
+
+function languageLabel(id: string) {
+  return LANGUAGES.find(([value]) => value === id)?.[1] ?? id
+}
+
+// Auto detection is only trusted when highlight.js finds a reasonably strong match.
+const AUTO_DETECT_MIN_RELEVANCE = 5
+const AUTO_DETECT_MIN_LENGTH = 12
 
 export function CodeBlock({
   block, index, readOnly, placeholder, autoFocus, onInput, onKeyDown, onFocus, onUpdate,
@@ -113,19 +129,31 @@ export function CodeBlock({
 }) {
   const language = normalize(block.language || "plaintext")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const autoHighlight = useMemo(
-    () => (language === "auto" ? hljs.highlightAuto(block.text || " ") : null),
-    [block.text, language],
-  )
-  const autoDetected = language === "auto" && block.text.trim() && autoHighlight?.language
+  const [languageDraft, setLanguageDraft] = useState(languageLabel(language))
+  useEffect(() => {
+    setLanguageDraft((draft) => (resolveLanguage(draft) === language ? draft : languageLabel(language)))
+  }, [language])
+  const commitLanguage = (value: string) => {
+    const next = normalize(value)
+    onUpdate({ language: next })
+    setLanguageDraft(languageLabel(next))
+  }
+  const autoHighlight = useMemo(() => {
+    if (language !== "auto") return null
+    const text = block.text || ""
+    if (text.trim().length < AUTO_DETECT_MIN_LENGTH) return null
+    const result = hljs.highlightAuto(text)
+    return (result.relevance ?? 0) >= AUTO_DETECT_MIN_RELEVANCE ? result : null
+  }, [block.text, language])
+  const autoDetected = language === "auto" && autoHighlight?.language
     ? { language: autoHighlight.language }
     : null
   const highlighted = useMemo(() => {
     if (autoHighlight) return autoHighlight.value
     try {
-      return hljs.highlight(block.text || " ", { language, ignoreIllegals: true }).value
+      return hljs.highlight(block.text || " ", { language: language === "auto" ? "plaintext" : language, ignoreIllegals: true }).value
     } catch {
-      return hljs.highlightAuto(block.text || " ").value
+      return hljs.highlight(block.text || " ", { language: "plaintext", ignoreIllegals: true }).value
     }
   }, [autoHighlight, block.text, language])
 
@@ -137,15 +165,35 @@ export function CodeBlock({
     <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5">
       <label className="flex min-w-0 items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         <Code2 className="size-3 shrink-0" />
-        <select
-          value={language}
+        <input
+          value={languageDraft}
           disabled={readOnly}
-          onChange={(event) => onUpdate({ language: event.target.value })}
-          className="max-w-[150px] rounded border border-transparent bg-transparent py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground outline-none hover:border-border focus:border-brand/40"
+          list={`code-language-options-${block.id}`}
+          onChange={(event) => {
+            const value = event.target.value
+            setLanguageDraft(value)
+            const resolved = resolveLanguage(value)
+            if (resolved) onUpdate({ language: resolved })
+          }}
+          onBlur={() => commitLanguage(languageDraft)}
+          onKeyDown={(event) => {
+            event.stopPropagation()
+            if (event.key === "Enter") {
+              event.preventDefault()
+              commitLanguage(languageDraft)
+              event.currentTarget.blur()
+            } else if (event.key === "Escape") {
+              setLanguageDraft(languageLabel(language))
+              event.currentTarget.blur()
+            }
+          }}
+          className="w-[7.5rem] min-w-0 rounded border border-transparent bg-transparent py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground outline-none hover:border-border focus:border-brand/40"
           aria-label={tr("Code language")}
-        >
-          {LANGUAGES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-        </select>
+          placeholder={tr("Auto detect")}
+        />
+        <datalist id={`code-language-options-${block.id}`}>
+          {LANGUAGES.map(([id, label]) => <option key={id} value={label} />)}
+        </datalist>
         {autoDetected && (
           <span className="ml-1 rounded bg-brand-soft px-1.5 py-0.5 text-[9px] font-medium normal-case tracking-normal text-brand">
             {tr("detected: {language}", { language: autoDetected.language })}

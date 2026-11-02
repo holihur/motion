@@ -35,6 +35,7 @@ import {
   Plus,
   RefreshCw,
   Rows3,
+  Snowflake,
   ChevronRight,
   Table2,
   Trash2,
@@ -80,7 +81,7 @@ import { CodeBlock } from "@/components/editor/code-block"
 import { CurlBlock } from "@/components/editor/curl-block"
 import { TableCell } from "@/components/editor/table-cell"
 import { parseTableImport } from "@/lib/table-import"
-import { tableColumnOrder, tableVisibleColumnIndexes } from "@/lib/table-layout"
+import { tableColumnOrder, tableFrozenColumnIndexes, tableFrozenOffsets, tableVisibleColumnIndexes } from "@/lib/table-layout"
 import { DatabaseBlock } from "@/components/editor/database-block"
 import { JsonVisualBlock } from "@/components/editor/json-visual-block"
 import { ChartBlock, GanttBlock } from "@/components/editor/data-blocks"
@@ -526,9 +527,9 @@ export function BlockRow(props: BlockRowProps) {
           />
         )
       case "table": {
-        const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, copyTable, downloadCSV, downloadJSONL, downloadExcel } = useTableBlock(block, onUpdate)
-        const sortByColumn = (index: number) => {
-          const dir: "asc" | "desc" = tableSort?.column === index && tableSort.dir === "asc" ? "desc" : "asc"
+        const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, copyTable, downloadCSV, downloadJSONL, downloadExcel } = useTableBlock(block, onUpdate)
+        const sortByColumn = (index: number, dir?: "asc" | "desc") => {
+          const nextDir: "asc" | "desc" = dir ?? (tableSort?.column === index && tableSort.dir === "asc" ? "desc" : "asc")
           const sorted = [...table.rows].sort((a, b) => {
             const av = a[index] ?? ""
             const bv = b[index] ?? ""
@@ -540,9 +541,9 @@ export function BlockRow(props: BlockRowProps) {
             } else {
               cmp = av.localeCompare(bv, undefined, { numeric: true })
             }
-            return dir === "asc" ? cmp : -cmp
+            return nextDir === "asc" ? cmp : -cmp
           })
-          setTableSort({ column: index, dir })
+          setTableSort({ column: index, dir: nextDir })
           updateTable({ ...table, rows: sorted })
         }
         const query = table.query ?? { match: "all" as const, filters: [] }
@@ -577,6 +578,8 @@ export function BlockRow(props: BlockRowProps) {
         const columnOrder = tableColumnOrder(table)
         const firstVisibleColumn = columnIndexes[0]
         const hiddenSet = new Set(table.hiddenColumns ?? [])
+        const frozenSet = tableFrozenColumnIndexes(table)
+        const frozenOffsets = tableFrozenOffsets(table, Boolean(table.rowNumbers))
         const updateQuery = (next: TableQuery) => {
           updateTable({ ...table, query: next.filters.length ? next : undefined })
         }
@@ -741,24 +744,42 @@ export function BlockRow(props: BlockRowProps) {
                       {columnOrder.map((columnIndex) => {
                         const hidden = hiddenSet.has(columnIndex)
                         return (
-                          <label key={columnIndex} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-[11px] hover:bg-accent">
-                            <input
-                              type="checkbox"
-                              checked={!hidden}
-                              disabled={!hidden && columnIndexes.length <= 1}
-                              onChange={() => toggleColumnHidden(columnIndex)}
-                              className="size-3.5 accent-[var(--brand)]"
-                            />
-                            <span className="min-w-0 flex-1 truncate">{table.columns[columnIndex] || tr("Column")}</span>
-                            {hidden && <EyeOff className="size-3 text-muted-foreground" />}
-                          </label>
+                          <div key={columnIndex} className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] hover:bg-accent">
+                            <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={!hidden}
+                                disabled={!hidden && columnIndexes.length <= 1}
+                                onChange={() => toggleColumnHidden(columnIndex)}
+                                className="size-3.5 accent-[var(--brand)]"
+                              />
+                              <span className="min-w-0 flex-1 truncate">{table.columns[columnIndex] || tr("Column")}</span>
+                              {hidden && <EyeOff className="size-3 text-muted-foreground" />}
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => toggleColumnFrozen(columnIndex)}
+                              aria-pressed={frozenSet.has(columnIndex)}
+                              title={tr("Freeze column")}
+                              aria-label={tr("Freeze column")}
+                              className={cn("flex size-5 shrink-0 items-center justify-center rounded transition hover:bg-accent", frozenSet.has(columnIndex) ? "text-brand" : "text-muted-foreground/50 hover:text-foreground")}
+                            >
+                              <Snowflake className="size-3" />
+                            </button>
+                          </div>
                         )
                       })}
                     </div>
-                    <label className="mt-2 flex cursor-pointer items-center gap-2 border-t border-border/60 pt-2 text-[11px]">
-                      <input type="checkbox" checked={Boolean(table.freezeFirst)} onChange={toggleFreezeFirst} className="size-3.5 accent-[var(--brand)]" />
-                      {tr("Freeze first column")}
-                    </label>
+                    <div className="mt-2 space-y-1 border-t border-border/60 pt-2">
+                      <label className="flex cursor-pointer items-center gap-2 text-[11px]">
+                        <input type="checkbox" checked={table.stickyHeader !== false} onChange={toggleHeaderSticky} className="size-3.5 accent-[var(--brand)]" />
+                        {tr("Sticky header")}
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2 text-[11px]">
+                        <input type="checkbox" checked={firstVisibleColumn !== undefined && frozenSet.has(firstVisibleColumn)} onChange={toggleFreezeFirst} className="size-3.5 accent-[var(--brand)]" />
+                        {tr("Freeze first column")}
+                      </label>
+                    </div>
                   </PopoverContent>
                 </Popover>
                 <button
@@ -768,16 +789,29 @@ export function BlockRow(props: BlockRowProps) {
                 >
                   <Copy className="size-3" /> {tr("Copy")}
                 </button>
-                <button
-                  type="button"
-                  onClick={downloadCSV}
-                  title={tr("Download CSV")}
-                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"
-                >
-                  <Download className="size-3" /> CSV
-                </button>
-                <button type="button" onClick={downloadJSONL} title={tr("Download JSONL")} className="rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground">JSONL</button>
-                <button type="button" onClick={downloadExcel} title={tr("Download Excel")} className="rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground">Excel</button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      title={tr("Export")}
+                      aria-label={tr("Export")}
+                      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"
+                    >
+                      <MoreHorizontal className="size-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-40">
+                    <DropdownMenuItem onSelect={downloadCSV}>
+                      <Download className="mr-2 size-3.5" /> CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={downloadJSONL}>
+                      <Download className="mr-2 size-3.5" /> JSONL
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={downloadExcel}>
+                      <Download className="mr-2 size-3.5" /> Excel
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 {!readOnly && <>
                   <input
                     ref={tableImportRef}
@@ -814,14 +848,14 @@ export function BlockRow(props: BlockRowProps) {
                   {table.rowNumbers && <col style={{ width: 40 }} />}
                   {columnIndexes.map((columnIndex) => <col key={columnIndex} style={{ width: widths[columnIndex] }} />)}
                 </colgroup>
-                {table.header !== false && <thead className="sticky top-0 z-10">
+                {table.header !== false && <thead className={cn("z-10", table.stickyHeader !== false && "sticky top-0")}>
                   <tr>
-                    {table.rowNumbers && <th className={cn("border-b border-r border-border/60 bg-muted/35 px-2 text-center text-[10px] font-medium text-muted-foreground", table.freezeFirst && "sticky left-0 z-20")}>#</th>}
+                    {table.rowNumbers && <th className={cn("border-b border-r border-border/60 bg-muted/35 px-2 text-center text-[10px] font-medium text-muted-foreground", frozenOffsets.size > 0 && "sticky left-0 z-20")}>#</th>}
                     {columnIndexes.map((columnIndex) => (
                       <th
                         key={columnIndex}
-                        className={cn("group/head relative border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0", tableCellStyleClasses(table.columnStyles?.[columnIndex]), table.freezeFirst && columnIndex === firstVisibleColumn && "sticky z-20")}
-                        style={table.freezeFirst && columnIndex === firstVisibleColumn ? { left: table.rowNumbers ? 40 : 0 } : undefined}
+                        className={cn("group/head relative border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0", tableCellStyleClasses(table.columnStyles?.[columnIndex]), frozenOffsets.has(columnIndex) && "sticky z-20")}
+                        style={frozenOffsets.has(columnIndex) ? { left: frozenOffsets.get(columnIndex) } : undefined}
                         onDragOver={(event) => { if (dragColumn !== null) { event.preventDefault(); event.dataTransfer.dropEffect = "move" } }}
                         onDrop={(event) => { event.preventDefault(); if (dragColumn !== null && dragColumn !== columnIndex) reorderColumn(dragColumn, columnIndex); setDragColumn(null) }}
                       >
@@ -841,46 +875,55 @@ export function BlockRow(props: BlockRowProps) {
                           />
                           {!readOnly && <TableStylePopover label={tr("Column style")} style={table.columnStyles?.[columnIndex]} onChange={(style) => setColumnStyle(columnIndex, style)} className="group-hover/head:text-muted-foreground" />}
                           {!readOnly && (
-                            <button
-                              type="button"
-                              onClick={() => sortByColumn(columnIndex)}
-                              aria-label={tr("Sort column")}
-                              title={tr("Sort column")}
-                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/head:text-muted-foreground hover:bg-accent hover:text-foreground"
-                            >
-                              {tableSort?.column === columnIndex && tableSort.dir === "desc" ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" />}
-                            </button>
-                          )}
-                          {!readOnly && (
-                            <button
-                              type="button"
-                              onClick={() => setAlignment(columnIndex, aligns[columnIndex] === "left" ? "center" : aligns[columnIndex] === "center" ? "right" : "left")}
-                              aria-label={tr("Align column")}
-                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/head:text-muted-foreground hover:bg-accent hover:text-foreground"
-                            >
-                              {aligns[columnIndex] === "center" ? <AlignCenter className="size-3" /> : aligns[columnIndex] === "right" ? <AlignRight className="size-3" /> : <AlignLeft className="size-3" />}
-                            </button>
-                          )}
-                          {!readOnly && table.columns.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => toggleColumnHidden(columnIndex)}
-                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/head:text-muted-foreground hover:bg-accent hover:text-foreground"
-                              aria-label={tr("Hide column")}
-                              title={tr("Hide column")}
-                            >
-                              <EyeOff className="size-3" />
-                            </button>
-                          )}
-                          {!readOnly && table.columns.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeColumn(columnIndex)}
-                              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/head:text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
-                              aria-label={tr("Delete column")}
-                            >
-                              <X className="size-3" />
-                            </button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label={tr("Column actions")}
+                                  title={tr("Column actions")}
+                                  className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/head:text-muted-foreground hover:bg-accent hover:text-foreground"
+                                >
+                                  <MoreHorizontal className="size-3" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                <DropdownMenuItem onSelect={() => sortByColumn(columnIndex, "asc")}>
+                                  <ArrowUp className="mr-2 size-3.5" /> {tr("Sort ascending")}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => sortByColumn(columnIndex, "desc")}>
+                                  <ArrowDown className="mr-2 size-3.5" /> {tr("Sort descending")}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger>
+                                    {aligns[columnIndex] === "center" ? <AlignCenter className="mr-2 size-3.5" /> : aligns[columnIndex] === "right" ? <AlignRight className="mr-2 size-3.5" /> : <AlignLeft className="mr-2 size-3.5" />}
+                                    {tr("Align")}
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent>
+                                    {([["left", "Left"], ["center", "Center"], ["right", "Right"]] as const).map(([value, label]) => (
+                                      <DropdownMenuItem key={value} onSelect={() => setAlignment(columnIndex, value)}>
+                                        {aligns[columnIndex] === value ? <Check className="mr-2 size-3.5" /> : <span className="mr-2 size-3.5" />}
+                                        {tr(label)}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onSelect={() => toggleColumnFrozen(columnIndex)}>
+                                  <Snowflake className="mr-2 size-3.5" /> {frozenSet.has(columnIndex) ? tr("Unfreeze column") : tr("Freeze column")}
+                                </DropdownMenuItem>
+                                {table.columns.length > 1 && (
+                                  <DropdownMenuItem onSelect={() => toggleColumnHidden(columnIndex)}>
+                                    <EyeOff className="mr-2 size-3.5" /> {tr("Hide column")}
+                                  </DropdownMenuItem>
+                                )}
+                                {table.columns.length > 1 && (
+                                  <DropdownMenuItem onSelect={() => removeColumn(columnIndex)} className="text-destructive focus:text-destructive">
+                                    <X className="mr-2 size-3.5" /> {tr("Delete column")}
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                           <span
                             role="separator"
@@ -897,9 +940,9 @@ export function BlockRow(props: BlockRowProps) {
                 <tbody>
                   {visibleRows.map(({ row, rowIndex }, visibleIndex) => (
                     <tr key={rowIndex} className="group/row transition-colors hover:bg-brand-soft/15">
-                      {table.rowNumbers && <td className={cn("border-b border-r border-border/60 text-center text-[11px] tabular-nums text-muted-foreground", table.freezeFirst && "sticky left-0 z-10 bg-card", tableCellStyleClasses(table.rowStyles?.[rowIndex]))}>{visibleIndex + 1}</td>}
+                      {table.rowNumbers && <td className={cn("border-b border-r border-border/60 text-center text-[11px] tabular-nums text-muted-foreground", frozenOffsets.size > 0 && "sticky left-0 z-10 bg-card", tableCellStyleClasses(table.rowStyles?.[rowIndex]))}>{visibleIndex + 1}</td>}
                       {columnIndexes.map((columnIndex) => (
-                        <td key={columnIndex} className={cn("border-b border-r border-border/60 p-0 last:border-r-0", table.freezeFirst && columnIndex === firstVisibleColumn && "sticky z-10 bg-card", tableCellStyleClasses({ ...(table.rowStyles?.[rowIndex] ?? {}), ...(table.columnStyles?.[columnIndex] ?? {}) }))} style={table.freezeFirst && columnIndex === firstVisibleColumn ? { left: table.rowNumbers ? 40 : 0 } : undefined}>
+                        <td key={columnIndex} className={cn("border-b border-r border-border/60 p-0 last:border-r-0", frozenOffsets.has(columnIndex) && "sticky z-10 bg-card", tableCellStyleClasses({ ...(table.rowStyles?.[rowIndex] ?? {}), ...(table.columnStyles?.[columnIndex] ?? {}) }))} style={frozenOffsets.has(columnIndex) ? { left: frozenOffsets.get(columnIndex) } : undefined}>
                           <TableCell
                             id={`table-cell-${block.id}-${rowIndex}-${columnIndex}`}
                             value={row[columnIndex] ?? ""}

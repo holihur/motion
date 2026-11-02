@@ -72,6 +72,8 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 		ColumnOrder:   sanitizeTableColumnOrder(table.ColumnOrder, len(columns)),
 		HiddenColumns: sanitizeHiddenColumns(table.HiddenColumns, len(columns)),
 		FreezeFirst:   table.FreezeFirst,
+		FrozenColumns: sanitizeFrozenColumns(table.FrozenColumns, len(columns)),
+		StickyHeader:  table.StickyHeader,
 		Widths:        widths, Align: align,
 	}
 }
@@ -134,6 +136,25 @@ func sanitizeTableColumnOrder(order []int, count int) []int {
 		}
 	}
 	if identity {
+		return nil
+	}
+	return out
+}
+
+func sanitizeFrozenColumns(frozen []int, count int) []int {
+	if count <= 1 || len(frozen) == 0 {
+		return nil
+	}
+	seen := make([]bool, count)
+	out := make([]int, 0, len(frozen))
+	for _, index := range frozen {
+		if index >= 0 && index < count && !seen[index] {
+			seen[index] = true
+			out = append(out, index)
+		}
+	}
+	sort.Ints(out)
+	if len(out) == 0 {
 		return nil
 	}
 	return out

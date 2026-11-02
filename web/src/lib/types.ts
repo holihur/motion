@@ -70,6 +70,8 @@ export interface TableData {
   columnOrder?: number[]
   hiddenColumns?: number[]
   freezeFirst?: boolean
+  frozenColumns?: number[]
+  stickyHeader?: boolean
   widths?: number[]
   align?: ("left" | "center" | "right")[]
 }

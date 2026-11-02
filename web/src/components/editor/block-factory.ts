@@ -20,7 +20,7 @@ export function createBlock(type: BlockType = "paragraph"): Block {
     type,
     text: type === "diagram" ? DEFAULT_DIAGRAM : type === "curl" ? DEFAULT_CURL : "",
     checked: false,
-    ...(type === "code" ? { language: "auto" } : {}),
+    ...(type === "code" ? { language: "plaintext" } : {}),
     ...(type === "callout" ? { color: "amber" } : {}),
     ...(type === "table"
       ? {

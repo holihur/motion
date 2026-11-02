@@ -53,7 +53,7 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
     // Fenced code
     const fence = /^\s*```([\w+#.-]*)\s*$/.exec(line)
     if (fence) {
-      const language = fence[1] || "auto"
+      const language = fence[1] || "plaintext"
       const code: string[] = []
       index += 1
       while (index < lines.length && !/^\s*```\s*$/.test(lines[index])) {

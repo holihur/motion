@@ -1,6 +1,6 @@
 import { useCallback } from "react"
 import type { Block, TableData } from "@/lib/types"
-import { tableColumnOrder, tableVisibleColumnIndexes } from "@/lib/table-layout"
+import { tableColumnOrder, tableFrozenColumnIndexes, tableVisibleColumnIndexes } from "@/lib/table-layout"
 import { tr } from "@/lib/i18n"
 import { toast } from "sonner"
 
@@ -56,6 +56,7 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
       columnStyles: table.columnStyles ? table.columnStyles.filter((_, i) => i !== index) : undefined,
       columnOrder: table.columnOrder ? shift(table.columnOrder) : undefined,
       hiddenColumns: table.hiddenColumns ? shift(table.hiddenColumns) : undefined,
+      frozenColumns: table.frozenColumns ? shift(table.frozenColumns) : undefined,
       query: table.query ? { ...table.query, filters: table.query.filters.filter((filter) => filter.column !== removedName) } : undefined,
     })
   }, [table, widths, aligns, updateTable])
@@ -82,7 +83,25 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
   }, [table, updateTable])
 
   const toggleFreezeFirst = useCallback(() => {
-    updateTable({ ...table, freezeFirst: !table.freezeFirst })
+    const first = tableVisibleColumnIndexes(table)[0]
+    if (first === undefined) return
+    const frozen = tableFrozenColumnIndexes(table)
+    if (frozen.has(first)) frozen.delete(first)
+    else frozen.add(first)
+    const next = [...frozen].sort((a, b) => a - b)
+    updateTable({ ...table, freezeFirst: false, frozenColumns: next.length ? next : undefined })
+  }, [table, updateTable])
+
+  const toggleColumnFrozen = useCallback((index: number) => {
+    const frozen = tableFrozenColumnIndexes(table)
+    if (frozen.has(index)) frozen.delete(index)
+    else frozen.add(index)
+    const next = [...frozen].sort((a, b) => a - b)
+    updateTable({ ...table, freezeFirst: false, frozenColumns: next.length ? next : undefined })
+  }, [table, updateTable])
+
+  const toggleHeaderSticky = useCallback(() => {
+    updateTable({ ...table, stickyHeader: table.stickyHeader === false })
   }, [table, updateTable])
 
   const setColumn = useCallback((index: number, value: string) => {
@@ -161,6 +180,6 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
   }, [table])
 
   return {
-    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, copyTable, downloadCSV, downloadJSONL, downloadExcel,
+    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, copyTable, downloadCSV, downloadJSONL, downloadExcel,
   }
 }

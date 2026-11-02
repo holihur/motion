@@ -330,7 +330,7 @@ export function BlockEditor({
       text: nextText,
       rich: "",
       checked: false,
-      ...(type === "code" ? { language: block.language || "auto" } : {}),
+      ...(type === "code" ? { language: block.language || "plaintext" } : {}),
       ...(type === "callout" ? { color: block.color || "amber" } : {}),
       ...(type === "table"
         ? {
@@ -412,7 +412,7 @@ export function BlockEditor({
         text: "",
         rich: "",
         checked: false,
-        ...(type === "code" ? { language: "auto" } : {}),
+        ...(type === "code" ? { language: "plaintext" } : {}),
       })
       closeSlash()
       focusNew(block.id, "start")
@@ -709,7 +709,7 @@ export function BlockEditor({
     // JSON / code → code block
     if (isJsonLike(trimmed) || isCodeLike(text)) {
       const created = createBlock("code")
-      created.text = text; created.language = isJsonLike(trimmed) ? "json" : "auto"
+      created.text = text; created.language = isJsonLike(trimmed) ? "json" : "plaintext"
       const currentEmpty = block.type === "paragraph" && block.text === ""
       const next = currentEmpty ? [...blocksRef.current.slice(0, index), created, ...blocksRef.current.slice(index + 1)] : [...blocksRef.current.slice(0, index + 1), created, ...blocksRef.current.slice(index + 1)]
       commit(next); focusNew(created.id, "end"); return

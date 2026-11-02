@@ -377,9 +377,6 @@ function HomeFooter() {
         </div>
         <div className="flex shrink-0 items-center gap-2 text-[10px] text-muted-foreground">
           <span className="hidden sm:inline">{tr("A calmer place for your thoughts")} — {tr("keep moving.")}</span>
-          <span className="flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-1">
-            <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" /> {tr("All systems operational")}
-          </span>
         </div>
       </div>
       <div className="flex gap-1.5 border-t bg-muted/30 px-4 py-2">

@@ -105,6 +105,8 @@ type TableData struct {
 	ColumnOrder   []int             `bson:"columnOrder,omitempty" json:"columnOrder,omitempty"`
 	HiddenColumns []int             `bson:"hiddenColumns,omitempty" json:"hiddenColumns,omitempty"`
 	FreezeFirst   bool              `bson:"freezeFirst,omitempty" json:"freezeFirst,omitempty"`
+	FrozenColumns []int             `bson:"frozenColumns,omitempty" json:"frozenColumns,omitempty"`
+	StickyHeader  *bool             `bson:"stickyHeader,omitempty" json:"stickyHeader,omitempty"`
 	Widths        []int             `bson:"widths,omitempty" json:"widths,omitempty"`
 	Align         []string          `bson:"align,omitempty" json:"align,omitempty"`
 }

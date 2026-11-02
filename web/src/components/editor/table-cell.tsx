@@ -31,18 +31,18 @@ export function TableCell({
   const [editing, setEditing] = useState(false)
   const showRich = Boolean(value) && (!editing || readOnly)
   const richClass = cn(
-    "w-full whitespace-pre-wrap break-words px-2 py-1 [&_a]:text-brand [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.92em] [&_s]:line-through",
-    header ? "text-xs font-semibold" : "text-[13px]",
+    "w-full min-w-0 px-2 py-1 [&_a]:text-brand [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.92em] [&_s]:line-through",
+    header ? "truncate whitespace-nowrap text-xs font-semibold" : "whitespace-pre-wrap break-words text-[13px]",
   )
 
   if (readOnly) {
-    return <div className={cn("min-h-9", header && "min-h-8", className)} style={{ textAlign: align as React.CSSProperties["textAlign"] }}><div className={richClass} dangerouslySetInnerHTML={{ __html: value ? inlineMarkdownToHTML(value) : "" }} /></div>
+    return <div className={cn("min-h-9", header && "min-h-8", className)} style={{ textAlign: align as React.CSSProperties["textAlign"] }}><div className={richClass} title={header ? value : undefined} dangerouslySetInnerHTML={{ __html: value ? inlineMarkdownToHTML(value) : "" }} /></div>
   }
 
   return (
     <div className={cn("relative flex items-center", header ? "min-h-8" : "min-h-9", className)}>
       {showRich && (
-        <div className={richClass} style={{ textAlign: align as React.CSSProperties["textAlign"] }} dangerouslySetInnerHTML={{ __html: inlineMarkdownToHTML(value) }} />
+        <div className={richClass} style={{ textAlign: align as React.CSSProperties["textAlign"] }} title={header ? value : undefined} dangerouslySetInnerHTML={{ __html: inlineMarkdownToHTML(value) }} />
       )}
       <input
         ref={inputRef}

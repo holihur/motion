@@ -52,7 +52,7 @@ function langOf(pre: Element): string {
   const code = pre.querySelector("code")
   const cls = `${pre.className} ${code?.className ?? ""}`
   const m = /language-([\w+#.-]+)/.exec(cls) ?? /lang(?:uage)?-([\w+#.-]+)/.exec(cls)
-  return m ? m[1] : "auto"
+  return m ? m[1] : "plaintext"
 }
 
 function isCheckboxInput(el: Element): boolean {

@@ -1421,5 +1421,11 @@
   "Formula": "Fórmula",
   "Insert formula": "Insertar fórmula",
   "Clear formula": "Borrar fórmula",
-  "Formulas recalculate when cells change": "Las fórmulas se recalculan al cambiar las celdas"
+  "Formulas recalculate when cells change": "Las fórmulas se recalculan al cambiar las celdas",
+  "Page permanently deleted": "Página eliminada permanentemente",
+  "Access token created": "Token de acceso creado",
+  "Token copied": "Token copiado",
+  "MCP config copied": "Configuración MCP copiada",
+  "MCP client configuration": "Configuración del cliente MCP",
+  "Copy it now \u2014 you won't be able to see it again.": "Cópialo ahora: no podrás volver a verlo."
 }

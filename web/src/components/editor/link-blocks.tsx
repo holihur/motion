@@ -71,7 +71,7 @@ export function PageLinkBlock({
               <button
                 type="button"
                 title={tr("Copy link")}
-                onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}/page/${target.id}`).then(() => toast.success(tr("Copied"))) }}
+                onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}/page/${target.id}`).then(() => toast.success(tr("Copied")), () => toast.error(tr("Could not copy"))) }}
                 className="rounded border px-2 py-1 text-xs hover:bg-accent"
               >
                 <Copy className="size-3" />

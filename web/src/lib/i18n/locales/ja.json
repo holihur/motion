@@ -1421,5 +1421,11 @@
   "Formula": "数式",
   "Insert formula": "数式を挿入",
   "Clear formula": "数式をクリア",
-  "Formulas recalculate when cells change": "セルが変わると数式は自動で再計算されます"
+  "Formulas recalculate when cells change": "セルが変わると数式は自動で再計算されます",
+  "Page permanently deleted": "ページを完全に削除しました",
+  "Access token created": "アクセストークンを作成しました",
+  "Token copied": "トークンをコピーしました",
+  "MCP config copied": "MCP 設定をコピーしました",
+  "MCP client configuration": "MCP クライアント設定",
+  "Copy it now \u2014 you won't be able to see it again.": "今すぐコピーしてください。後から確認できなくなります。"
 }

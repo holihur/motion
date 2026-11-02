@@ -642,7 +642,7 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
                     PNG
                   </button>
                   <button type="button" onClick={() => commit(autoLayout(laid))} className="rounded-md border px-2 py-1 text-[11px] hover:bg-accent">{tr("Auto layout")}</button>
-                  <button type="button" onClick={() => { void navigator.clipboard.writeText(block.text).then(() => { toast.success(tr("Copied")); setCopied(true); setTimeout(() => setCopied(false), 1200) }) }} className="flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-accent">{copied ? <Check className="size-3 text-green-600" /> : <Copy className="size-3" />}{tr("Copy data")}</button>
+                  <button type="button" onClick={() => { void navigator.clipboard.writeText(block.text).then(() => { toast.success(tr("Copied")); setCopied(true); setTimeout(() => setCopied(false), 1200) }, () => toast.error(tr("Could not copy"))) }} className="flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] hover:bg-accent">{copied ? <Check className="size-3 text-green-600" /> : <Copy className="size-3" />}{tr("Copy data")}</button>
                 </div>
                 <div className="flex flex-wrap gap-1 pt-1">
                   {TEMPLATES.map((t) => (

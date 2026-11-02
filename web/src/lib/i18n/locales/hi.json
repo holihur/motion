@@ -1421,5 +1421,11 @@
   "Formula": "सूत्र",
   "Insert formula": "सूत्र डालें",
   "Clear formula": "सूत्र हटाएँ",
-  "Formulas recalculate when cells change": "सेल बदलने पर सूत्र अपने आप फिर से गणना करते हैं"
+  "Formulas recalculate when cells change": "सेल बदलने पर सूत्र अपने आप फिर से गणना करते हैं",
+  "Page permanently deleted": "पेज स्थायी रूप से हटाया गया",
+  "Access token created": "एक्सेस टोकन बनाया गया",
+  "Token copied": "टोकन कॉपी हुआ",
+  "MCP config copied": "MCP कॉन्फ़िगरेशन कॉपी हुआ",
+  "MCP client configuration": "MCP क्लाइंट कॉन्फ़िगरेशन",
+  "Copy it now \u2014 you won't be able to see it again.": "अभी कॉपी करें — इसे दोबारा नहीं देख पाएँगे।"
 }

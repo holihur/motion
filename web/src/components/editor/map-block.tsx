@@ -155,7 +155,7 @@ export function MapBlock({
           <button
             type="button"
             title={tr("Copy coordinates")}
-            onClick={() => { void navigator.clipboard.writeText(`${data.lat},${data.lng}`).then(() => toast.success(tr("Copied"))) }}
+            onClick={() => { void navigator.clipboard.writeText(`${data.lat},${data.lng}`).then(() => toast.success(tr("Copied")), () => toast.error(tr("Could not copy"))) }}
             className="rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <Copy className="size-3" />

@@ -1421,5 +1421,11 @@
   "Formula": "公式",
   "Insert formula": "插入公式",
   "Clear formula": "清除公式",
-  "Formulas recalculate when cells change": "单元格变化时公式会自动重算"
+  "Formulas recalculate when cells change": "单元格变化时公式会自动重算",
+  "Page permanently deleted": "页面已永久删除",
+  "Access token created": "Access token 已创建",
+  "Token copied": "Token 已复制",
+  "MCP config copied": "MCP 配置已复制",
+  "MCP client configuration": "MCP 客户端配置",
+  "Copy it now \u2014 you won't be able to see it again.": "请立即复制，之后将无法再次查看。"
 }

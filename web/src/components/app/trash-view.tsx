@@ -71,7 +71,7 @@ export function TrashView() {
     try {
       await deletePageForever(page.id)
       setPendingDelete(null)
-      toast.success("Page permanently deleted")
+      toast.success(tr("Page permanently deleted"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not delete page")
     } finally {

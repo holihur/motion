@@ -1421,5 +1421,11 @@
   "Formula": "Формула",
   "Insert formula": "Вставить формулу",
   "Clear formula": "Очистить формулу",
-  "Formulas recalculate when cells change": "Формулы пересчитываются при изменении ячеек"
+  "Formulas recalculate when cells change": "Формулы пересчитываются при изменении ячеек",
+  "Page permanently deleted": "Страница удалена навсегда",
+  "Access token created": "Токен доступа создан",
+  "Token copied": "Токен скопирован",
+  "MCP config copied": "Конфигурация MCP скопирована",
+  "MCP client configuration": "Конфигурация клиента MCP",
+  "Copy it now \u2014 you won't be able to see it again.": "Скопируйте сейчас — больше вы его не увидите."
 }

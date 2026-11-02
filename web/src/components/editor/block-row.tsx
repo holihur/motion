@@ -1198,6 +1198,12 @@ function BlockMenu({
             {tr("Select block")}
           </DropdownMenuItem>
         )}
+        {["heading1", "heading2", "heading3"].includes(block.type) && onToggleCollapsed && (
+          <DropdownMenuItem onSelect={onToggleCollapsed}>
+            <ChevronRight className={cn("size-4 transition-transform", !collapsed && "rotate-90")} />
+            {collapsed ? tr("Expand section") : tr("Collapse section")}
+          </DropdownMenuItem>
+        )}
         {block.type === "callout" && (
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>

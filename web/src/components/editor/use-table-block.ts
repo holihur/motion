@@ -11,6 +11,16 @@ const DEFAULT_TABLE: TableData = {
   header: true,
 }
 
+// Shared download plumbing so every table export revokes its object URL.
+function downloadFile(name: string, mime: string, content: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: mime }))
+  const link = document.createElement("a")
+  link.href = url
+  link.download = name
+  link.click()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) => void) {
   const stored = block.table ?? DEFAULT_TABLE
   // Always render recomputed values so a formula stays correct when another
@@ -185,12 +195,7 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
     const indexes = tableVisibleColumnIndexes(table)
     const columns = indexes.map((index) => table.columns[index])
     const csv = "\ufeff" + [columns, ...table.rows].map((r) => indexes.map((index) => esc(r[index] ?? "")).join(",")).join("\n")
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }))
-    const link = document.createElement("a")
-    link.href = url
-    link.download = "table.csv"
-    link.click()
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    downloadFile("table.csv", "text/csv;charset=utf-8", csv)
     toast.success(tr("Export ready"))
   }, [table])
 
@@ -198,12 +203,7 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
     const indexes = tableVisibleColumnIndexes(table)
     const columns = indexes.map((index) => table.columns[index])
     const lines = table.rows.map((row) => JSON.stringify(Object.fromEntries(columns.map((column, position) => [column, row[indexes[position]] ?? ""]))))
-    const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "application/x-ndjson;charset=utf-8" }))
-    const link = document.createElement("a")
-    link.href = url
-    link.download = "table.jsonl"
-    link.click()
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    downloadFile("table.jsonl", "application/x-ndjson;charset=utf-8", lines.join("\n"))
     toast.success(tr("Export ready"))
   }, [table])
 
@@ -214,12 +214,7 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
     const header = columns.map((column) => `<Cell><Data ss:Type="String">${esc(column)}</Data></Cell>`).join("")
     const rows = table.rows.map((row) => `<Row>${indexes.map((index) => `<Cell><Data ss:Type="String">${esc(row[index] ?? "")}</Data></Cell>`).join("")}</Row>`).join("")
     const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Table"><Table><Row>${header}</Row>${rows}</Table></Worksheet></Workbook>`
-    const url = URL.createObjectURL(new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }))
-    const link = document.createElement("a")
-    link.href = url
-    link.download = "table.xls"
-    link.click()
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    downloadFile("table.xls", "application/vnd.ms-excel;charset=utf-8", xml)
     toast.success(tr("Export ready"))
   }, [table])
 

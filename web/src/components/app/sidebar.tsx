@@ -681,7 +681,7 @@ function CreateWorkspaceDialog({
     setPending(true)
     try {
       await createWorkspace(name.trim(), icon)
-      toast.success("Workspace created")
+      toast.success(tr("Workspace created"))
       onOpenChange(false)
       navigate("/")
     } catch (error) {

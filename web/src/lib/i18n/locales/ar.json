@@ -1421,5 +1421,11 @@
   "Formula": "صيغة",
   "Insert formula": "إدراج صيغة",
   "Clear formula": "مسح الصيغة",
-  "Formulas recalculate when cells change": "تُعاد حساب الصيغ تلقائيًا عند تغيير الخلايا"
+  "Formulas recalculate when cells change": "تُعاد حساب الصيغ تلقائيًا عند تغيير الخلايا",
+  "Page permanently deleted": "تم حذف الصفحة نهائيًا",
+  "Access token created": "تم إنشاء رمز الوصول",
+  "Token copied": "تم نسخ الرمز",
+  "MCP config copied": "تم نسخ إعدادات MCP",
+  "MCP client configuration": "إعدادات عميل MCP",
+  "Copy it now \u2014 you won't be able to see it again.": "انسخه الآن — لن تتمكن من رؤيته مرة أخرى."
 }

@@ -300,7 +300,7 @@ function WorkspaceSettings() {
               onClick={() => {
                 void deleteWorkspace(workspace!.id)
                   .then(() => {
-                    toast.success("Workspace deleted")
+                    toast.success(tr("Workspace deleted"))
                     setConfirmOpen(false)
                   })
                   .catch((error) =>
@@ -385,7 +385,7 @@ function AISettings() {
       setConfigured(settings.configured)
       setKeyHint(settings.keyHint ?? "")
       setApiKey("")
-      toast.success("AI provider saved securely")
+      toast.success(tr("AI provider saved securely"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save AI settings")
     } finally {
@@ -400,7 +400,7 @@ function AISettings() {
       setConfigured(false)
       setKeyHint("")
       setApiKey("")
-      toast.success("AI provider removed")
+      toast.success(tr("AI provider removed"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not remove AI key")
     } finally {
@@ -580,8 +580,8 @@ function DeveloperSettings() {
       })
       setNewToken(result.token)
       setTokens((current) => [result.accessToken, ...current])
-      toast.success("Access token created", {
-        description: "Copy it now — you won't be able to see it again.",
+      toast.success(tr("Access token created"), {
+        description: tr("Copy it now — you won't be able to see it again."),
       })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not create token")
@@ -594,7 +594,7 @@ function DeveloperSettings() {
     try {
       await api.workspaces.revokeToken(token.id)
       setTokens((current) => current.filter((item) => item.id !== token.id))
-      toast.success("Token revoked")
+      toast.success(tr("Token revoked"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not revoke token")
     }
@@ -689,7 +689,10 @@ function DeveloperSettings() {
               type="button"
               variant="outline"
               size="icon-sm"
-              onClick={() => void navigator.clipboard.writeText(newToken).then(() => toast.success("Token copied"))}
+              onClick={() => void navigator.clipboard.writeText(newToken).then(
+                () => toast.success(tr("Token copied")),
+                () => toast.error(tr("Could not copy")),
+              )}
               aria-label={tr("Copy token")}
             >
               <Copy className="size-3.5" />
@@ -697,13 +700,16 @@ function DeveloperSettings() {
           </div>
           <div>
             <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>MCP client configuration</span>
+              <span>{tr("MCP client configuration")}</span>
               <button
                 type="button"
-                onClick={() => void navigator.clipboard.writeText(mcpConfig).then(() => toast.success("MCP config copied"))}
+                onClick={() => void navigator.clipboard.writeText(mcpConfig).then(
+                  () => toast.success(tr("MCP config copied")),
+                  () => toast.error(tr("Could not copy")),
+                )}
                 className="font-medium text-brand hover:underline"
               >
-                Copy JSON
+                {tr("Copy JSON")}
               </button>
             </div>
             <pre className="max-h-48 overflow-auto rounded-md border bg-background p-2.5 font-mono text-[10px] leading-5 thin-scrollbar">

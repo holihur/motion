@@ -1054,7 +1054,7 @@ export function BlockRow(props: BlockRowProps) {
                 <>
                   <button
                     type="button"
-                    onClick={() => { void navigator.clipboard.writeText(block.text).then(() => toast.success(tr("Copied"))) }}
+                    onClick={() => { void navigator.clipboard.writeText(block.text).then(() => toast.success(tr("Copied")), () => toast.error(tr("Could not copy"))) }}
                     title={tr("Copy source")}
                     className="rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
                   >
@@ -1329,7 +1329,7 @@ export function BlockRow(props: BlockRowProps) {
                 <span className="rounded bg-brand px-1 py-0.5 text-[10px] font-mono text-white">{code}</span>
                 <span className="flex-1 leading-5">{val as string}</span>
                 {!readOnly && <button type="button" onClick={() => { onUpdate({ text: val as string, rich: "" } as any); toast.success(tr("Applied")) }} className="shrink-0 rounded bg-background px-1.5 py-0.5 text-[10px] hover:bg-accent">{tr("Apply")}</button>}
-                <button type="button" onClick={() => void navigator.clipboard.writeText(val as string).then(()=>toast.success(tr("Copied")))} className="shrink-0 rounded px-1 py-0.5 text-[10px] hover:bg-accent"><Copy className="size-3" /></button>
+                <button type="button" onClick={() => void navigator.clipboard.writeText(val as string).then(()=>toast.success(tr("Copied")), ()=>toast.error(tr("Could not copy")))} className="shrink-0 rounded px-1 py-0.5 text-[10px] hover:bg-accent"><Copy className="size-3" /></button>
               </div>
             ))}
             {Object.keys(block.translations).length > 3 && <div className="text-[11px] text-muted-foreground">+{Object.keys(block.translations).length-3} more</div>}

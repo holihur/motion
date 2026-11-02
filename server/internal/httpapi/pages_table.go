@@ -88,7 +88,14 @@ func sanitizeTableFormulas(formulas map[string]string, columns, rows int, clean 
 		return nil
 	}
 	out := make(map[string]string, len(formulas))
-	for key, value := range formulas {
+	// Iterate in a stable order so the cap below always keeps the same cells.
+	keys := make([]string, 0, len(formulas))
+	for key := range formulas {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		value := formulas[key]
 		if len(out) >= 200 {
 			break
 		}

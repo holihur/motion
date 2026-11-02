@@ -1164,7 +1164,7 @@ export function PageEditor() {
       await api.pages.update(page.id, { archived: false })
       setPage({ ...page, archived: false })
       await refreshPages()
-      toast.success("Page restored")
+      toast.success(tr("Page restored"))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not restore page")
     }

@@ -574,7 +574,10 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
                 size="sm"
                 className="h-7 shrink-0 gap-1 text-[11px]"
                 onClick={() => {
-                  void navigator.clipboard.writeText(`${window.location.origin}/p/${publicSlug || page.publicSlug}`).then(() => toast.success(tr("Copied")))
+                  void navigator.clipboard.writeText(`${window.location.origin}/p/${publicSlug || page.publicSlug}`).then(
+                    () => toast.success(tr("Copied")),
+                    () => toast.error(tr("Could not copy")),
+                  )
                 }}
               >
                 <Copy className="size-3" /> {tr("Copy")}

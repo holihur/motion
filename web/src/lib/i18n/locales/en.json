@@ -398,5 +398,12 @@
   "Formula": "Formula",
   "Insert formula": "Insert formula",
   "Clear formula": "Clear formula",
-  "Formulas recalculate when cells change": "Formulas recalculate when cells change"
+  "Formulas recalculate when cells change": "Formulas recalculate when cells change",
+  "Page permanently deleted": "Page permanently deleted",
+  "Access token created": "Access token created",
+  "Token copied": "Token copied",
+  "MCP config copied": "MCP config copied",
+  "MCP client configuration": "MCP client configuration",
+  "Copy JSON": "Copy JSON",
+  "Copy it now \u2014 you won't be able to see it again.": "Copy it now — you won't be able to see it again."
 }

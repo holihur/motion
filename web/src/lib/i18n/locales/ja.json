@@ -1378,5 +1378,22 @@
   "Standard": "Standard",
   "Wide": "Wide",
   "Custom instruction…": "Custom instruction…",
-  "Custom language…": "Custom language…"
+  "Custom language…": "Custom language…",
+  "Row numbers": "Row numbers",
+  "Add condition": "Add condition",
+  "Clear filters": "Clear filters",
+  "Filter": "Filter",
+  "Filter rows": "Filter rows",
+  "Match all": "Match all",
+  "Match any": "Match any",
+  "Remove filter": "Remove filter",
+  "Contains": "Contains",
+  "Equals": "Equals",
+  "Not equals": "Not equals",
+  "Is empty": "Is empty",
+  "Is not empty": "Is not empty",
+  "Greater than": "Greater than",
+  "Less than": "Less than",
+  "Greater or equal": "Greater or equal",
+  "Less or equal": "Less or equal"
 }

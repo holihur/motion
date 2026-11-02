@@ -5,8 +5,26 @@ const FORMAT_ITALIC = 2
 const FORMAT_STRIKETHROUGH = 4
 const FORMAT_CODE = 16
 
-const TOKEN = /(`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+(?:\s+"[^"]*")?\)|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|\*[^*\n]+\*|_[^_\n]+_)/g
-const INLINE_MARKDOWN = /(`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|\*[^*\n]+\*|_[^_\n]+_)/
+const TOKEN = /(`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+(?:\s+"[^"]*")?\)|https?:\/\/[^\s<>"']+|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|\*[^*\n]+\*|_[^_\n]+_)/g
+const INLINE_MARKDOWN = /(`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+|https?:\/\/[^\s<>"']+|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|\*[^*\n]+\*|_[^_\n]+_)/
+
+function trimBareURL(value: string): { url: string; suffix: string } {
+  let url = value
+  let suffix = ""
+  while (/[.,;:!?]$/.test(url)) {
+    suffix = url.slice(-1) + suffix
+    url = url.slice(0, -1)
+  }
+  while (url.endsWith(")") && (url.match(/\(/g)?.length ?? 0) < (url.match(/\)/g)?.length ?? 0)) {
+    suffix = ")" + suffix
+    url = url.slice(0, -1)
+  }
+  while (url.endsWith("]") && (url.match(/\[/g)?.length ?? 0) < (url.match(/\]/g)?.length ?? 0)) {
+    suffix = "]" + suffix
+    url = url.slice(0, -1)
+  }
+  return { url, suffix }
+}
 
 function escapeHTML(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] ?? char))
@@ -104,6 +122,12 @@ function plain(nodes: SerializedNode[]): string {
 }
 
 function parseToken(token: string): SerializedNode[] {
+  if (/^https?:\/\//i.test(token)) {
+    const { url, suffix } = trimBareURL(token)
+    if (url.length > "https://".length) {
+      return [linkNode(url, [textNode(url, 0)]), ...(suffix ? [textNode(suffix, 0)] : [])]
+    }
+  }
   if (token.startsWith("`") && token.endsWith("`")) {
     return [textNode(token.slice(1, -1), FORMAT_CODE)]
   }

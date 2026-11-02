@@ -5,6 +5,7 @@ import (
 	"html"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -475,12 +476,18 @@ func renderTable(table *model.TableData, base string) string {
 	}
 	var b strings.Builder
 	b.WriteString(`<table><thead><tr>`)
+	if table.RowNumbers {
+		b.WriteString(`<th>#</th>`)
+	}
 	for _, column := range table.Columns {
 		b.WriteString(`<th>` + html.EscapeString(column) + `</th>`)
 	}
 	b.WriteString(`</tr></thead><tbody>`)
-	for _, row := range table.Rows {
+	for rowIndex, row := range table.Rows {
 		b.WriteString(`<tr>`)
+		if table.RowNumbers {
+			b.WriteString(`<td>` + strconv.Itoa(rowIndex+1) + `</td>`)
+		}
 		for index := range table.Columns {
 			cell := ""
 			if index < len(row) {

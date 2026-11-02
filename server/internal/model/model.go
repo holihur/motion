@@ -76,12 +76,25 @@ type TaskTemplate struct {
 
 // Block is a single unit of page content. Content is stored as plain text;
 // inline styles and block-level options live in the meta fields.
+type TableFilter struct {
+	Column string `bson:"column" json:"column"`
+	Op     string `bson:"op" json:"op"`
+	Value  string `bson:"value,omitempty" json:"value,omitempty"`
+}
+
+type TableQuery struct {
+	Match   string        `bson:"match" json:"match"`
+	Filters []TableFilter `bson:"filters" json:"filters"`
+}
+
 type TableData struct {
-	Columns []string   `bson:"columns" json:"columns"`
-	Rows    [][]string `bson:"rows" json:"rows"`
-	Header  bool       `bson:"header" json:"header"`
-	Widths  []int      `bson:"widths,omitempty" json:"widths,omitempty"`
-	Align   []string   `bson:"align,omitempty" json:"align,omitempty"`
+	Columns    []string    `bson:"columns" json:"columns"`
+	Rows       [][]string  `bson:"rows" json:"rows"`
+	Header     bool        `bson:"header" json:"header"`
+	RowNumbers bool        `bson:"rowNumbers,omitempty" json:"rowNumbers,omitempty"`
+	Query      *TableQuery `bson:"query,omitempty" json:"query,omitempty"`
+	Widths     []int       `bson:"widths,omitempty" json:"widths,omitempty"`
+	Align      []string    `bson:"align,omitempty" json:"align,omitempty"`
 }
 
 type DatabaseColumn struct {

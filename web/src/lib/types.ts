@@ -39,10 +39,25 @@ export type BlockType =
   | "columns"
   | "jsonVisual"
 
+export type TableFilterOp = "contains" | "equals" | "notEquals" | "isEmpty" | "isNotEmpty" | "gt" | "lt" | "gte" | "lte"
+
+export interface TableFilter {
+  column: string
+  op: TableFilterOp
+  value: string
+}
+
+export interface TableQuery {
+  match: "all" | "any"
+  filters: TableFilter[]
+}
+
 export interface TableData {
   columns: string[]
   rows: string[][]
   header: boolean
+  rowNumbers?: boolean
+  query?: TableQuery
   widths?: number[]
   align?: ("left" | "center" | "right")[]
 }

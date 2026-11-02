@@ -63,7 +63,45 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 		}
 		align[i] = value
 	}
-	return &model.TableData{Columns: columns, Rows: cleaned, Header: table.Header, Widths: widths, Align: align}
+	return &model.TableData{Columns: columns, Rows: cleaned, Header: table.Header, RowNumbers: table.RowNumbers, Query: sanitizeTableQuery(table.Query, columns), Widths: widths, Align: align}
+}
+
+func sanitizeTableQuery(query *model.TableQuery, columns []string) *model.TableQuery {
+	if query == nil || len(query.Filters) == 0 {
+		return nil
+	}
+	allowed := map[string]bool{}
+	for _, column := range columns {
+		allowed[column] = true
+	}
+	ops := map[string]bool{"contains": true, "equals": true, "notEquals": true, "isEmpty": true, "isNotEmpty": true, "gt": true, "lt": true, "gte": true, "lte": true}
+	match := "all"
+	if query.Match == "any" {
+		match = "any"
+	}
+	filters := make([]model.TableFilter, 0, len(query.Filters))
+	seen := map[string]bool{}
+	for _, filter := range query.Filters {
+		filter.Column = truncateRunes(strings.TrimSpace(filter.Column), 100)
+		filter.Op = strings.TrimSpace(filter.Op)
+		filter.Value = truncateRunes(strings.TrimSpace(filter.Value), 500)
+		if !allowed[filter.Column] || !ops[filter.Op] {
+			continue
+		}
+		key := filter.Column + "\x00" + filter.Op
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		filters = append(filters, filter)
+		if len(filters) >= 12 {
+			break
+		}
+	}
+	if len(filters) == 0 {
+		return nil
+	}
+	return &model.TableQuery{Match: match, Filters: filters}
 }
 
 func sanitizeDatabase(db *model.DatabaseData) *model.DatabaseData {

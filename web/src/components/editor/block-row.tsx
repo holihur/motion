@@ -13,6 +13,7 @@ import {
   Download,
   Globe,
   GripVertical,
+  Filter,
   Flag,
   Languages,
   Link2,
@@ -37,7 +38,7 @@ import {
   X,
 } from "lucide-react"
 import { toast } from "sonner"
-import type { Block, BlockType, Comment, Member } from "@/lib/types"
+import type { Block, BlockType, Comment, Member, TableQuery } from "@/lib/types"
 import { BLOCK_LABELS, SLASH_COMMANDS } from "@/components/editor/commands"
 import { CALLOUT_COLORS, CALLOUT_EMOJI } from "@/lib/covers"
 import { EmojiPicker } from "@/components/editor/emoji-picker"
@@ -494,6 +495,42 @@ export function BlockRow(props: BlockRowProps) {
           setTableSort({ column: index, dir })
           updateTable({ ...table, rows: sorted })
         }
+        const query = table.query ?? { match: "all" as const, filters: [] }
+        const activeFilters = query.filters.filter((filter) => table.columns.includes(filter.column))
+        const cellMatches = (cell: string, filter: { op: string; value: string }) => {
+          const value = filter.value.trim()
+          const a = cell.toLowerCase()
+          const b = value.toLowerCase()
+          switch (filter.op) {
+            case "equals": return a === b
+            case "notEquals": return a !== b
+            case "isEmpty": return cell.trim() === ""
+            case "isNotEmpty": return cell.trim() !== ""
+            case "gt": return Number.isFinite(Number(cell)) && Number.isFinite(Number(value)) && Number(cell) > Number(value)
+            case "lt": return Number.isFinite(Number(cell)) && Number.isFinite(Number(value)) && Number(cell) < Number(value)
+            case "gte": return Number.isFinite(Number(cell)) && Number.isFinite(Number(value)) && Number(cell) >= Number(value)
+            case "lte": return Number.isFinite(Number(cell)) && Number.isFinite(Number(value)) && Number(cell) <= Number(value)
+            default: return a.includes(b)
+          }
+        }
+        const visibleRows = table.rows
+          .map((row, rowIndex) => ({ row, rowIndex }))
+          .filter(({ row }) => {
+            if (activeFilters.length === 0) return true
+            const results = activeFilters.map((filter) => {
+              const columnIndex = table.columns.indexOf(filter.column)
+              return cellMatches(row[columnIndex] ?? "", filter)
+            })
+            return query.match === "any" ? results.some(Boolean) : results.every(Boolean)
+          })
+        const updateQuery = (next: TableQuery) => {
+          updateTable({ ...table, query: next.filters.length ? next : undefined })
+        }
+        const filterOps = [
+          ["contains", "Contains"], ["equals", "Equals"], ["notEquals", "Not equals"],
+          ["isEmpty", "Is empty"], ["isNotEmpty", "Is not empty"],
+          ["gt", "Greater than"], ["lt", "Less than"], ["gte", "Greater or equal"], ["lte", "Less or equal"],
+        ] as const
         const focusCell = (rowIndex: number, columnIndex: number) => {
           window.setTimeout(() => {
             document.getElementById(`table-cell-${block.id}-${rowIndex}-${columnIndex}`)?.focus()
@@ -568,7 +605,7 @@ export function BlockRow(props: BlockRowProps) {
             <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               <Table2 className="size-3" /> Table
               <span className="normal-case tracking-normal text-muted-foreground/60">
-                {table.columns.length} × {table.rows.length + (table.header === false ? 0 : 1)}
+                {table.columns.length} × {visibleRows.length}{activeFilters.length > 0 ? ` / ${table.rows.length}` : ""}
               </span>
               <div className="ml-auto flex items-center gap-0.5 normal-case tracking-normal">
                 {!readOnly && <button
@@ -579,6 +616,49 @@ export function BlockRow(props: BlockRowProps) {
                 >
                   {tr("Header row")}
                 </button>}
+                {!readOnly && <button
+                  type="button"
+                  onClick={() => updateTable({ ...table, rowNumbers: !table.rowNumbers })}
+                  aria-pressed={Boolean(table.rowNumbers)}
+                  title={tr("Row numbers")}
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground ${table.rowNumbers ? "bg-accent text-foreground" : ""}`}
+                >
+                  # {tr("Row numbers")}
+                </button>}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground ${activeFilters.length ? "bg-accent text-foreground" : ""}`}>
+                      <Filter className="size-3" /> {tr("Filter")}{activeFilters.length ? ` ${activeFilters.length}` : ""}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-[min(92vw,26rem)] p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium">{tr("Filter rows")}</span>
+                      <select value={query.match} onChange={(event) => updateQuery({ ...query, match: event.target.value as "all" | "any" })} className="ml-auto h-7 rounded border bg-background px-1 text-[11px]">
+                        <option value="all">{tr("Match all")}</option>
+                        <option value="any">{tr("Match any")}</option>
+                      </select>
+                    </div>
+                    <div className="mt-2 space-y-1.5">
+                      {query.filters.map((filter, index) => (
+                        <div key={index} className="flex flex-wrap items-center gap-1">
+                          <select value={filter.column} onChange={(event) => updateQuery({ ...query, filters: query.filters.map((item, i) => i === index ? { ...item, column: event.target.value } : item) })} className="h-7 min-w-0 flex-1 rounded border bg-background px-1 text-[11px]">
+                            {table.columns.map((column) => <option key={column} value={column}>{column}</option>)}
+                          </select>
+                          <select value={filter.op} onChange={(event) => updateQuery({ ...query, filters: query.filters.map((item, i) => i === index ? { ...item, op: event.target.value as TableQuery["filters"][number]["op"] } : item) })} className="h-7 rounded border bg-background px-1 text-[11px]">
+                            {filterOps.map(([op, label]) => <option key={op} value={op}>{tr(label)}</option>)}
+                          </select>
+                          {filter.op !== "isEmpty" && filter.op !== "isNotEmpty" && <input value={filter.value} onChange={(event) => updateQuery({ ...query, filters: query.filters.map((item, i) => i === index ? { ...item, value: event.target.value } : item) })} placeholder={tr("Value")} className="h-7 min-w-0 flex-1 rounded border bg-background px-1.5 text-[11px] outline-none" />}
+                          <button type="button" onClick={() => updateQuery({ ...query, filters: query.filters.filter((_, i) => i !== index) })} aria-label={tr("Remove filter")} className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><X className="size-3" /></button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 flex items-center gap-1 border-t border-border/60 pt-2">
+                      <button type="button" onClick={() => updateQuery({ ...query, filters: [...query.filters, { column: table.columns[0] ?? "", op: "contains", value: "" }] })} className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="size-3" /> {tr("Add condition")}</button>
+                      {query.filters.length > 0 && <button type="button" onClick={() => updateQuery({ match: "all", filters: [] })} className="ml-auto rounded px-1.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground">{tr("Clear filters")}</button>}
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 <button
                   type="button"
                   onClick={copyTable}
@@ -597,10 +677,14 @@ export function BlockRow(props: BlockRowProps) {
               </div>
             </div>
             <div className="max-h-[65vh] overflow-auto">
-              <table className="w-full border-collapse text-sm" style={{ tableLayout: "fixed", minWidth: widths.reduce((sum, width) => sum + width, 0) }}>
-                <colgroup>{widths.map((width, index) => <col key={index} style={{ width }} />)}</colgroup>
+              <table className="w-full border-collapse text-sm" style={{ tableLayout: "fixed", minWidth: widths.reduce((sum, width) => sum + width, 0) + (table.rowNumbers ? 40 : 0) }}>
+                <colgroup>
+                  {table.rowNumbers && <col style={{ width: 40 }} />}
+                  {widths.map((width, index) => <col key={index} style={{ width }} />)}
+                </colgroup>
                 {table.header !== false && <thead className="sticky top-0 z-10">
                   <tr>
+                    {table.rowNumbers && <th className="border-b border-r border-border/60 bg-muted/35 px-2 text-center text-[10px] font-medium text-muted-foreground">#</th>}
                     {table.columns.map((column, columnIndex) => (
                       <th key={columnIndex} className="group/head relative border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0">
                         <div className="flex items-center gap-0.5 px-1">
@@ -660,8 +744,9 @@ export function BlockRow(props: BlockRowProps) {
                   </tr>
                 </thead>}
                 <tbody>
-                  {table.rows.map((row, rowIndex) => (
+                  {visibleRows.map(({ row, rowIndex }, visibleIndex) => (
                     <tr key={rowIndex} className="group/row transition-colors hover:bg-brand-soft/15">
+                      {table.rowNumbers && <td className="border-b border-r border-border/60 text-center text-[11px] tabular-nums text-muted-foreground">{visibleIndex + 1}</td>}
                       {table.columns.map((_, columnIndex) => (
                         <td key={columnIndex} className="border-b border-r border-border/60 p-0 last:border-r-0">
                           <TableCell

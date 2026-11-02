@@ -82,6 +82,7 @@ export function BlockEditor({
   onCommentBlock,
   scrollParentRef,
   readOnly = false,
+  allowVote = false,
   isLayout = false,
   hasContentPlaceholder = false,
   breadcrumb = [],
@@ -101,6 +102,7 @@ export function BlockEditor({
   onCommentBlock?: (blockId: string) => void
   scrollParentRef?: React.RefObject<HTMLDivElement | null>
   readOnly?: boolean
+  allowVote?: boolean
   isLayout?: boolean
   hasContentPlaceholder?: boolean
   breadcrumb?: { id: string; title: string; icon: string }[]
@@ -1146,6 +1148,7 @@ export function BlockEditor({
           onFocusBlock?.(id)
         }}
         readOnly={readOnly}
+        allowVote={allowVote}
         isLayout={isLayout}
         hasContentPlaceholder={hasContentPlaceholder}
         selected={selectedIds.has(block.id)}

@@ -63,7 +63,46 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 		}
 		align[i] = value
 	}
-	return &model.TableData{Columns: columns, Rows: cleaned, Header: table.Header, RowNumbers: table.RowNumbers, Query: sanitizeTableQuery(table.Query, columns), Widths: widths, Align: align}
+	return &model.TableData{
+		Columns: columns, Rows: cleaned, Header: table.Header, RowNumbers: table.RowNumbers,
+		Query:        sanitizeTableQuery(table.Query, columns),
+		ColumnStyles: sanitizeTableCellStyles(table.ColumnStyles, len(columns)),
+		RowStyles:    sanitizeTableCellStyles(table.RowStyles, len(cleaned)),
+		Widths:       widths, Align: align,
+	}
+}
+
+func sanitizeTableCellStyles(styles []*model.TableCellStyle, limit int) []*model.TableCellStyle {
+	if len(styles) == 0 || limit <= 0 {
+		return nil
+	}
+	if len(styles) > limit {
+		styles = styles[:limit]
+	}
+	colors := map[string]bool{"": true, "gray": true, "brown": true, "orange": true, "yellow": true, "green": true, "blue": true, "purple": true, "pink": true, "red": true}
+	out := make([]*model.TableCellStyle, len(styles))
+	last := -1
+	for i, style := range styles {
+		if style == nil {
+			continue
+		}
+		next := &model.TableCellStyle{BG: style.BG, Color: style.Color, Bold: style.Bold, Italic: style.Italic}
+		if !colors[next.BG] {
+			next.BG = ""
+		}
+		if !colors[next.Color] {
+			next.Color = ""
+		}
+		if next.BG == "" && next.Color == "" && !next.Bold && !next.Italic {
+			continue
+		}
+		out[i] = next
+		last = i
+	}
+	if last < 0 {
+		return nil
+	}
+	return out[:last+1]
 }
 
 func sanitizeTableQuery(query *model.TableQuery, columns []string) *model.TableQuery {

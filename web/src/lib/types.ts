@@ -52,12 +52,21 @@ export interface TableQuery {
   filters: TableFilter[]
 }
 
+export interface TableCellStyle {
+  bg?: string
+  color?: string
+  bold?: boolean
+  italic?: boolean
+}
+
 export interface TableData {
   columns: string[]
   rows: string[][]
   header: boolean
   rowNumbers?: boolean
   query?: TableQuery
+  columnStyles?: (TableCellStyle | null)[]
+  rowStyles?: (TableCellStyle | null)[]
   widths?: number[]
   align?: ("left" | "center" | "right")[]
 }

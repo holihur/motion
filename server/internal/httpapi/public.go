@@ -4,11 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -73,8 +76,12 @@ func (s *Server) publishPagePublic(w http.ResponseWriter, r *http.Request) {
 		if strings.TrimSpace(*req.Password) == "" {
 			settings["publicPasswordHash"] = ""
 		} else {
-			sum := sha256.Sum256([]byte(*req.Password))
-			settings["publicPasswordHash"] = hex.EncodeToString(sum[:])
+			hashed, err := hashPublicPassword(strings.TrimSpace(*req.Password))
+			if err != nil {
+				writeErr(w, http.StatusInternalServerError, "could not protect page")
+				return
+			}
+			settings["publicPasswordHash"] = hashed
 		}
 	}
 	if req.ExpiresAt != nil {
@@ -222,8 +229,12 @@ func (s *Server) unlockPublicPage(w http.ResponseWriter, r *http.Request) {
 		_ = decodeJSON(r, &body)
 		password = strings.TrimSpace(body.Password)
 	}
-	sum := sha256.Sum256([]byte(password))
-	if hex.EncodeToString(sum[:]) != page.PublicPasswordHash {
+	if !publicUnlockLimiter.allow(clientHost(r)+"|"+slug, 10, time.Minute) {
+		w.Header().Set("Retry-After", "60")
+		writeErr(w, http.StatusTooManyRequests, "too many attempts; try again later")
+		return
+	}
+	if !publicPasswordMatches(page.PublicPasswordHash, password) {
 		if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
 			writeErr(w, http.StatusForbidden, "wrong password")
 			return
@@ -232,9 +243,18 @@ func (s *Server) unlockPublicPage(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(staticpublish.UnlockPage(page.Title, slug))
 		return
 	}
+	// Upgrade legacy unsalted SHA-256 hashes on the first successful unlock.
+	if !strings.HasPrefix(page.PublicPasswordHash, "$2") {
+		if hashed, err := hashPublicPassword(password); err == nil {
+			if _, err := s.store.Pages.UpdateByID(r.Context(), page.ID, bson.M{"$set": bson.M{"publicPasswordHash": hashed}}); err == nil {
+				page.PublicPasswordHash = hashed
+			}
+		}
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name: publicCookieName(slug), Value: page.PublicPasswordHash,
 		Path: "/p/" + slug, MaxAge: 30 * 24 * 3600, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		Secure: r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https"),
 	})
 	http.Redirect(w, r, "/p/"+slug, http.StatusSeeOther)
 }
@@ -293,6 +313,12 @@ func (s *Server) postPublicComment(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "page is protected")
 		return
 	}
+	host := clientHost(r)
+	if !publicCommentLimiter.allow("m:"+host, 10, time.Minute) || !publicCommentLimiter.allow("h:"+host, 60, time.Hour) {
+		w.Header().Set("Retry-After", "60")
+		writeErr(w, http.StatusTooManyRequests, "too many comments; try again later")
+		return
+	}
 	var req struct {
 		Name string `json:"name"`
 		Body string `json:"body"`
@@ -317,6 +343,19 @@ func (s *Server) postPublicComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"ok": true})
+}
+
+func hashPublicPassword(password string) (string, error) {
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(hashed), err
+}
+
+func publicPasswordMatches(stored, password string) bool {
+	if strings.HasPrefix(stored, "$2") {
+		return bcrypt.CompareHashAndPassword([]byte(stored), []byte(password)) == nil
+	}
+	sum := sha256.Sum256([]byte(password))
+	return subtle.ConstantTimeCompare([]byte(hex.EncodeToString(sum[:])), []byte(stored)) == 1
 }
 
 // GET /p/{slug} — public page, no auth. Renders the current revision live.
@@ -389,10 +428,10 @@ func (s *Server) servePublicPage(w http.ResponseWriter, r *http.Request) {
 		Description: desc, Slug: slug, AllowComments: page.PublicComment,
 	})
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("X-Robots-Tag", "noindex")
 	// Password-protected pages must never enter a shared cache without the
 	// unlock cookie; otherwise a proxy could serve the unlocked HTML to others.
 	if strings.TrimSpace(page.PublicPasswordHash) != "" {
+		w.Header().Set("X-Robots-Tag", "noindex")
 		w.Header().Set("Cache-Control", "private, no-store")
 		w.Header().Set("Vary", "Cookie")
 	} else {

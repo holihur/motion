@@ -33,18 +33,25 @@ func sanitizePoll(poll *model.PollData) *model.PollData {
 }
 
 // POST /api/pages/{pageID}/blocks/{blockID}/vote {optionIds: []string}
+// Viewers may vote; the update is guarded by blocksRev and retried so a vote
+// cannot silently overwrite a concurrent page edit.
 func (s *Server) votePoll(w http.ResponseWriter, r *http.Request) {
 	pageID, err := primitive.ObjectIDFromHex(chiURLParam(r, "pageID"))
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid page id")
 		return
 	}
-	page, ok := s.editablePage(w, r, pageID)
-	if !ok {
+	page, _, err := s.accessiblePage(r, pageID)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "page not found")
 		return
 	}
 	if page.Archived {
 		writeErr(w, http.StatusForbidden, "page is in Trash; restore it before voting")
+		return
+	}
+	if page.Locked {
+		writeErr(w, http.StatusForbidden, "page is locked; unlock it before voting")
 		return
 	}
 	blockID := strings.TrimSpace(chiURLParam(r, "blockID"))
@@ -55,87 +62,110 @@ func (s *Server) votePoll(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	idx := -1
-	for i, b := range page.Blocks {
-		if b.ID == blockID {
-			idx = i
-			break
-		}
-	}
-	if idx < 0 {
-		writeErr(w, http.StatusNotFound, "block not found")
-		return
-	}
-	block := page.Blocks[idx]
-	if block.Type != "poll" || block.Poll == nil {
-		writeErr(w, http.StatusBadRequest, "not a poll block")
-		return
-	}
-	if block.Poll.Closed {
-		writeErr(w, http.StatusBadRequest, "this poll is closed")
-		return
-	}
 	want := map[string]bool{}
 	for _, id := range req.OptionIDs {
 		id = strings.TrimSpace(id)
 		if id != "" {
 			want[id] = true
 		}
-		if !block.Poll.Multiple {
-			break
-		}
 	}
-	if len(want) == 0 {
+	if len(want) == 0 || len(want) > 20 {
 		writeErr(w, http.StatusBadRequest, "pick at least one option")
 		return
 	}
-	valid := map[string]bool{}
-	for _, opt := range block.Poll.Options {
-		valid[opt.ID] = true
-	}
-	for id := range want {
-		if !valid[id] {
-			writeErr(w, http.StatusBadRequest, "unknown option")
-			return
-		}
-	}
 	me := currentUserID(r).Hex()
-	for i := range block.Poll.Options {
-		kept := block.Poll.Options[i].Votes[:0]
-		for _, v := range block.Poll.Options[i].Votes {
-			if v != me {
-				kept = append(kept, v)
+	var updated model.Block
+	saved := false
+	for attempt := 0; attempt < 5; attempt++ {
+		if attempt > 0 {
+			page, _, err = s.accessiblePage(r, pageID)
+			if err != nil || page.Archived || page.Locked {
+				break
 			}
 		}
-		if want[block.Poll.Options[i].ID] {
-			kept = append(kept, me)
+		idx := -1
+		for i, b := range page.Blocks {
+			if b.ID == blockID {
+				idx = i
+				break
+			}
 		}
-		block.Poll.Options[i].Votes = kept
+		if idx < 0 {
+			writeErr(w, http.StatusNotFound, "block not found")
+			return
+		}
+		block := page.Blocks[idx]
+		if block.Type != "poll" || block.Poll == nil {
+			writeErr(w, http.StatusBadRequest, "not a poll block")
+			return
+		}
+		if block.Poll.Closed {
+			writeErr(w, http.StatusBadRequest, "this poll is closed")
+			return
+		}
+		if !block.Poll.Multiple && len(want) > 1 {
+			writeErr(w, http.StatusBadRequest, "this poll accepts a single option")
+			return
+		}
+		valid := map[string]bool{}
+		for _, opt := range block.Poll.Options {
+			valid[opt.ID] = true
+		}
+		for id := range want {
+			if !valid[id] {
+				writeErr(w, http.StatusBadRequest, "unknown option")
+				return
+			}
+		}
+		options := make([]model.PollOption, len(block.Poll.Options))
+		for i, opt := range block.Poll.Options {
+			votes := make([]string, 0, len(opt.Votes)+1)
+			for _, vote := range opt.Votes {
+				if vote != me {
+					votes = append(votes, vote)
+				}
+			}
+			if want[opt.ID] {
+				votes = append(votes, me)
+			}
+			options[i] = model.PollOption{ID: opt.ID, Text: opt.Text, Votes: votes}
+		}
+		block.Poll.Options = options
+		page.Blocks[idx] = block
+		rev := page.BlocksRev + 1
+		if rev < 1 {
+			rev = 1
+		}
+		now := time.Now().UTC()
+		result, err := s.store.Pages.UpdateOne(r.Context(), bson.M{"_id": page.ID, "blocksRev": page.BlocksRev}, bson.M{"$set": bson.M{
+			"blocks": page.Blocks, "blocksRev": rev,
+			"text": textFromBlocks(page.Blocks), "updatedAt": now,
+		}})
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "could not save vote")
+			return
+		}
+		if result.MatchedCount == 0 {
+			continue
+		}
+		updated = block
+		saved = true
+		_, name := s.editorFor(r)
+		order := make([]string, len(page.Blocks))
+		for i, b := range page.Blocks {
+			order[i] = b.ID
+		}
+		s.hub.Broadcast(page.ID.Hex(), map[string]any{
+			"type": "ops", "pageId": page.ID.Hex(), "clientId": clientID(r),
+			"blocksRev": rev, "order": order, "upserts": []model.Block{block}, "deletes": []string{},
+			"updatedAt": now,
+			"editor":    map[string]string{"userId": me, "name": name},
+		}, clientID(r))
+		break
 	}
-	page.Blocks[idx] = block
-	rev := page.BlocksRev + 1
-	if rev < 1 {
-		rev = 1
-	}
-	now := time.Now().UTC()
-	if _, err := s.store.Pages.UpdateByID(r.Context(), page.ID, bson.M{"$set": bson.M{
-		"blocks": page.Blocks, "blocksRev": rev,
-		"text": textFromBlocks(page.Blocks), "updatedAt": now,
-	}}); err != nil {
-		writeErr(w, http.StatusInternalServerError, "could not save vote")
+	if !saved {
+		writeErr(w, http.StatusConflict, "page changed on another device; try again")
 		return
 	}
-	_, name := s.editorFor(r)
-	userID := currentUserID(r).Hex()
-	order := make([]string, len(page.Blocks))
-	for i, b := range page.Blocks {
-		order[i] = b.ID
-	}
-	s.hub.Broadcast(page.ID.Hex(), map[string]any{
-		"type": "ops", "pageId": page.ID.Hex(), "clientId": clientID(r),
-		"blocksRev": rev, "order": order, "upserts": []model.Block{block}, "deletes": []string{},
-		"updatedAt": now,
-		"editor": map[string]string{"userId": userID, "name": name},
-	}, clientID(r))
-	writeJSON(w, http.StatusOK, block)
+	writeJSON(w, http.StatusOK, updated)
 }

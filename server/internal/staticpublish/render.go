@@ -470,6 +470,49 @@ func caption(value string) string {
 	return `<figcaption>` + html.EscapeString(value) + `</figcaption>`
 }
 
+func tableStyleAt(styles []*model.TableCellStyle, index int) *model.TableCellStyle {
+	if index < 0 || index >= len(styles) {
+		return nil
+	}
+	return styles[index]
+}
+
+var tableBackgrounds = map[string]string{
+	"gray": "#f3f4f6", "brown": "#fef3c7", "orange": "#ffedd5", "yellow": "#fef9c3",
+	"green": "#dcfce7", "blue": "#dbeafe", "purple": "#f3e8ff", "pink": "#fce7f3", "red": "#fee2e2",
+}
+
+var tableForegrounds = map[string]string{
+	"gray": "#374151", "brown": "#92400e", "orange": "#c2410c", "yellow": "#a16207",
+	"green": "#15803d", "blue": "#1d4ed8", "purple": "#7e22ce", "pink": "#be185d", "red": "#b91c1c",
+}
+
+func tableCellStyleAttr(row, column *model.TableCellStyle) string {
+	styles := []*model.TableCellStyle{row, column}
+	var parts []string
+	for _, style := range styles {
+		if style == nil {
+			continue
+		}
+		if color := tableBackgrounds[style.BG]; color != "" {
+			parts = append(parts, "background:"+color)
+		}
+		if color := tableForegrounds[style.Color]; color != "" {
+			parts = append(parts, "color:"+color)
+		}
+		if style.Bold {
+			parts = append(parts, "font-weight:600")
+		}
+		if style.Italic {
+			parts = append(parts, "font-style:italic")
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return ` style="` + strings.Join(parts, ";") + `"`
+}
+
 func renderTable(table *model.TableData, base string) string {
 	if table == nil || len(table.Columns) == 0 {
 		return ""
@@ -479,21 +522,22 @@ func renderTable(table *model.TableData, base string) string {
 	if table.RowNumbers {
 		b.WriteString(`<th>#</th>`)
 	}
-	for _, column := range table.Columns {
-		b.WriteString(`<th>` + html.EscapeString(column) + `</th>`)
+	for index, column := range table.Columns {
+		b.WriteString(`<th` + tableCellStyleAttr(nil, tableStyleAt(table.ColumnStyles, index)) + `>` + html.EscapeString(column) + `</th>`)
 	}
 	b.WriteString(`</tr></thead><tbody>`)
 	for rowIndex, row := range table.Rows {
+		rowStyle := tableStyleAt(table.RowStyles, rowIndex)
 		b.WriteString(`<tr>`)
 		if table.RowNumbers {
-			b.WriteString(`<td>` + strconv.Itoa(rowIndex+1) + `</td>`)
+			b.WriteString(`<td` + tableCellStyleAttr(rowStyle, nil) + `>` + strconv.Itoa(rowIndex+1) + `</td>`)
 		}
 		for index := range table.Columns {
 			cell := ""
 			if index < len(row) {
 				cell = row[index]
 			}
-			b.WriteString(`<td>` + escapeLines(cell) + `</td>`)
+			b.WriteString(`<td` + tableCellStyleAttr(rowStyle, tableStyleAt(table.ColumnStyles, index)) + `>` + escapeLines(cell) + `</td>`)
 		}
 		b.WriteString(`</tr>`)
 	}

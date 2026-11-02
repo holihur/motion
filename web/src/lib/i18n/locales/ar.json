@@ -1397,5 +1397,8 @@
   "Greater or equal": "Greater or equal",
   "Less or equal": "Less or equal",
   "Download Excel": "Download Excel",
-  "Download JSONL": "Download JSONL"
+  "Download JSONL": "Download JSONL",
+  "Clear style": "Clear style",
+  "Column style": "Column style",
+  "Row style": "Row style"
 }

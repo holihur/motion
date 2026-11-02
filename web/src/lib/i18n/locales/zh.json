@@ -1397,5 +1397,8 @@
   "Greater or equal": "大于等于",
   "Less or equal": "小于等于",
   "Download Excel": "下载 Excel",
-  "Download JSONL": "下载 JSONL"
+  "Download JSONL": "下载 JSONL",
+  "Clear style": "清除样式",
+  "Column style": "列样式",
+  "Row style": "行样式"
 }

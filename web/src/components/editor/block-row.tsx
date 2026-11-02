@@ -6,6 +6,7 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUp,
+  Bold,
   Check,
   ClipboardCopy,
   Columns2,
@@ -24,6 +25,7 @@ import {
   LockKeyhole,
   LockOpen,
   ImageIcon,
+  Italic,
   MessageSquare,
   MoreHorizontal,
   MoreVertical,
@@ -38,7 +40,7 @@ import {
   X,
 } from "lucide-react"
 import { toast } from "sonner"
-import type { Block, BlockType, Comment, Member, TableQuery } from "@/lib/types"
+import type { Block, BlockType, Comment, Member, TableCellStyle, TableQuery } from "@/lib/types"
 import { BLOCK_LABELS, SLASH_COMMANDS } from "@/components/editor/commands"
 import { CALLOUT_COLORS, CALLOUT_EMOJI } from "@/lib/covers"
 import { EmojiPicker } from "@/components/editor/emoji-picker"
@@ -106,6 +108,7 @@ export interface BlockRowProps {
   isDragging: boolean
   dropPosition: "before" | "after" | null
   readOnly?: boolean
+  allowVote?: boolean
   isLayout?: boolean
   hasContentPlaceholder?: boolean
   selected?: boolean
@@ -151,6 +154,46 @@ export interface BlockRowProps {
   onDrop: (position: "before" | "after") => void
 }
 
+function tableCellStyleClasses(style?: TableCellStyle | null) {
+  if (!style) return ""
+  return cn(
+    style.bg && backgroundColorClass(style.bg),
+    style.color && textColorClass(style.color),
+    style.bold && "font-semibold",
+    style.italic && "italic",
+  )
+}
+
+function TableStylePopover({ label, style, onChange, className }: {
+  label: string
+  style?: TableCellStyle | null
+  onChange: (style: TableCellStyle) => void
+  className?: string
+}) {
+  const current = style ?? {}
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" aria-label={label} title={label} className={cn("flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/0 transition hover:bg-accent hover:text-foreground max-md:text-muted-foreground", className)}>
+          <Palette className="size-3" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-2.5">
+        <div className="mb-2 text-xs font-medium">{label}</div>
+        <ColorGrid label={tr("Background")} options={BACKGROUND_COLORS} value={current.bg} onChange={(value) => onChange({ ...current, bg: value === "default" ? "" : value })} />
+        <div className="mt-2">
+          <ColorGrid label={tr("Text color")} options={TEXT_COLORS} value={current.color} onChange={(value) => onChange({ ...current, color: value === "default" ? "" : value })} />
+        </div>
+        <div className="mt-2 flex items-center gap-1">
+          <button type="button" aria-pressed={!!current.bold} onClick={() => onChange({ ...current, bold: !current.bold })} className={cn("flex h-7 items-center gap-1 rounded px-2 text-[11px] transition hover:bg-accent", current.bold && "bg-accent text-foreground")}><Bold className="size-3" /> {tr("Bold")}</button>
+          <button type="button" aria-pressed={!!current.italic} onClick={() => onChange({ ...current, italic: !current.italic })} className={cn("flex h-7 items-center gap-1 rounded px-2 text-[11px] transition hover:bg-accent", current.italic && "bg-accent text-foreground")}><Italic className="size-3" /> {tr("Italic")}</button>
+          <button type="button" onClick={() => onChange({})} className="ml-auto rounded px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground">{tr("Clear style")}</button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export function BlockRow(props: BlockRowProps) {
   const {
     block,
@@ -161,6 +204,7 @@ export function BlockRow(props: BlockRowProps) {
     isDragging,
     dropPosition,
     readOnly: pageReadOnly = false,
+    allowVote = false,
     isLayout = false,
     hasContentPlaceholder = false,
     selected = false,
@@ -526,6 +570,19 @@ export function BlockRow(props: BlockRowProps) {
         const updateQuery = (next: TableQuery) => {
           updateTable({ ...table, query: next.filters.length ? next : undefined })
         }
+        const compactStyle = (style: TableCellStyle) => Object.fromEntries(Object.entries(style).filter(([, value]) => Boolean(value))) as TableCellStyle
+        const setColumnStyle = (columnIndex: number, style: TableCellStyle) => {
+          const next = [...(table.columnStyles ?? [])]
+          const compact = compactStyle(style)
+          next[columnIndex] = Object.keys(compact).length ? compact : null
+          updateTable({ ...table, columnStyles: next })
+        }
+        const setRowStyle = (rowIndex: number, style: TableCellStyle) => {
+          const next = [...(table.rowStyles ?? [])]
+          const compact = compactStyle(style)
+          next[rowIndex] = Object.keys(compact).length ? compact : null
+          updateTable({ ...table, rowStyles: next })
+        }
         const filterOps = [
           ["contains", "Contains"], ["equals", "Equals"], ["notEquals", "Not equals"],
           ["isEmpty", "Is empty"], ["isNotEmpty", "Is not empty"],
@@ -688,7 +745,7 @@ export function BlockRow(props: BlockRowProps) {
                   <tr>
                     {table.rowNumbers && <th className="border-b border-r border-border/60 bg-muted/35 px-2 text-center text-[10px] font-medium text-muted-foreground">#</th>}
                     {table.columns.map((column, columnIndex) => (
-                      <th key={columnIndex} className="group/head relative border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0">
+                      <th key={columnIndex} className={cn("group/head relative border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0", tableCellStyleClasses(table.columnStyles?.[columnIndex]))}>
                         <div className="flex items-center gap-0.5 px-1">
                           <TableCell
                             id={`table-cell-${block.id}-${-1}-${columnIndex}`}
@@ -702,6 +759,7 @@ export function BlockRow(props: BlockRowProps) {
                             className="min-w-0 flex-1"
                             placeholder={`Column ${columnIndex + 1}`}
                           />
+                          {!readOnly && <TableStylePopover label={tr("Column style")} style={table.columnStyles?.[columnIndex]} onChange={(style) => setColumnStyle(columnIndex, style)} className="group-hover/head:text-muted-foreground" />}
                           {!readOnly && (
                             <button
                               type="button"
@@ -742,15 +800,15 @@ export function BlockRow(props: BlockRowProps) {
                         </div>
                       </th>
                     ))}
-                    <th className="w-6 border-b border-border/60 bg-muted/35" />
+                    <th className="w-12 border-b border-border/60 bg-muted/35" />
                   </tr>
                 </thead>}
                 <tbody>
                   {visibleRows.map(({ row, rowIndex }, visibleIndex) => (
                     <tr key={rowIndex} className="group/row transition-colors hover:bg-brand-soft/15">
-                      {table.rowNumbers && <td className="border-b border-r border-border/60 text-center text-[11px] tabular-nums text-muted-foreground">{visibleIndex + 1}</td>}
+                      {table.rowNumbers && <td className={cn("border-b border-r border-border/60 text-center text-[11px] tabular-nums text-muted-foreground", tableCellStyleClasses(table.rowStyles?.[rowIndex]))}>{visibleIndex + 1}</td>}
                       {table.columns.map((_, columnIndex) => (
-                        <td key={columnIndex} className="border-b border-r border-border/60 p-0 last:border-r-0">
+                        <td key={columnIndex} className={cn("border-b border-r border-border/60 p-0 last:border-r-0", tableCellStyleClasses({ ...(table.rowStyles?.[rowIndex] ?? {}), ...(table.columnStyles?.[columnIndex] ?? {}) }))}>
                           <TableCell
                             id={`table-cell-${block.id}-${rowIndex}-${columnIndex}`}
                             value={row[columnIndex] ?? ""}
@@ -765,10 +823,11 @@ export function BlockRow(props: BlockRowProps) {
                         </td>
                       ))}
                       <td className="border-b border-border/60 p-0 text-center">
+                        {!readOnly && <TableStylePopover label={tr("Row style")} style={table.rowStyles?.[rowIndex]} onChange={(style) => setRowStyle(rowIndex, style)} className="inline-flex group-hover/row:text-muted-foreground" />}
                         {!readOnly && table.rows.length > 1 && <button
                           type="button"
                           onClick={() => removeRow(rowIndex)}
-                          className="flex size-6 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/row:text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
+                          className="inline-flex size-6 items-center justify-center rounded text-muted-foreground/0 transition max-md:text-muted-foreground group-hover/row:text-muted-foreground hover:bg-destructive/10 hover:!text-destructive"
                           aria-label={tr("Delete row")}
                         >
                           <X className="size-3" />
@@ -939,7 +998,7 @@ export function BlockRow(props: BlockRowProps) {
       case "form":
         return <FormBlock block={block} pageId={pageId} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "poll":
-        return <PollBlock block={block} pageId={pageId} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+        return <PollBlock block={block} pageId={pageId} readOnly={readOnly} allowVote={allowVote} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "content":
         return (
           <div className="my-3 rounded-xl border-2 border-dashed border-brand/35 bg-gradient-to-br from-brand-soft/30 to-brand-two/10 px-4 py-6 text-center">

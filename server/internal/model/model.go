@@ -87,14 +87,23 @@ type TableQuery struct {
 	Filters []TableFilter `bson:"filters" json:"filters"`
 }
 
+type TableCellStyle struct {
+	BG     string `bson:"bg,omitempty" json:"bg,omitempty"`
+	Color  string `bson:"color,omitempty" json:"color,omitempty"`
+	Bold   bool   `bson:"bold,omitempty" json:"bold,omitempty"`
+	Italic bool   `bson:"italic,omitempty" json:"italic,omitempty"`
+}
+
 type TableData struct {
-	Columns    []string    `bson:"columns" json:"columns"`
-	Rows       [][]string  `bson:"rows" json:"rows"`
-	Header     bool        `bson:"header" json:"header"`
-	RowNumbers bool        `bson:"rowNumbers,omitempty" json:"rowNumbers,omitempty"`
-	Query      *TableQuery `bson:"query,omitempty" json:"query,omitempty"`
-	Widths     []int       `bson:"widths,omitempty" json:"widths,omitempty"`
-	Align      []string    `bson:"align,omitempty" json:"align,omitempty"`
+	Columns      []string          `bson:"columns" json:"columns"`
+	Rows         [][]string        `bson:"rows" json:"rows"`
+	Header       bool              `bson:"header" json:"header"`
+	RowNumbers   bool              `bson:"rowNumbers,omitempty" json:"rowNumbers,omitempty"`
+	Query        *TableQuery       `bson:"query,omitempty" json:"query,omitempty"`
+	ColumnStyles []*TableCellStyle `bson:"columnStyles,omitempty" json:"columnStyles,omitempty"`
+	RowStyles    []*TableCellStyle `bson:"rowStyles,omitempty" json:"rowStyles,omitempty"`
+	Widths       []int             `bson:"widths,omitempty" json:"widths,omitempty"`
+	Align        []string          `bson:"align,omitempty" json:"align,omitempty"`
 }
 
 type DatabaseColumn struct {

@@ -24,10 +24,11 @@ function defaultPoll(): PollData {
   }
 }
 
-export function PollBlock({ block, pageId, readOnly, autoFocus, onUpdate }: {
+export function PollBlock({ block, pageId, readOnly, allowVote = false, autoFocus, onUpdate }: {
   block: Block
   pageId: string
   readOnly: boolean
+  allowVote?: boolean
   autoFocus?: boolean
   onUpdate: (patch: Partial<Block>) => void
 }) {
@@ -37,6 +38,7 @@ export function PollBlock({ block, pageId, readOnly, autoFocus, onUpdate }: {
   const [voting, setVoting] = useState(false)
   const votingRef = useRef(false)
 
+  const canVote = !readOnly || allowVote
   const total = useMemo(() => poll.options.reduce((sum, o) => sum + (o.votes?.length ?? 0), 0), [poll.options])
   const myVotes = useMemo(
     () => new Set(poll.options.filter((o) => (o.votes ?? []).includes(userId ?? "")).map((o) => o.id)),
@@ -152,7 +154,7 @@ export function PollBlock({ block, pageId, readOnly, autoFocus, onUpdate }: {
                   <div key={opt.id}>
                     <button
                       type="button"
-                      disabled={readOnly || poll.closed || voting}
+                      disabled={!canVote || poll.closed || voting}
                       onClick={() => togglePick(opt.id)}
                       className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs transition disabled:cursor-default ${checked ? "border-brand bg-brand-soft/40" : "hover:bg-accent/50"}`}
                     >
@@ -172,7 +174,7 @@ export function PollBlock({ block, pageId, readOnly, autoFocus, onUpdate }: {
               })}
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              {!readOnly && !poll.closed && poll.multiple && (
+              {canVote && !poll.closed && poll.multiple && (
                 <Button size="sm" className="h-7 gap-1 text-[11px]" disabled={voting || picked.length === 0} onClick={() => void vote(picked)}>
                   {voting && <Loader2 className="size-3 animate-spin" />}
                   {voted ? tr("Change vote") : tr("Vote")}

@@ -1713,6 +1713,7 @@ export function PageEditor() {
             <BlockEditor
               blocks={blocks}
               readOnly={readOnly}
+              allowVote={!pageLocked}
               onHeadings={setOutline}
               isLayout={Boolean(page.isLayout)}
               hasContentPlaceholder={blocks.some((block) => block.type === "content")}

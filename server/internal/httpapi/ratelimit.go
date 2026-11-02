@@ -44,6 +44,8 @@ func (l *windowLimiter) allow(key string, limit int, window time.Duration) bool 
 }
 
 var (
-	aiRunLimiter      = newWindowLimiter()
-	uploadRateLimiter = newWindowLimiter()
+	aiRunLimiter         = newWindowLimiter()
+	uploadRateLimiter    = newWindowLimiter()
+	publicUnlockLimiter  = newWindowLimiter()
+	publicCommentLimiter = newWindowLimiter()
 )

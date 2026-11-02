@@ -476,7 +476,7 @@ export function BlockRow(props: BlockRowProps) {
           />
         )
       case "table": {
-        const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, copyTable, downloadCSV } = useTableBlock(block, onUpdate)
+        const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, copyTable, downloadCSV, downloadJSONL, downloadExcel } = useTableBlock(block, onUpdate)
         const sortByColumn = (index: number) => {
           const dir: "asc" | "desc" = tableSort?.column === index && tableSort.dir === "asc" ? "desc" : "asc"
           const sorted = [...table.rows].sort((a, b) => {
@@ -674,6 +674,8 @@ export function BlockRow(props: BlockRowProps) {
                 >
                   <Download className="size-3" /> CSV
                 </button>
+                <button type="button" onClick={downloadJSONL} title={tr("Download JSONL")} className="rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground">JSONL</button>
+                <button type="button" onClick={downloadExcel} title={tr("Download Excel")} className="rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground">Excel</button>
               </div>
             </div>
             <div className="max-h-[65vh] overflow-auto">

@@ -1395,5 +1395,7 @@
   "Greater than": "大于",
   "Less than": "小于",
   "Greater or equal": "大于等于",
-  "Less or equal": "小于等于"
+  "Less or equal": "小于等于",
+  "Download Excel": "下载 Excel",
+  "Download JSONL": "下载 JSONL"
 }

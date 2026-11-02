@@ -1395,5 +1395,7 @@
   "Greater than": "Greater than",
   "Less than": "Less than",
   "Greater or equal": "Greater or equal",
-  "Less or equal": "Less or equal"
+  "Less or equal": "Less or equal",
+  "Download Excel": "Download Excel",
+  "Download JSONL": "Download JSONL"
 }

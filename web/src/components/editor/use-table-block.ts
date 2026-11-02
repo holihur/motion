@@ -94,7 +94,32 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
     toast.success(tr("Export ready"))
   }, [table])
 
+  const downloadJSONL = useCallback(() => {
+    const lines = table.rows.map((row) => JSON.stringify(Object.fromEntries(table.columns.map((column, index) => [column, row[index] ?? ""]))))
+    const url = URL.createObjectURL(new Blob([lines.join("\n")], { type: "application/x-ndjson;charset=utf-8" }))
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "table.jsonl"
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    toast.success(tr("Export ready"))
+  }, [table])
+
+  const downloadExcel = useCallback(() => {
+    const esc = (value: string) => value.replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char] ?? char))
+    const header = table.columns.map((column) => `<Cell><Data ss:Type="String">${esc(column)}</Data></Cell>`).join("")
+    const rows = table.rows.map((row) => `<Row>${table.columns.map((_, index) => `<Cell><Data ss:Type="String">${esc(row[index] ?? "")}</Data></Cell>`).join("")}</Row>`).join("")
+    const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Table"><Table><Row>${header}</Row>${rows}</Table></Worksheet></Workbook>`
+    const url = URL.createObjectURL(new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }))
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "table.xls"
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    toast.success(tr("Export ready"))
+  }, [table])
+
   return {
-    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, copyTable, downloadCSV,
+    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, copyTable, downloadCSV, downloadJSONL, downloadExcel,
   }
 }

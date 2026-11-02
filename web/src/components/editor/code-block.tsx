@@ -1,5 +1,28 @@
 import { useEffect, useMemo, useRef } from "react"
 import hljs from "highlight.js/lib/common"
+import apache from "highlight.js/lib/languages/apache"
+import clojure from "highlight.js/lib/languages/clojure"
+import dart from "highlight.js/lib/languages/dart"
+import delphi from "highlight.js/lib/languages/delphi"
+import dockerfile from "highlight.js/lib/languages/dockerfile"
+import elixir from "highlight.js/lib/languages/elixir"
+import erlang from "highlight.js/lib/languages/erlang"
+import fortran from "highlight.js/lib/languages/fortran"
+import fsharp from "highlight.js/lib/languages/fsharp"
+import groovy from "highlight.js/lib/languages/groovy"
+import haskell from "highlight.js/lib/languages/haskell"
+import julia from "highlight.js/lib/languages/julia"
+import matlab from "highlight.js/lib/languages/matlab"
+import nginx from "highlight.js/lib/languages/nginx"
+import ocaml from "highlight.js/lib/languages/ocaml"
+import powershell from "highlight.js/lib/languages/powershell"
+import protobuf from "highlight.js/lib/languages/protobuf"
+import scala from "highlight.js/lib/languages/scala"
+import x86asm from "highlight.js/lib/languages/x86asm"
+
+for (const [name, language] of Object.entries({ apache, clojure, dart, delphi, dockerfile, elixir, erlang, fortran, fsharp, groovy, haskell, julia, matlab, nginx, ocaml, powershell, protobuf, scala, x86asm })) {
+  hljs.registerLanguage(name, language)
+}
 import { Code2, Copy, Download, ListOrdered, WrapText } from "lucide-react"
 import { toast } from "sonner"
 import type { Block } from "@/lib/types"
@@ -10,20 +33,53 @@ const LANGUAGES = [
   ["plaintext", "Plain text"],
   ["javascript", "JavaScript"],
   ["typescript", "TypeScript"],
-  ["xml", "HTML"],
-  ["css", "CSS"],
-  ["json", "JSON"],
-  ["bash", "Shell"],
   ["python", "Python"],
+  ["java", "Java"],
+  ["c", "C"],
+  ["cpp", "C++"],
+  ["csharp", "C#"],
   ["go", "Go"],
+  ["rust", "Rust"],
+  ["ruby", "Ruby"],
+  ["php", "PHP"],
+  ["swift", "Swift"],
+  ["kotlin", "Kotlin"],
+  ["scala", "Scala"],
+  ["dart", "Dart"],
+  ["r", "R"],
+  ["matlab", "MATLAB"],
+  ["julia", "Julia"],
+  ["perl", "Perl"],
+  ["lua", "Lua"],
+  ["bash", "Shell"],
+  ["powershell", "PowerShell"],
   ["sql", "SQL"],
+  ["xml", "HTML / XML"],
+  ["css", "CSS"],
+  ["scss", "SCSS"],
+  ["less", "Less"],
+  ["json", "JSON"],
   ["yaml", "YAML"],
   ["markdown", "Markdown"],
-  ["rust", "Rust"],
-  ["java", "Java"],
-  ["csharp", "C#"],
-  ["cpp", "C++"],
   ["dockerfile", "Dockerfile"],
+  ["nginx", "Nginx"],
+  ["apache", "Apache"],
+  ["graphql", "GraphQL"],
+  ["protobuf", "Protobuf"],
+  ["diff", "Diff"],
+  ["makefile", "Makefile"],
+  ["ini", "INI / TOML"],
+  ["objectivec", "Objective-C"],
+  ["vbnet", "VB.NET"],
+  ["groovy", "Groovy"],
+  ["haskell", "Haskell"],
+  ["elixir", "Elixir"],
+  ["erlang", "Erlang"],
+  ["clojure", "Clojure"],
+  ["ocaml", "OCaml"],
+  ["fsharp", "F#"],
+  ["fortran", "Fortran"],
+  ["x86asm", "Assembly"],
 ] as const
 
 const ALIASES: Record<string, string> = {
@@ -31,6 +87,10 @@ const ALIASES: Record<string, string> = {
   js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
   html: "xml", sh: "bash", shell: "bash", zsh: "bash", py: "python",
   yml: "yaml", md: "markdown", "c#": "csharp", "c++": "cpp", golang: "go",
+  rs: "rust", kt: "kotlin", rb: "ruby", pl: "perl", ps1: "powershell",
+  "objective-c": "objectivec", vb: "vbnet", fs: "fsharp", hs: "haskell",
+  ex: "elixir", erl: "erlang", clj: "clojure", ml: "ocaml", asm: "x86asm",
+  docker: "dockerfile", "html/xml": "xml", toml: "ini",
 }
 
 function normalize(value: string) {

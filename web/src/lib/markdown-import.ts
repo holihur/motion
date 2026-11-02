@@ -61,7 +61,14 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
         index += 1
       }
       index += 1
-      out.push(markdownBlock("code", code.join("\n"), { language }))
+      const normalized = language.toLowerCase()
+      if (normalized === "mermaid" || normalized === "mmd") {
+        const diagram = markdownBlock("diagram", "")
+        diagram.text = code.join("\n")
+        out.push(diagram)
+      } else {
+        out.push(markdownBlock("code", code.join("\n"), { language }))
+      }
       continue
     }
 

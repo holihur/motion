@@ -212,6 +212,7 @@ export function BlockRow(props: BlockRowProps) {
     "min-w-0 flex-1",
     textStyled && textColorClass(block.textColor),
     aligned && alignClass(block.align),
+    block.type === "code" && "py-2",
     blockBackground && cn("-mx-2 rounded-md px-2", blockBackground),
   )
 

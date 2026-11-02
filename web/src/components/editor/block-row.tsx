@@ -344,7 +344,21 @@ export function BlockRow(props: BlockRowProps) {
             : block.type === "heading2"
               ? "text-[24px] font-semibold leading-[1.3] tracking-[-0.015em] py-1 mt-4"
               : "text-[19px] font-semibold leading-[1.4] py-1 mt-3"
-        return renderEditable(headingClass)
+        return block.collapsed ? (
+          <div className="flex items-start gap-1">
+            <button
+              type="button"
+              aria-label={tr("Expand section")}
+              aria-expanded={false}
+              title={tr("Expand section")}
+              onClick={onToggleCollapsed}
+              className="mt-[9px] flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            >
+              <ChevronRight className="size-3.5" />
+            </button>
+            <div className="min-w-0 flex-1">{renderEditable(headingClass)}</div>
+          </div>
+        ) : renderEditable(headingClass)
       }
       case "bulleted":
         return (

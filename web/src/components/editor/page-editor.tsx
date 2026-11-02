@@ -1718,9 +1718,10 @@ export function PageEditor() {
               hasContentPlaceholder={blocks.some((block) => block.type === "content")}
               scrollParentRef={scrollRef}
               onChange={(next) => {
-                if (readOnly) return
+                // Viewers may still expand/collapse sections locally, but must
+                // never persist those view-only interactions.
                 setBlocks(next)
-                scheduleSave()
+                if (!readOnly) scheduleSave()
               }}
               onFocusBlock={announceFocus}
               remoteFocus={remoteFocus}

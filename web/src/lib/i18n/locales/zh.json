@@ -1427,5 +1427,6 @@
   "Token copied": "Token 已复制",
   "MCP config copied": "MCP 配置已复制",
   "MCP client configuration": "MCP 客户端配置",
-  "Copy it now \u2014 you won't be able to see it again.": "请立即复制，之后将无法再次查看。"
+  "Copy it now \u2014 you won't be able to see it again.": "请立即复制，之后将无法再次查看。",
+  "Could not load workspace": "工作区加载失败"
 }

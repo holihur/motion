@@ -38,20 +38,27 @@ function colorOf(key?: string) {
   return COLORS.find((c) => c.key === key) ?? COLORS[0]
 }
 
-function isGraph(v: any): v is FlowData {
-  return !!v && Array.isArray(v.nodes) && Array.isArray(v.edges)
+function isGraph(v: unknown): v is FlowData {
+  if (!v || typeof v !== "object") return false
+  const value = v as { nodes?: unknown; edges?: unknown }
+  return Array.isArray(value.nodes) && Array.isArray(value.edges)
 }
-function isChartData(v: any) {
-  return Array.isArray(v) && v.length > 0 && typeof v[0] === "object" && "value" in v[0]
+function isChartData(v: unknown): v is { name: string; value: number }[] {
+  if (!Array.isArray(v) || v.length === 0) return false
+  const first = v[0]
+  return !!first && typeof first === "object" && "value" in first
 }
 
 /** 兼容各种老格式 → 统一 FlowData；非流程图返回 null */
 function parseFlow(text: string): { flow: FlowData; legacy: null } | null {
   if (!text.trim()) return { flow: { nodes: [], edges: [], direction: "LR" }, legacy: null }
-  let v: any
+  let v: unknown
   try { v = JSON.parse(text) } catch { return null }
   if (isGraph(v)) return { flow: normalize(v), legacy: null }
-  if (v && isGraph(v.graph)) return { flow: normalize({ ...v.graph, direction: v.direction ?? v.graph.direction }), legacy: null }
+  if (v && typeof v === "object" && isGraph((v as { graph?: unknown }).graph)) {
+    const wrapper = v as { graph: FlowData; direction?: FlowData["direction"] }
+    return { flow: normalize({ ...wrapper.graph, direction: wrapper.direction ?? wrapper.graph.direction }), legacy: null }
+  }
   return null
 }
 function normalize(f: FlowData): FlowData {
@@ -193,12 +200,15 @@ const TEMPLATES: { name: string; desc: string; make: () => FlowData }[] = [
 
 /* ---------------- 旧版 JSON 图表兼容渲染（只读展示） ---------------- */
 function LegacyPreview({ text }: { text: string }) {
-  let parsed: any = null
+  let parsed: unknown = null
   try { parsed = JSON.parse(text) } catch { parsed = null }
   let chart: { name: string; value: number }[] | null = null
-  if (parsed && isChartData(parsed)) chart = parsed
-  else if (parsed && typeof parsed === "object" && isChartData(parsed.chart)) chart = parsed.chart
-  else if (parsed && typeof parsed === "object" && isChartData(parsed.data)) chart = parsed.data
+  const record = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null
+  const chartValue = record?.chart
+  const dataValue = record?.data
+  if (isChartData(parsed)) chart = parsed
+  else if (isChartData(chartValue)) chart = chartValue
+  else if (isChartData(dataValue)) chart = dataValue
   const max = chart ? Math.max(...chart.map((d) => d.value), 1) : 1
   return (
     <div className="p-3">

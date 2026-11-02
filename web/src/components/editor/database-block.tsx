@@ -53,7 +53,7 @@ export function DatabaseBlock({
   function setCell(rowIndex: number, colId: string, value: string) {
     const rows = filtered
     // map back to original index
-    const origIndex = db.rows.indexOf(rows[rowIndex] as any)
+    const origIndex = db.rows.indexOf(rows[rowIndex])
     const next = db.rows.map((r, i) => (i === origIndex ? { ...r, [colId]: value } : r))
     commit({ rows: next })
   }
@@ -198,7 +198,7 @@ export function DatabaseBlock({
                   </td>
                 ))}
                 <td className="border-b border-border/60 text-center">
-                  {!readOnly && <button type="button" onClick={() => { const orig = db.rows.indexOf(row as any); commit({ rows: db.rows.filter((_, i) => i !== orig) }) }} className="rounded p-1 hover:bg-destructive/10 hover:text-destructive"><Trash2 className="size-3" /></button>}
+                  {!readOnly && <button type="button" onClick={() => { const orig = db.rows.indexOf(row); commit({ rows: db.rows.filter((_, i) => i !== orig) }) }} className="rounded p-1 hover:bg-destructive/10 hover:text-destructive"><Trash2 className="size-3" /></button>}
                 </td>
               </tr>
             ))}

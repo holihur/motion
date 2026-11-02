@@ -405,5 +405,6 @@
   "MCP config copied": "MCP config copied",
   "MCP client configuration": "MCP client configuration",
   "Copy JSON": "Copy JSON",
-  "Copy it now \u2014 you won't be able to see it again.": "Copy it now — you won't be able to see it again."
+  "Copy it now \u2014 you won't be able to see it again.": "Copy it now — you won't be able to see it again.",
+  "Could not load workspace": "Could not load workspace"
 }

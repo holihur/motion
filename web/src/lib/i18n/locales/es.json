@@ -1427,5 +1427,6 @@
   "Token copied": "Token copiado",
   "MCP config copied": "Configuración MCP copiada",
   "MCP client configuration": "Configuración del cliente MCP",
-  "Copy it now \u2014 you won't be able to see it again.": "Cópialo ahora: no podrás volver a verlo."
+  "Copy it now \u2014 you won't be able to see it again.": "Cópialo ahora: no podrás volver a verlo.",
+  "Could not load workspace": "No se pudo cargar el espacio de trabajo"
 }

@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { api } from "@/lib/api"
 import { markOnboardingStep } from "@/lib/onboarding"
+import { tr } from "@/lib/i18n"
 import type { Page, PageSummary, Workspace } from "@/lib/types"
 
 const ACTIVE_KEY = "motion.workspace"
@@ -63,7 +64,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         }
         set({ ready: true })
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : "加载失败", ready: true })
+        set({ error: error instanceof Error ? error.message : tr("Could not load workspace"), ready: true })
       } finally {
         set({ loading: false })
       }

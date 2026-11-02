@@ -1328,7 +1328,7 @@ export function BlockRow(props: BlockRowProps) {
               <div key={code} className="flex items-start gap-1.5 py-0.5 text-xs">
                 <span className="rounded bg-brand px-1 py-0.5 text-[10px] font-mono text-white">{code}</span>
                 <span className="flex-1 leading-5">{val as string}</span>
-                {!readOnly && <button type="button" onClick={() => { onUpdate({ text: val as string, rich: "" } as any); toast.success(tr("Applied")) }} className="shrink-0 rounded bg-background px-1.5 py-0.5 text-[10px] hover:bg-accent">{tr("Apply")}</button>}
+                {!readOnly && <button type="button" onClick={() => { onUpdate({ text: val as string, rich: "" }); toast.success(tr("Applied")) }} className="shrink-0 rounded bg-background px-1.5 py-0.5 text-[10px] hover:bg-accent">{tr("Apply")}</button>}
                 <button type="button" onClick={() => void navigator.clipboard.writeText(val as string).then(()=>toast.success(tr("Copied")), ()=>toast.error(tr("Could not copy")))} className="shrink-0 rounded px-1 py-0.5 text-[10px] hover:bg-accent"><Copy className="size-3" /></button>
               </div>
             ))}
@@ -1511,7 +1511,7 @@ function BlockMenu({
         return
       }
       const next = { ...(block.translations ?? {}), [key]: out }
-      onUpdate({ translations: next } as any)
+      onUpdate({ translations: next })
       toast.success(`${label} ✓`)
     } finally {
       setTranslating(false)
@@ -1799,7 +1799,7 @@ function BlockMenu({
               </button>
             </div>
             {block.translations && Object.keys(block.translations).length > 0 && (
-              <DropdownMenuItem variant="destructive" onSelect={() => onUpdate({ translations: {} } as any)}><Trash2 /> {tr("Clear translations")}</DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onSelect={() => onUpdate({ translations: {} })}><Trash2 /> {tr("Clear translations")}</DropdownMenuItem>
             )}
           </DropdownMenuSubContent>
         </DropdownMenuSub>

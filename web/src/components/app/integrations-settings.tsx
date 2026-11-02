@@ -246,7 +246,7 @@ export function IntegrationsSettings() {
         const result = await api.integrations.test(workspace!.id, item.provider)
         results.push(`${item.provider}: OK (${result.latencyMs}ms)`)
       } catch (error) {
-        results.push(`${item.provider}: ${error instanceof Error ? error.message : "failed"}`)
+        results.push(`${item.provider}: ${error instanceof Error ? error.message : tr("failed")}`)
       }
     }
     setTesting(false)

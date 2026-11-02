@@ -185,7 +185,7 @@ function SidebarContent() {
       const page = await createPage(null)
       navigate(`/page/${page.id}`)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not create page")
+      toast.error(error instanceof Error ? error.message : tr("Could not create page"))
     } finally {
       newPageRef.current = false
     }
@@ -685,7 +685,7 @@ function CreateWorkspaceDialog({
       onOpenChange(false)
       navigate("/")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not create workspace")
+      toast.error(error instanceof Error ? error.message : tr("Could not create workspace"))
     } finally {
       setPending(false)
     }

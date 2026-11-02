@@ -109,7 +109,7 @@ export function MermaidDiagram({ source }: { source: string }) {
         if (!cancelled) setSvg(result.svg)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Could not render diagram")
+        if (!cancelled) setError(err instanceof Error ? err.message : tr("Could not render diagram"))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { api, ApiError } from "@/lib/api"
+import { tr } from "@/lib/i18n"
 import type { OpsSettings, OpsStats } from "@/lib/types"
 import { LogoMark } from "@/components/logo"
 import { Button } from "@/components/ui/button"
@@ -102,7 +103,7 @@ export function OpsView() {
       })
       .catch((err) => {
         if (!alive) return
-        const message = err instanceof Error ? err.message : "Could not load Ops settings"
+        const message = err instanceof Error ? err.message : tr("Could not load Ops settings")
         if (err instanceof ApiError && [401, 403, 503].includes(err.status)) {
           sessionStorage.removeItem(OPS_TOKEN_KEY)
           setToken("")
@@ -196,10 +197,10 @@ export function OpsView() {
       setSecret("")
       setClearSecret(false)
       setJustSaved(true)
-      toast.success("Ops settings saved")
+      toast.success( tr("Ops settings saved"))
       window.setTimeout(() => setJustSaved(false), 2500)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not save settings")
+      toast.error(err instanceof Error ? err.message : tr("Could not save settings"))
     } finally {
       setPending(false)
     }
@@ -216,7 +217,7 @@ export function OpsView() {
         duration: 8000,
       })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not install the update")
+      toast.error(err instanceof Error ? err.message : tr("Could not install the update"))
     } finally {
       setApplying(false)
     }
@@ -228,11 +229,11 @@ export function OpsView() {
       if (!token) return
       const result = await api.ops.checkUpdate(token)
       setUpdateCheck(result)
-      if (!result.latest) toast("No update information available yet")
+      if (!result.latest) toast( tr("No update information available yet"))
       else if (result.available) toast(`Update available: ${result.latest}`)
-      else toast.success("Motion is up to date")
+      else toast.success( tr("Motion is up to date"))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not check for updates")
+      toast.error(err instanceof Error ? err.message : tr("Could not check for updates"))
     } finally {
       setChecking(false)
     }
@@ -257,9 +258,9 @@ export function OpsView() {
         <LogoMark className="size-6 rounded-md" />
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ShieldCheck className="size-3.5 text-brand" />
-          <span className="font-medium text-foreground">Ops console</span>
+          <span className="font-medium text-foreground">{tr("Ops console")}</span>
           <span className="text-muted-foreground/50">/</span>
-          <span>Instance configuration</span>
+          <span>{tr("Instance configuration")}</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
@@ -318,10 +319,10 @@ export function OpsView() {
           ) : (
             <div className="mt-8 space-y-6">
               <section className="rounded-2xl border bg-card p-5">
-                <SectionTitle icon={Globe2} title="General" description="How people join and what the instance is called." />
+                <SectionTitle icon={Globe2} title={tr("General")} description={tr("How people join and what the instance is called.")} />
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="ops-app-name">Instance name</Label>
+                    <Label htmlFor="ops-app-name">{tr("Instance name")}</Label>
                     <Input
                       id="ops-app-name"
                       value={settings.appName}
@@ -329,7 +330,7 @@ export function OpsView() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="ops-ai-model">Default Gemini model</Label>
+                    <Label htmlFor="ops-ai-model">{tr("Default Gemini model")}</Label>
                     <Input
                       id="ops-ai-model"
                       value={settings.aiModel}
@@ -350,7 +351,7 @@ export function OpsView() {
                 </div>
                 <div className="mt-5 space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="ops-trash-retention">Trash retention (days)</Label>
+                    <Label htmlFor="ops-trash-retention">{tr("Trash retention (days)")}</Label>
                     <Input
                       id="ops-trash-retention"
                       type="number"
@@ -362,20 +363,20 @@ export function OpsView() {
                     <p className="text-[10px] text-muted-foreground">0 keeps archived pages forever. Older leaf pages are permanently removed every six hours.</p>
                   </div>
                   <ToggleRow
-                    title="Allow new sign-ups"
-                    description="People can create an account with email and password."
+                    title={tr("Allow new sign-ups")}
+                    description={tr("People can create an account with email and password.")}
                     checked={settings.allowSignup}
                     onChange={(checked) => patch({ allowSignup: checked })}
                   />
                   <ToggleRow
-                    title="Enable MCP endpoint"
+                    title={tr("Enable MCP endpoint")}
                     description="Expose /mcp to personal access tokens with scoped permissions."
                     checked={settings.mcpEnabled}
                     onChange={(checked) => patch({ mcpEnabled: checked })}
                   />
                 </div>
                 <div className="mt-4 space-y-2">
-                  <Label htmlFor="ops-admins">Administrator emails</Label>
+                  <Label htmlFor="ops-admins">{tr("Administrator emails")}</Label>
                   <Input
                     id="ops-admins"
                     value={adminEmails}
@@ -397,21 +398,21 @@ export function OpsView() {
               <section className="rounded-2xl border bg-card p-5">
                 <SectionTitle
                   icon={Globe2}
-                  title="Map providers"
+                  title={tr("Map providers")}
                   description="Client keys for map blocks. Mapbox is the default; Google, Amap and Baidu fall back to their keyless embeds when a key is empty."
                 />
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <Field label="Mapbox access token" htmlFor="ops-mapbox-token">
+                  <Field label={tr("Mapbox access token")} htmlFor="ops-mapbox-token">
                     <Input id="ops-mapbox-token" value={settings.maps.mapboxToken} onChange={(event) => patch({ maps: { ...settings.maps, mapboxToken: event.target.value } })} placeholder="pk.…" />
                   </Field>
-                  <Field label="Google Maps API key" htmlFor="ops-google-maps-key">
-                    <Input id="ops-google-maps-key" value={settings.maps.googleMapsKey} onChange={(event) => patch({ maps: { ...settings.maps, googleMapsKey: event.target.value } })} placeholder="Optional" />
+                  <Field label={tr("Google Maps API key")} htmlFor="ops-google-maps-key">
+                    <Input id="ops-google-maps-key" value={settings.maps.googleMapsKey} onChange={(event) => patch({ maps: { ...settings.maps, googleMapsKey: event.target.value } })} placeholder={tr("Optional")} />
                   </Field>
-                  <Field label="Amap (高德) key" htmlFor="ops-amap-key">
-                    <Input id="ops-amap-key" value={settings.maps.amapKey} onChange={(event) => patch({ maps: { ...settings.maps, amapKey: event.target.value } })} placeholder="Optional" />
+                  <Field label={tr("Amap (高德) key")} htmlFor="ops-amap-key">
+                    <Input id="ops-amap-key" value={settings.maps.amapKey} onChange={(event) => patch({ maps: { ...settings.maps, amapKey: event.target.value } })} placeholder={tr("Optional")} />
                   </Field>
-                  <Field label="Baidu Map AK" htmlFor="ops-baidu-map-ak">
-                    <Input id="ops-baidu-map-ak" value={settings.maps.baiduMapAK} onChange={(event) => patch({ maps: { ...settings.maps, baiduMapAK: event.target.value } })} placeholder="Optional" />
+                  <Field label={tr("Baidu Map AK")} htmlFor="ops-baidu-map-ak">
+                    <Input id="ops-baidu-map-ak" value={settings.maps.baiduMapAK} onChange={(event) => patch({ maps: { ...settings.maps, baiduMapAK: event.target.value } })} placeholder={tr("Optional")} />
                   </Field>
                 </div>
               </section>
@@ -419,26 +420,26 @@ export function OpsView() {
               <section className="rounded-2xl border bg-card p-5">
                 <SectionTitle
                   icon={ShieldCheck}
-                  title="Single sign-on (OIDC)"
+                  title={tr("Single sign-on (OIDC)")}
                   description="Connect any OpenID Connect provider. Leave disabled to use email and password only."
                 />
                 <div className="mt-4">
                   <ToggleRow
-                    title="Enable OIDC sign-in"
-                    description="Shows a single sign-on button on the login page."
+                    title={tr("Enable OIDC sign-in")}
+                    description={tr("Shows a single sign-on button on the login page.")}
                     checked={settings.oidc.enabled}
                     onChange={(checked) => patchOIDC({ enabled: checked })}
                   />
                 </div>
                 <div className="mt-4">
-                  <Field label="Provider preset" htmlFor="ops-oidc-preset" hint="Fills the issuer and scopes. Replace the tenant placeholders.">
+                  <Field label={tr("Provider preset")} htmlFor="ops-oidc-preset" hint="Fills the issuer and scopes. Replace the tenant placeholders.">
                     <select
                       id="ops-oidc-preset"
                       defaultValue=""
                       onChange={(event) => applyOIDCPreset(event.target.value as keyof typeof OIDC_PRESETS)}
                       className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none sm:max-w-xs"
                     >
-                      <option value="" disabled>Choose a preset…</option>
+                      <option value="" disabled>{tr("Choose a preset…")}</option>
                       {Object.entries(OIDC_PRESETS).map(([value, preset]) => (
                         <option key={value} value={value}>{preset.label}</option>
                       ))}
@@ -446,7 +447,7 @@ export function OpsView() {
                   </Field>
                 </div>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <Field label="Issuer URL" htmlFor="ops-oidc-issuer">
+                  <Field label={tr("Issuer URL")} htmlFor="ops-oidc-issuer">
                     <Input
                       id="ops-oidc-issuer"
                       value={settings.oidc.issuer}
@@ -457,14 +458,14 @@ export function OpsView() {
                     />
                     {issuerError && <p className="mt-1 text-[11px] text-destructive">{issuerError}</p>}
                   </Field>
-                  <Field label="Client ID" htmlFor="ops-oidc-client">
+                  <Field label={tr("Client ID")} htmlFor="ops-oidc-client">
                     <Input
                       id="ops-oidc-client"
                       value={settings.oidc.clientId}
                       onChange={(event) => patchOIDC({ clientId: event.target.value })}
                     />
                   </Field>
-                  <Field label="Client secret" htmlFor="ops-oidc-secret">
+                  <Field label={tr("Client secret")} htmlFor="ops-oidc-secret">
                     <Input
                       id="ops-oidc-secret"
                       type="password"
@@ -486,15 +487,15 @@ export function OpsView() {
                       </label>
                     )}
                   </Field>
-                  <Field label="Button label" htmlFor="ops-oidc-name">
+                  <Field label={tr("Button label")} htmlFor="ops-oidc-name">
                     <Input
                       id="ops-oidc-name"
                       value={settings.oidc.name}
                       onChange={(event) => patchOIDC({ name: event.target.value })}
-                      placeholder="Continue with Google"
+                      placeholder={tr("Continue with Google")}
                     />
                   </Field>
-                  <Field label="Callback URL" htmlFor="ops-oidc-redirect" hint="Leave empty to derive it from the request host.">
+                  <Field label={tr("Callback URL")} htmlFor="ops-oidc-redirect" hint="Leave empty to derive it from the request host.">
                     <Input
                       id="ops-oidc-redirect"
                       value={settings.oidc.redirectUrl}
@@ -506,8 +507,8 @@ export function OpsView() {
                       onClick={() => {
                         const url = settings.oidc.redirectUrl || `${window.location.origin}/api/auth/oidc/callback`
                         void navigator.clipboard.writeText(url).then(
-                          () => toast.success("Callback URL copied"),
-                          () => toast.error("Could not copy callback URL"),
+                          () => toast.success( tr("Callback URL copied")),
+                          () => toast.error( tr("Could not copy callback URL")),
                         )
                       }}
                       className="text-left text-[11px] font-medium text-brand hover:underline"
@@ -515,17 +516,17 @@ export function OpsView() {
                       Copy callback URL
                     </button>
                   </Field>
-                  <Field label="Scopes" htmlFor="ops-oidc-scopes" hint="Comma separated.">
+                  <Field label={tr("Scopes")} htmlFor="ops-oidc-scopes" hint="Comma separated.">
                     <Input id="ops-oidc-scopes" value={scopes} onChange={(event) => setScopes(event.target.value)} />
                   </Field>
-                  <Field label="Allowed email domains" htmlFor="ops-oidc-domains" hint="Optional. Comma separated.">
+                  <Field label={tr("Allowed email domains")} htmlFor="ops-oidc-domains" hint="Optional. Comma separated.">
                     <Input id="ops-oidc-domains" value={domains} onChange={(event) => setDomains(event.target.value)} />
                   </Field>
                 </div>
                 <div className="mt-4">
                   <ToggleRow
-                    title="Create accounts on first sign-in"
-                    description="When off, an administrator must create the account first."
+                    title={tr("Create accounts on first sign-in")}
+                    description={tr("When off, an administrator must create the account first.")}
                     checked={settings.oidc.autoCreate}
                     onChange={(checked) => patchOIDC({ autoCreate: checked })}
                   />
@@ -535,11 +536,11 @@ export function OpsView() {
               <section className="rounded-2xl border bg-card p-5">
                 <SectionTitle
                   icon={RefreshCw}
-                  title="Updates"
+                  title={tr("Updates")}
                   description="Check for new releases from GitHub. Auto-update can restart the service when supervised."
                 />
                 <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_150px_140px]">
-                  <Field label="Release repository" htmlFor="ops-update-repo">
+                  <Field label={tr("Release repository")} htmlFor="ops-update-repo">
                     <Input
                       id="ops-update-repo"
                       value={settings.update.repo}
@@ -547,7 +548,7 @@ export function OpsView() {
                       placeholder="owner/repository"
                     />
                   </Field>
-                  <Field label="Mode" htmlFor="ops-update-mode">
+                  <Field label={tr("Mode")} htmlFor="ops-update-mode">
                     <select
                       id="ops-update-mode"
                       value={settings.update.mode}
@@ -556,12 +557,12 @@ export function OpsView() {
                       }
                       className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none"
                     >
-                      <option value="off">Off</option>
-                      <option value="check">Check only</option>
-                      <option value="apply">Download & restart</option>
+                      <option value="off">{tr("Off")}</option>
+                      <option value="check">{tr("Check only")}</option>
+                      <option value="apply">{tr("Download & restart")}</option>
                     </select>
                   </Field>
-                  <Field label="Interval (hours)" htmlFor="ops-update-interval">
+                  <Field label={tr("Interval (hours)")} htmlFor="ops-update-interval">
                     <Input
                       id="ops-update-interval"
                       type="number"
@@ -600,7 +601,7 @@ export function OpsView() {
               </section>
 
               <section className="rounded-2xl border bg-card p-5">
-                <SectionTitle icon={Database} title="Instance health" description="A quick snapshot of your Motion data." />
+                <SectionTitle icon={Database} title="Instance health" description={tr("A quick snapshot of your Motion data.")} />
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {stats &&
                     [
@@ -669,14 +670,14 @@ function OpsGate({
           <div className="flex size-11 items-center justify-center rounded-2xl brand-gradient text-white">
             <ShieldCheck className="size-5" />
           </div>
-          <h1 className="mt-4 text-lg font-semibold tracking-tight">Ops console</h1>
+          <h1 className="mt-4 text-lg font-semibold tracking-tight">{tr("Ops console")}</h1>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
             Ops uses a dedicated access token, separate from your Motion account. Enter the
             <code className="mx-1 rounded bg-muted px-1 py-0.5 text-[10px]">OPS_TOKEN</code>
             configured on the server.
           </p>
           <div className="mt-5 space-y-2">
-            <Label htmlFor="ops-access-token">Ops access token</Label>
+            <Label htmlFor="ops-access-token">{tr("Ops access token")}</Label>
             <div className="relative">
               <KeyRound className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input

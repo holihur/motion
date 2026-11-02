@@ -123,7 +123,7 @@ function ProfileSettings() {
       setUser(updated)
       toast.success(tr("Profile updated"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not update profile")
+      toast.error(error instanceof Error ? error.message : tr("Could not update profile"))
     } finally {
       setPending(false)
     }
@@ -205,7 +205,7 @@ function WorkspaceSettings() {
       await updateWorkspace(workspace!.id, { name: name.trim(), icon })
       toast.success(tr("Workspace updated"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not update workspace")
+      toast.error(error instanceof Error ? error.message : tr("Could not update workspace"))
     } finally {
       setPending(false)
     }
@@ -304,7 +304,7 @@ function WorkspaceSettings() {
                     setConfirmOpen(false)
                   })
                   .catch((error) =>
-                    toast.error(error instanceof Error ? error.message : "Could not delete workspace"),
+                    toast.error(error instanceof Error ? error.message : tr("Could not delete workspace")),
                   )
               }}
             >
@@ -387,7 +387,7 @@ function AISettings() {
       setApiKey("")
       toast.success(tr("AI provider saved securely"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save AI settings")
+      toast.error(error instanceof Error ? error.message : tr("Could not save AI settings"))
     } finally {
       setPending(false)
     }
@@ -402,7 +402,7 @@ function AISettings() {
       setApiKey("")
       toast.success(tr("AI provider removed"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not remove AI key")
+      toast.error(error instanceof Error ? error.message : tr("Could not remove AI key"))
     } finally {
       setPending(false)
     }
@@ -584,7 +584,7 @@ function DeveloperSettings() {
         description: tr("Copy it now — you won't be able to see it again."),
       })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not create token")
+      toast.error(error instanceof Error ? error.message : tr("Could not create token"))
     } finally {
       setPending(false)
     }
@@ -596,7 +596,7 @@ function DeveloperSettings() {
       setTokens((current) => current.filter((item) => item.id !== token.id))
       toast.success(tr("Token revoked"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not revoke token")
+      toast.error(error instanceof Error ? error.message : tr("Could not revoke token"))
     }
   }
 

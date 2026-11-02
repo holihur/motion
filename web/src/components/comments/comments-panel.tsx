@@ -91,7 +91,7 @@ export function CommentsPanel({
       setReplyTo(null)
       onReload()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not reply")
+      toast.error(error instanceof Error ? error.message : tr("Could not reply"))
     } finally {
       pendingRef.current = false
       setPending(false)
@@ -105,7 +105,7 @@ export function CommentsPanel({
       await api.pages.updateComment(comment.id, { resolved: !comment.resolved })
       onReload()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not update comment")
+      toast.error(error instanceof Error ? error.message : tr("Could not update comment"))
     } finally {
       pendingRef.current = false
     }
@@ -121,7 +121,7 @@ export function CommentsPanel({
       onReload()
       toast.success(tr("Comment deleted"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not delete comment")
+      toast.error(error instanceof Error ? error.message : tr("Could not delete comment"))
     } finally {
       pendingRef.current = false
       setPending(false)

@@ -53,7 +53,7 @@ export function HistoryDialog({
         setRevisionTotal(result.total)
         if (result.items[0]) void selectRevision(result.items[0])
       })
-      .catch((error) => toast.error(error instanceof Error ? error.message : "Could not load history"))
+      .catch((error) => toast.error(error instanceof Error ? error.message : tr("Could not load history")))
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, page.id])
@@ -64,7 +64,7 @@ export function HistoryDialog({
       setSelected(await api.pages.revision(page.id, revision.id))
       setCompare(null)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not load version")
+      toast.error(error instanceof Error ? error.message : tr("Could not load version"))
     } finally {
       setPreviewLoading(false)
     }
@@ -75,7 +75,7 @@ export function HistoryDialog({
     try {
       setCompare(await api.pages.revision(page.id, revision.id))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not load version")
+      toast.error(error instanceof Error ? error.message : tr("Could not load version"))
     } finally {
       setCompareLoading(false)
     }
@@ -91,7 +91,7 @@ export function HistoryDialog({
       setRevisionHasMore(result.hasMore)
       setRevisionTotal(result.total)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not load history")
+      toast.error(error instanceof Error ? error.message : tr("Could not load history"))
     } finally {
       setLoadingMore(false)
     }
@@ -105,7 +105,7 @@ export function HistoryDialog({
       setSelected(revision)
       toast.success(tr("Current version saved"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save version")
+      toast.error(error instanceof Error ? error.message : tr("Could not save version"))
     }
   }
 
@@ -119,7 +119,7 @@ export function HistoryDialog({
       onOpenChange(false)
       toast.success(tr("Version restored"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not restore version")
+      toast.error(error instanceof Error ? error.message : tr("Could not restore version"))
     } finally {
       setRestoring(false)
     }

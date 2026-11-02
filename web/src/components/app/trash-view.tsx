@@ -40,7 +40,7 @@ export function TrashView() {
     let alive = true
     setLoading(true)
     fetchTrash()
-      .catch((error) => toast.error(error instanceof Error ? error.message : "Could not load Trash"))
+      .catch((error) => toast.error(error instanceof Error ? error.message : tr("Could not load Trash")))
       .finally(() => {
         if (alive) setLoading(false)
       })
@@ -57,7 +57,7 @@ export function TrashView() {
       await restorePage(page.id)
       toast.success(`Restored “${pageTitle(page.title)}”`)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not restore page")
+      toast.error(error instanceof Error ? error.message : tr("Could not restore page"))
     } finally {
       busyRef.current = false
       setBusy(null)
@@ -73,7 +73,7 @@ export function TrashView() {
       setPendingDelete(null)
       toast.success(tr("Page permanently deleted"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not delete page")
+      toast.error(error instanceof Error ? error.message : tr("Could not delete page"))
     } finally {
       busyRef.current = false
       setBusy(null)

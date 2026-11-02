@@ -53,7 +53,7 @@ export function ShareDialog({
         setMembers(nextMembers)
         setSuggestions(nextSuggestions)
       })
-      .catch((error) => toast.error(error instanceof Error ? error.message : "Could not load members"))
+      .catch((error) => toast.error(error instanceof Error ? error.message : tr("Could not load members")))
       .finally(() => setLoading(false))
   }, [open, workspace?.id])
 
@@ -81,7 +81,7 @@ export function ShareDialog({
         description: tr("They will see this workspace in their workspace menu."),
       })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not invite that person")
+      toast.error(error instanceof Error ? error.message : tr("Could not invite that person"))
     } finally {
       pendingRef.current = false
       setPending(false)
@@ -95,7 +95,7 @@ export function ShareDialog({
       await api.workspaces.updateMember(workspace.id, member.userId, nextRole)
       await refresh()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not change role")
+      toast.error(error instanceof Error ? error.message : tr("Could not change role"))
     } finally {
       memberBusyRef.current = false
     }
@@ -109,7 +109,7 @@ export function ShareDialog({
       await refresh()
       toast.success(`${member.name} was removed`)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not remove member")
+      toast.error(error instanceof Error ? error.message : tr("Could not remove member"))
     } finally {
       memberBusyRef.current = false
     }

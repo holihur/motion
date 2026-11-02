@@ -100,7 +100,7 @@ export function AuthPage() {
       await login("demo@motion.app", "demo1234")
       navigate("/", { replace: true })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Demo is unavailable.")
+      setError(err instanceof Error ? err.message : tr("Demo is unavailable."))
     } finally {
       pendingRef.current = false
       setPending(false)

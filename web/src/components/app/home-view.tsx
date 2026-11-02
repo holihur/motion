@@ -72,7 +72,7 @@ export function HomeView() {
       const page = await createPage(null)
       navigate(`/page/${page.id}`)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not create page")
+      toast.error(error instanceof Error ? error.message : tr("Could not create page"))
     } finally {
       createPageRef.current = false
     }

@@ -39,7 +39,7 @@ export function QRCodeBlock({
     }))).then((urls) => {
       if (alive) { setDataURLs(urls); setError("") }
     }).catch((err) => {
-      if (alive) setError(err instanceof Error ? err.message : "Could not generate QR code")
+      if (alive) setError(err instanceof Error ? err.message : tr("Could not generate QR code"))
     })
     return () => { alive = false }
   }, [value, size, values.join("|"), block.color])
@@ -127,7 +127,7 @@ export function BarcodeBlock({
       })
       setError("")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid barcode value")
+      setError(err instanceof Error ? err.message : tr("Invalid barcode value"))
     }
   }, [value, format])
 

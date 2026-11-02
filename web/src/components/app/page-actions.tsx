@@ -201,7 +201,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
         },
       })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not move page to Trash")
+      toast.error(error instanceof Error ? error.message : tr("Could not move page to Trash"))
     }
   }
 
@@ -330,7 +330,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
         else if (target === "storage") await api.integrations.publishS3(activeId, page.id, true)
         ok += 1
       } catch (error) {
-        failures.push(`${target}: ${error instanceof Error ? error.message : "failed"}`)
+        failures.push(`${target}: ${error instanceof Error ? error.message : tr("failed")}`)
       }
     }
     if (failures.length > 0) toast.error(`${tr("Published to {n} target(s)", { n: ok })} · ${failures.join(" · ")}`)
@@ -379,7 +379,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
       downloadMarkdown(full)
       toast.success(tr("Markdown downloaded"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not export page")
+      toast.error(error instanceof Error ? error.message : tr("Could not export page"))
     }
   }
 
@@ -778,7 +778,7 @@ function RenamePageDialog({
       onOpenChange(false)
       toast.success(tr("Page renamed"))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not rename page")
+      toast.error(error instanceof Error ? error.message : tr("Could not rename page"))
     } finally {
       setPending(false)
     }

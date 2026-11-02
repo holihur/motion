@@ -4,6 +4,7 @@ import { AlertTriangle, Loader2 } from "lucide-react"
 import { useAuthStore } from "@/stores/auth"
 import { Logo } from "@/components/logo"
 import { Button } from "@/components/ui/button"
+import { tr } from "@/lib/i18n"
 
 export function OIDCCallbackPage() {
   const completeOIDC = useAuthStore((state) => state.completeOIDC)
@@ -18,7 +19,7 @@ export function OIDCCallbackPage() {
       })
       .catch((err) => {
         if (!alive) return
-        setError(err instanceof Error ? err.message : "Single sign-on failed")
+        setError(err instanceof Error ? err.message : tr("Single sign-on failed"))
       })
     return () => {
       alive = false

@@ -393,7 +393,7 @@ export function PageEditor() {
       })
       .catch((err) => {
         if (!alive) return
-        setError(err instanceof Error ? err.message : "Could not load this page")
+        setError(err instanceof Error ? err.message : tr("Could not load this page"))
         setLoading(false)
       })
 
@@ -1154,7 +1154,7 @@ export function PageEditor() {
       const next = await toggleFavorite(page.id)
       toast.success(next ? "Added to Favorites" : "Removed from Favorites")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not update Favorites")
+      toast.error(err instanceof Error ? err.message : tr("Could not update Favorites"))
     }
   }
 
@@ -1166,7 +1166,7 @@ export function PageEditor() {
       await refreshPages()
       toast.success(tr("Page restored"))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not restore page")
+      toast.error(err instanceof Error ? err.message : tr("Could not restore page"))
     }
   }
 

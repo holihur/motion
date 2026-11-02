@@ -68,7 +68,7 @@ export function CommentComposer({
       onCreated()
       onOpenChange(false)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not add comment")
+      toast.error(error instanceof Error ? error.message : tr("Could not add comment"))
     } finally {
       setPending(false)
     }

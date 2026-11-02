@@ -126,7 +126,7 @@ export function AIPanel({
         description: tr("Edit it to teach Motion AI how your workspace works."),
       })
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not create AGENTS.md")
+      toast.error(error instanceof Error ? error.message : tr("Could not create AGENTS.md"))
     } finally {
       setCreatingAgents(false)
     }
@@ -206,7 +206,7 @@ export function AIPanel({
           ),
         )
       } else {
-        toast.error(error instanceof Error ? error.message : "The AI request failed")
+        toast.error(error instanceof Error ? error.message : tr("The AI request failed"))
         if (partial) {
           setMessages((current) =>
             current.map((item, index) =>

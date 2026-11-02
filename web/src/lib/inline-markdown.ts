@@ -6,6 +6,52 @@ const FORMAT_STRIKETHROUGH = 4
 const FORMAT_CODE = 16
 
 const TOKEN = /(`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+(?:\s+"[^"]*")?\)|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|\*[^*\n]+\*|_[^_\n]+_)/g
+const INLINE_MARKDOWN = /(`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|\*[^*\n]+\*|_[^_\n]+_)/
+
+function escapeHTML(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] ?? char))
+}
+
+function safeLink(url: string): string | null {
+  const value = url.trim()
+  if (!value) return null
+  if (value.startsWith("/") || value.startsWith("#")) return escapeHTML(value)
+  try {
+    const parsed = new URL(value)
+    return ["http:", "https:", "mailto:"].includes(parsed.protocol) ? escapeHTML(parsed.toString()) : null
+  } catch {
+    return null
+  }
+}
+
+function renderInlineNodes(nodes: SerializedNode[]): string {
+  return nodes.map((node) => {
+    if (node.type === "linebreak") return "<br>"
+    if (node.type === "link") {
+      const href = safeLink(String(node.url ?? ""))
+      const children = renderInlineNodes((node.children as SerializedNode[]) ?? [])
+      return href ? `<a href="${href}" rel="noreferrer noopener" target="_blank">${children}</a>` : children
+    }
+    if (typeof node.text !== "string") {
+      if (Array.isArray(node.children)) return renderInlineNodes(node.children as SerializedNode[])
+      return ""
+    }
+    let html = escapeHTML(node.text)
+    const format = Number(node.format ?? 0)
+    if (format & FORMAT_CODE) html = `<code>${html}</code>`
+    if (format & FORMAT_STRIKETHROUGH) html = `<s>${html}</s>`
+    if (format & FORMAT_ITALIC) html = `<em>${html}</em>`
+    if (format & FORMAT_BOLD) html = `<strong>${html}</strong>`
+    return html
+  }).join("")
+}
+
+/** Renders the inline Markdown subset to escaped HTML for lightweight previews. */
+export function inlineMarkdownToHTML(value: string): string {
+  if (!value) return ""
+  if (!INLINE_MARKDOWN.test(value)) return escapeHTML(value)
+  return renderInlineNodes(parseInline(value).nodes)
+}
 
 function textNode(text: string, format: number): SerializedNode {
   return {
@@ -106,7 +152,7 @@ function plainNodes(value: string): SerializedNode[] {
 /** Converts the inline Markdown subset into a Lexical editor state. */
 export function inlineMarkdownToRich(value: string): { plain: string; rich?: string } {
   const parsed = parseInline(value)
-  if (!/(`[^`\n]+`|\[[^\]\n]+\]\([^)\s]+|\*\*[^*\n]+\*\*|__[^_\n]+__|~~[^~\n]+~~|\*[^*\n]+\*|_[^_\n]+_)/.test(value)) {
+  if (!INLINE_MARKDOWN.test(value)) {
     return { plain: value }
   }
   return {

@@ -71,6 +71,7 @@ import { DiagramLightbox, MermaidDiagram } from "@/components/editor/mermaid-dia
 import { LexicalBlock } from "@/components/editor/lexical-block"
 import { PasswordBlock } from "@/components/editor/password-block"
 import { CodeBlock } from "@/components/editor/code-block"
+import { TableCell } from "@/components/editor/table-cell"
 import { DatabaseBlock } from "@/components/editor/database-block"
 import { JsonVisualBlock } from "@/components/editor/json-visual-block"
 import { ChartBlock, GanttBlock } from "@/components/editor/data-blocks"
@@ -600,16 +601,16 @@ export function BlockRow(props: BlockRowProps) {
                     {table.columns.map((column, columnIndex) => (
                       <th key={columnIndex} className="group/head relative border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0">
                         <div className="flex items-center gap-0.5 px-1">
-                          <input
+                          <TableCell
                             id={`table-cell-${block.id}-${-1}-${columnIndex}`}
-                            data-table-cell
                             value={column}
                             readOnly={readOnly}
-                            onChange={(event) => setColumn(columnIndex, event.target.value)}
+                            header
+                            align={aligns[columnIndex]}
+                            onChange={(value) => setColumn(columnIndex, value)}
                             onKeyDown={(event) => handleCellKeyDown(event, -1, columnIndex)}
                             onFocus={() => onFocusBlock?.(block.id)}
-                            className="h-8 min-w-0 flex-1 bg-transparent px-1.5 text-xs font-semibold outline-none"
-                            style={{ textAlign: aligns[columnIndex] }}
+                            className="min-w-0 flex-1"
                             placeholder={`Column ${columnIndex + 1}`}
                           />
                           {!readOnly && (
@@ -660,17 +661,15 @@ export function BlockRow(props: BlockRowProps) {
                     <tr key={rowIndex} className="group/row transition-colors hover:bg-brand-soft/15">
                       {table.columns.map((_, columnIndex) => (
                         <td key={columnIndex} className="border-b border-r border-border/60 p-0 last:border-r-0">
-                          <input
+                          <TableCell
                             id={`table-cell-${block.id}-${rowIndex}-${columnIndex}`}
-                            data-table-cell
                             value={row[columnIndex] ?? ""}
                             readOnly={readOnly}
-                            onChange={(event) => setCell(rowIndex, columnIndex, event.target.value)}
+                            align={aligns[columnIndex]}
+                            onChange={(value) => setCell(rowIndex, columnIndex, value)}
                             onKeyDown={(event) => handleCellKeyDown(event, rowIndex, columnIndex)}
                             onPaste={(event) => pasteCells(event, rowIndex, columnIndex)}
                             onFocus={() => onFocusBlock?.(block.id)}
-                            className="h-9 w-full bg-transparent px-2 text-[13px] outline-none transition focus:bg-brand-soft/20"
-                            style={{ textAlign: aligns[columnIndex] }}
                             placeholder=" "
                           />
                         </td>
@@ -922,7 +921,7 @@ export function BlockRow(props: BlockRowProps) {
       data-block-index={index}
       data-selected={selected || undefined}
       className={cn(
-        "group/block cv-auto relative flex items-start gap-0.5 rounded-md transition-colors",
+        "group/block relative flex items-start gap-0.5 rounded-md transition-colors",
         selected && "bg-brand-soft/25 ring-1 ring-inset ring-brand/20",
         isDragging && "block-dragging",
         dropPosition === "before" && "block-drop-before",
@@ -933,39 +932,7 @@ export function BlockRow(props: BlockRowProps) {
       onDragOver={handleOver}
       onDrop={handleDrop}
     >
-      {!readOnly && <div className="absolute -left-[90px] top-0 hidden h-7 items-center gap-0.5 opacity-0 transition-opacity group-hover/block:opacity-100 has-[[data-state=open]]:opacity-100 md:flex">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              aria-label={tr("Select block")}
-              aria-pressed={selected}
-              onMouseDown={(event) => onSelectionStart?.(event, index)}
-              className="flex size-5 cursor-cell items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground"
-            >
-              <span className={cn(
-                "flex size-3.5 items-center justify-center rounded-[3px] border transition-colors",
-                selected ? "border-brand bg-brand text-white" : "border-muted-foreground/45 bg-background",
-              )}>
-                {selected && <Check className="size-2.5" strokeWidth={3.4} />}
-              </span>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{tr("Drag to select blocks")}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={(event) => onInsertAfter(event.currentTarget.getBoundingClientRect())}
-              className="flex size-5 items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground"
-              aria-label={tr("Add block below")}
-            >
-              <Plus className="size-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{tr("Add block below")}</TooltipContent>
-        </Tooltip>
+      {!readOnly && <div className="absolute -left-10 top-0 hidden h-7 items-center gap-0 opacity-0 transition-opacity group-hover/block:opacity-100 has-[[data-state=open]]:opacity-100 md:flex">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -977,26 +944,13 @@ export function BlockRow(props: BlockRowProps) {
                 onDragStart()
               }}
               onDragEnd={onDragEnd}
-              className="flex size-7 cursor-grab items-center justify-center rounded text-muted-foreground opacity-60 transition hover:bg-accent hover:text-foreground hover:opacity-100 group-hover/block:opacity-100 active:cursor-grabbing md:size-5 md:opacity-[0.12]"
+              className="flex size-5 cursor-grab items-center justify-center rounded text-muted-foreground opacity-60 transition hover:bg-accent hover:text-foreground hover:opacity-100 group-hover/block:opacity-100 active:cursor-grabbing md:opacity-[0.12]"
               aria-label={tr("Drag block")}
             >
               <GripVertical className="size-3.5" />
             </button>
           </TooltipTrigger>
           <TooltipContent>{tr("Drag to move")}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={copyBlockLink}
-              aria-label={tr("Copy link to block")}
-              className="flex size-5 items-center justify-center rounded text-muted-foreground/70 transition hover:bg-accent hover:text-foreground"
-            >
-              <Link2 className="size-3.5" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{tr("Copy link to block")}</TooltipContent>
         </Tooltip>
         <BlockMenu
           block={block}

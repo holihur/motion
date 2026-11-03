@@ -140,6 +140,17 @@ func blockNode(block model.Block) []any {
 			}
 		}
 		return items
+	case "layout":
+		if block.Layout == nil {
+			return nil
+		}
+		content := make([]any, 0, len(block.Layout.Columns))
+		for _, column := range block.Layout.Columns {
+			for _, child := range column.Blocks {
+				content = append(content, blockNode(child)...)
+			}
+		}
+		return content
 	case "diagram", "equation":
 		return []any{map[string]any{"type": "codeBlock", "attrs": map[string]any{"language": "plain"}, "content": []any{text(block.Text)}}}
 	case "pageLink":

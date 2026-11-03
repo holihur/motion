@@ -196,6 +196,17 @@ func (r *pdfRenderer) block(block model.Block) {
 			}
 			r.text(strings.Join(rows, "\n"), 9.5, 15, 4)
 		}
+	case "layout":
+		if block.Layout != nil {
+			for index, column := range block.Layout.Columns {
+				if index > 0 {
+					r.text("────────", 9, 15, 0)
+				}
+				for _, child := range column.Blocks {
+					r.block(child)
+				}
+			}
+		}
 	case "diagram":
 		if !r.diagram(block) {
 			r.code(block.Text)

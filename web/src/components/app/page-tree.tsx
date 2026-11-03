@@ -191,7 +191,7 @@ export function PageTree({
   }
 
   function createFirstPage() {
-    navigate("/page/new")
+    navigate("/new-page")
   }
 
   if (roots.length === 0 && layoutPages.length === 0) {

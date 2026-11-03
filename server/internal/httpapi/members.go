@@ -17,6 +17,7 @@ type memberView struct {
 	UserID   primitive.ObjectID `json:"userId"`
 	Name     string             `json:"name"`
 	Email    string             `json:"email"`
+	Avatar   string             `json:"avatar,omitempty"`
 	Role     string             `json:"role"`
 	JoinedAt time.Time          `json:"joinedAt"`
 	IsOwner  bool               `json:"isOwner"`
@@ -31,7 +32,7 @@ func (s *Server) memberViews(r *http.Request) ([]memberView, error) {
 	var owner model.User
 	if err := s.store.Users.FindOne(r.Context(), bson.M{"_id": ws.OwnerID}).Decode(&owner); err == nil {
 		views = append(views, memberView{
-			UserID: owner.ID, Name: owner.Name, Email: owner.Email,
+			UserID: owner.ID, Name: owner.Name, Email: owner.Email, Avatar: owner.Avatar,
 			Role: roleOwner, JoinedAt: ws.CreatedAt, IsOwner: true,
 		})
 	}
@@ -42,7 +43,7 @@ func (s *Server) memberViews(r *http.Request) ([]memberView, error) {
 		}
 		var user model.User
 		if err := s.store.Users.FindOne(r.Context(), bson.M{"_id": member.UserID}).Decode(&user); err == nil {
-			view.Name, view.Email = user.Name, user.Email
+			view.Name, view.Email, view.Avatar = user.Name, user.Email, user.Avatar
 		}
 		views = append(views, view)
 	}

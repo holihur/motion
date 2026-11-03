@@ -47,7 +47,7 @@ export default function App() {
           <Route path="/ops" element={<OpsView />} />
           <Route element={<RouteErrorBoundary><AppShell /></RouteErrorBoundary>}>
             <Route index element={<HomeView />} />
-            <Route path="page/new" element={<NewPageRoute />} />
+            <Route path="new-page" element={<NewPageRoute />} />
             <Route
               path="page/:pageId"
               element={

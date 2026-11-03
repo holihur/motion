@@ -35,7 +35,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   DropdownMenu,
@@ -177,7 +177,7 @@ function SidebarContent() {
       toast.error(tr("You only have view access"))
       return
     }
-    navigate("/page/new")
+    navigate("/new-page")
   }
 
   return (
@@ -355,6 +355,7 @@ function SidebarContent() {
             <DropdownMenuTrigger asChild>
               <button type="button" className="flex items-center gap-2 rounded-lg p-1 pr-1.5 transition hover:bg-sidebar-accent" aria-label={tr("Account menu")}>
                 <Avatar className="size-6">
+                  <AvatarImage src={user?.avatar} alt={user?.name} />
                   <AvatarFallback>{initials(user?.name ?? "M")}</AvatarFallback>
                 </Avatar>
                 <span className="max-w-[120px] truncate text-xs font-medium text-muted-foreground">
@@ -548,8 +549,8 @@ function WorkspaceSwitcher() {
             aria-label={tr("Workspace menu")}
             className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1.5 text-left transition hover:bg-sidebar-accent"
           >
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-sidebar-border bg-background/60 text-[15px] shadow-sm">
-              {active?.icon || <LogoMark className="size-6 rounded-md" />}
+            <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border bg-background/60 text-[15px] shadow-sm">
+              {active?.icon ? <WorkspaceIcon value={active.icon} alt={active.name} className="size-full" /> : <LogoMark className="size-6 rounded-md" />}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] font-semibold leading-tight">
@@ -565,6 +566,7 @@ function WorkspaceSwitcher() {
         <DropdownMenuContent align="start" className="w-[248px]">
           <div className="flex items-center gap-2.5 px-2 py-2">
             <Avatar className="size-8">
+              <AvatarImage src={user?.avatar} alt={user?.name} />
               <AvatarFallback>{initials(user?.name ?? "M")}</AvatarFallback>
             </Avatar>
             <div className="min-w-0">

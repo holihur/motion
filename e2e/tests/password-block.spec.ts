@@ -12,7 +12,7 @@ test("password areas encrypt locally and require the password after reload", asy
   await expect(page.locator("[data-block-input]").last()).toBeFocused()
   await page.keyboard.type("/pass")
   await expect(page.getByText("Turn into", { exact: true })).toBeVisible()
-  await page.getByRole("button", { name: /Password area/ }).click()
+  await page.getByRole("option", { name: /Password area/ }).click()
 
   const block = page.locator("[data-block-row]").last()
   await expect(block.getByText("Password-protected area")).toBeVisible()

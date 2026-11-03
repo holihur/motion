@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/motion/server/internal/model"
 )
 
@@ -431,4 +433,96 @@ func sanitizeInput(input *model.InputData) *model.InputData {
 		value = ""
 	}
 	return &model.InputData{Options: options, Value: value}
+}
+
+func sanitizeFormData(form *model.FormData) *model.FormData {
+	if form == nil {
+		return nil
+	}
+	form.Title = truncateRunes(form.Title, 200)
+	form.Description = truncateRunes(form.Description, 1000)
+	form.SubmitLabel = truncateRunes(form.SubmitLabel, 60)
+	if len(form.Fields) > 50 {
+		form.Fields = form.Fields[:50]
+	}
+	for i := range form.Fields {
+		field := &form.Fields[i]
+		field.Label = truncateRunes(field.Label, 200)
+		if len(field.Options) > 50 {
+			field.Options = field.Options[:50]
+		}
+		for j := range field.Options {
+			field.Options[j] = truncateRunes(field.Options[j], 200)
+		}
+	}
+	return form
+}
+
+// sanitizeLayout cleans blocks nested inside a layout column. Depth is capped
+// so a malicious payload cannot build an unbounded recursive tree.
+func sanitizeLayout(layout *model.LayoutData, depth int) *model.LayoutData {
+	if depth > 2 {
+		return nil
+	}
+	if layout == nil {
+		layout = &model.LayoutData{}
+	}
+	columns := append([]model.LayoutColumn(nil), layout.Columns...)
+	if len(columns) == 0 {
+		columns = []model.LayoutColumn{{}, {}}
+	}
+	if len(columns) == 1 {
+		columns = append(columns, model.LayoutColumn{})
+	}
+	if len(columns) > 4 {
+		columns = columns[:4]
+	}
+	out := make([]model.LayoutColumn, len(columns))
+	for i := range columns {
+		blocks := columns[i].Blocks
+		if len(blocks) > 50 {
+			blocks = blocks[:50]
+		}
+		cleaned := make([]model.Block, 0, len(blocks))
+		seen := make(map[string]bool, len(blocks))
+		for j := range blocks {
+			b := blocks[j]
+			if !blockTypes[b.Type] || b.Type == "content" {
+				continue
+			}
+			if b.Type == "layout" && depth >= 2 {
+				continue
+			}
+			b.Text = truncateRunes(strings.ReplaceAll(strings.ReplaceAll(b.Text, "\x00", ""), "\r\n", "\n"), 50000)
+			if b.ID == "" || seen[b.ID] {
+				b.ID = primitive.NewObjectID().Hex()
+			}
+			seen[b.ID] = true
+			b.Icon = truncateRunes(strings.TrimSpace(b.Icon), 8)
+			b.Translations = sanitizeTranslations(b.Translations)
+			switch b.Type {
+			case "table", "gantt", "chart", "columns":
+				b.Table = sanitizeTable(b.Table)
+			case "database":
+				b.Database = sanitizeDatabase(b.Database)
+			case "poll":
+				b.Poll = sanitizePoll(b.Poll)
+			case "radioGroup":
+				b.Input = sanitizeInput(b.Input)
+			case "form":
+				b.Form = sanitizeFormData(b.Form)
+			case "layout":
+				b.Layout = sanitizeLayout(b.Layout, depth+1)
+			}
+			if b.Indent < 0 {
+				b.Indent = 0
+			}
+			if b.Indent > 8 {
+				b.Indent = 8
+			}
+			cleaned = append(cleaned, b)
+		}
+		out[i] = model.LayoutColumn{Blocks: cleaned}
+	}
+	return &model.LayoutData{Columns: out}
 }

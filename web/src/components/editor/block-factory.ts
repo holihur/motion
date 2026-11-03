@@ -1,4 +1,4 @@
-import type { Block, BlockType, TableData } from "@/lib/types"
+import type { Block, BlockType, LayoutData, TableData } from "@/lib/types"
 import { tr } from "@/lib/i18n"
 import { uid } from "@/lib/utils"
 import { defaultChartTable, defaultGanttTable } from "@/components/editor/data-blocks"
@@ -13,6 +13,12 @@ const DEFAULT_DIAGRAM = `flowchart LR
   Draft --> Review{Review}
   Review -->|Yes| Ship[Ship it]
   Review -->|No| Draft`
+
+export function defaultLayout(): LayoutData {
+  return {
+    columns: [0, 1].map(() => ({ blocks: [createBlock("paragraph")] })),
+  }
+}
 
 export function createBlock(type: BlockType = "paragraph"): Block {
   return {
@@ -71,6 +77,7 @@ export function createBlock(type: BlockType = "paragraph"): Block {
     ...(type === "barcode" ? { language: "CODE128" } : {}),
     ...(type === "form" ? { form: defaultForm() } : {}),
     ...(type === "radioGroup" ? { input: { options: ["Option 1", "Option 2"], value: "" } } : {}),
+    ...(type === "layout" ? { layout: defaultLayout() } : {}),
     ...(type === "poll"
       ? {
           text: "",

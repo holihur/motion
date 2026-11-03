@@ -15,7 +15,7 @@ test.describe("rich blocks", () => {
     await page.keyboard.type("/")
     await page.waitForTimeout(250)
     await page.keyboard.type("tab")
-    await page.getByRole("button", { name: /Table Organize information/ }).click()
+    await page.getByRole("option", { name: /Table Organize information/ }).click()
     await page.waitForTimeout(300)
     const cells = page.locator("table input")
     await cells.nth(0).fill("Name")
@@ -24,10 +24,12 @@ test.describe("rich blocks", () => {
     await cells.nth(3).fill("Search")
     await cells.nth(4).fill("Live")
     await cells.nth(5).fill("Ada")
-    await page.getByRole("button", { name: /Row/ }).click()
+    await page.getByRole("button", { name: "Row", exact: true }).click()
     const firstHeader = page.locator("table th").first()
     await firstHeader.hover()
-    await firstHeader.getByLabel("Align column").click()
+    await firstHeader.getByLabel("Column actions").click()
+    await page.getByRole("menuitem", { name: "Align" }).hover()
+    await page.getByRole("menuitem", { name: "Center" }).click()
     await expect(page.locator("table input").first()).toHaveCSS("text-align", "center")
     const resize = await firstHeader.getByRole("separator", { name: "Resize column" }).boundingBox()
     if (resize) {
@@ -49,7 +51,7 @@ test.describe("rich blocks", () => {
     await page.keyboard.type("/")
     await page.waitForTimeout(300)
     await page.keyboard.type("dia")
-    await page.getByRole("button", { name: /Diagram/ }).click()
+    await page.getByRole("option", { name: /Diagram/ }).click()
     await page.waitForTimeout(700)
     await page.getByRole("button", { name: "Preview" }).click()
     await expect(page.locator(".mermaid-frame svg")).toBeVisible({ timeout: 15_000 })
@@ -113,4 +115,34 @@ test("turning a text block into a table keeps hooks stable", async ({ page, requ
   await page.getByRole("menuitem", { name: "Table", exact: true }).last().click()
   await expect(page.locator("table")).toBeVisible()
   await expect(page.locator("table input").first()).toBeVisible()
+})
+
+test("layout block nests blocks and persists them", async ({ page, request }) => {
+  test.setTimeout(60_000)
+  const account = await signIn(page, request)
+  await page.locator("aside").getByRole("button", { name: "New page" }).first().click()
+  await expect(page).toHaveURL(/\/page\//)
+  const pageId = page.url().split("/").pop()!
+
+  await page.locator("[data-lexical-input]").first().click()
+  await page.keyboard.type("/")
+  await page.waitForTimeout(250)
+  await page.keyboard.type("layout")
+  await page.keyboard.press("Enter")
+  await expect(page.locator("[data-lexical-input]")).toHaveCount(2)
+
+  const nested = page.locator("[data-lexical-input]").nth(1)
+  await nested.click()
+  await page.keyboard.type("Nested text")
+  await expect
+    .poll(async () => {
+      const saved = await getPage(request, account.token, pageId)
+      const layout = saved.blocks.find((block) => block.type === "layout")
+      return layout?.layout?.columns?.[1]?.blocks?.[0]?.text ?? ""
+    })
+    .toBe("Nested text")
+
+  await page.reload()
+  await expect(page.locator("[data-lexical-input]")).toHaveCount(2)
+  await expect(page.locator("[data-lexical-input]").nth(1)).toHaveText("Nested text")
 })

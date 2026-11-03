@@ -26,7 +26,7 @@ import { useUIStore } from "@/stores/ui"
 import { SidebarToggle } from "@/components/app/sidebar-toggle"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { PageActionsMenu } from "@/components/app/page-actions"
 
@@ -67,7 +67,7 @@ export function HomeView() {
 
   function newPage() {
     if (createPageRef.current) return
-    navigate("/page/new")
+    navigate("/new-page")
   }
 
   async function useTemplate(template: PageTemplate) {
@@ -133,6 +133,7 @@ export function HomeView() {
             aria-label={tr("Open settings")}
           >
             <Avatar className="size-6">
+              <AvatarImage src={user?.avatar} alt={user?.name} />
               <AvatarFallback>{initials(user?.name ?? "M")}</AvatarFallback>
             </Avatar>
           </button>

@@ -9,47 +9,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
 
-type MermaidApi = {
-  initialize: (config: Record<string, unknown>) => void
-  render: (id: string, source: string) => Promise<{ svg: string }>
-}
-
-declare global {
-  interface Window {
-    mermaid?: MermaidApi
-  }
-}
-
-let mermaidPromise: Promise<MermaidApi> | null = null
-
-function loadMermaid(): Promise<MermaidApi> {
-  if (typeof window === "undefined") return Promise.reject(new Error("Mermaid requires a browser"))
-  if (window.mermaid) return Promise.resolve(window.mermaid)
-  if (mermaidPromise) return mermaidPromise
-  mermaidPromise = new Promise<MermaidApi>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>("script[data-motion-mermaid]")
-    if (existing) {
-      existing.addEventListener("load", () => resolve(window.mermaid!))
-      existing.addEventListener("error", () => reject(new Error("Could not load Mermaid")))
-      return
-    }
-    const script = document.createElement("script")
-    script.src = "/vendor/mermaid.min.js"
-    script.async = true
-    script.dataset.motionMermaid = "true"
-    script.onload = () => {
-      if (window.mermaid) resolve(window.mermaid)
-      else reject(new Error("Mermaid runtime did not initialize"))
-    }
-    script.onerror = () => {
-      mermaidPromise = null
-      script.remove()
-      reject(new Error("Could not load the Mermaid runtime"))
-    }
-    document.head.appendChild(script)
-  })
-  return mermaidPromise
-}
+import { peekMermaidCache, renderMermaid } from "@/lib/mermaid-render"
 
 export function MermaidDiagram({ source }: { source: string }) {
   const isDark = useThemeStore((state) => state.isDark)
@@ -87,27 +47,21 @@ export function MermaidDiagram({ source }: { source: string }) {
       setError("")
       return
     }
+    const theme = isDark ? "dark" : "default"
+    const instanceId = `mmd-${reactId}`
+    const cached = peekMermaidCache(source, theme, "preview", instanceId)
+    if (cached) {
+      setSvg(cached)
+      setError("")
+      setLoading(false)
+      return
+    }
     let cancelled = false
     setLoading(true)
     setError("")
-    void loadMermaid()
-      .then((mermaid) => {
-        mermaid.initialize({
-          startOnLoad: false,
-          securityLevel: "strict",
-          theme: isDark ? "dark" : "default",
-          fontFamily: "var(--font-sans)",
-          themeVariables: {
-            primaryColor: isDark ? "#3b3550" : "#ede9fe",
-            primaryTextColor: isDark ? "#f5f3ff" : "#1e1b4b",
-            primaryBorderColor: isDark ? "#7c5cff" : "#8b5cf6",
-            lineColor: isDark ? "#a1a1aa" : "#52525b",
-          },
-        })
-        return mermaid.render(`mmd-${reactId}-${Date.now()}`, source)
-      })
-      .then((result) => {
-        if (!cancelled) setSvg(result.svg)
+    void renderMermaid(source, { theme, mode: "preview", instanceId })
+      .then((next) => {
+        if (!cancelled) setSvg(next)
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : tr("Could not render diagram"))

@@ -45,6 +45,10 @@ function blockToMarkdown(block: Block, number: number): string {
       const rows = table.rows.map((row) => `| ${table.columns.map((_, index) => tableCellExportValue(row[index] ?? "", tableColumnType(table, index))).join(" | ")} |`)
       return [header, divider, ...rows].join("\n")
     }
+    case "layout": {
+      const columns = block.layout?.columns ?? []
+      return columns.map((column) => blocksToMarkdown(column.blocks)).join("\n\n---\n\n")
+    }
     case "diagram":
       return `\`\`\`mermaid\n${block.text}\n\`\`\``
     case "poll": {

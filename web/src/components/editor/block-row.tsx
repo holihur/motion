@@ -118,6 +118,7 @@ const CodeBlock = lazy(() => import("@/components/editor/code-block").then((modu
 const EquationBlock = lazy(() => import("@/components/editor/equation-block").then((module) => ({ default: module.EquationBlock })))
 const QRCodeBlock = lazy(() => import("@/components/editor/code-image-blocks").then((module) => ({ default: module.QRCodeBlock })))
 const BarcodeBlock = lazy(() => import("@/components/editor/code-image-blocks").then((module) => ({ default: module.BarcodeBlock })))
+const LayoutBlock = lazy(() => import("@/components/editor/layout-block").then((module) => ({ default: module.LayoutBlock })))
 
 export interface BlockRowProps {
   block: Block
@@ -1296,6 +1297,20 @@ export function BlockRow(props: BlockRowProps) {
         return <BreadcrumbBlock block={block} breadcrumb={breadcrumb} onUpdate={readOnly ? undefined : onUpdate} />
       case "columns":
         return <ColumnsBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
+      case "layout":
+        return (
+          <Suspense fallback={<LazyBlockFallback />}>
+            <LayoutBlock
+              block={block}
+              readOnly={readOnly}
+              onUpdate={onUpdate}
+              pageId={pageId}
+              workspaceId={workspaceId}
+              members={members}
+              onFocusBlock={onFocusBlock}
+            />
+          </Suspense>
+        )
       case "qrcode":
         return <Suspense fallback={<LazyBlockFallback />}><QRCodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} /></Suspense>
       case "barcode":

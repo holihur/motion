@@ -10,6 +10,7 @@ import {
   Bug,
   BookOpen,
   FileCode2,
+  FileJson,
   FilePlus2,
   FileText,
   FileType2,
@@ -23,7 +24,7 @@ import {
   Link2,
   LockKeyhole,
   LockOpen,
-  Maximize2,
+  MoveHorizontal,
   MoreHorizontal,
   Palette,
   PencilLine,
@@ -161,7 +162,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     window.dispatchEvent(
       new CustomEvent("motion:expand-page", { detail: { id: page.id } }),
     )
-    navigate("/page/new", { state: { parentId: page.id } })
+    navigate("/new-page", { state: { parentId: page.id } })
   }
 
   async function onDuplicate() {
@@ -277,10 +278,10 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     }
   }
 
-  async function exportFile(format: "html" | "pdf" | "docx") {
+  async function exportFile(format: "html" | "pdf" | "docx" | "json") {
     try {
       let diagrams: Awaited<ReturnType<typeof renderDiagramImages>> | undefined
-      if (format !== "html") {
+      if (format === "pdf" || format === "docx") {
         try {
           const full = await api.pages.get(page.id)
           diagrams = await renderDiagramImages(full.blocks ?? [])
@@ -292,7 +293,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
       const href = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = href
-      link.download = `${safeFilename(pageTitle(page.title))}.${format}`
+      link.download = `${safeFilename(pageTitle(page.title))}.${format === "json" ? "blocks.json" : format}`
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -459,7 +460,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           </DropdownMenuItem>}
           {!readOnly && !locked && <DropdownMenuSub>
             <DropdownMenuSubTrigger>
-              <Maximize2 /> {tr("Page width")}
+              <MoveHorizontal /> {tr("Page width")}
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent className="w-44">
               {(["standard", "wide", "full"] as const).map((width) => (
@@ -499,6 +500,9 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => runOnce(() => exportFile("docx"))}>
                 <FileType2 /> {tr("Export as Word")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => runOnce(() => exportFile("json"))}>
+                <FileJson /> {tr("Export blocks as JSON")}
               </DropdownMenuItem>
             </DropdownMenuSubContent>
           </DropdownMenuSub>

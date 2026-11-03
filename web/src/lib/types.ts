@@ -42,6 +42,7 @@ export type BlockType =
   | "radio"
   | "radioGroup"
   | "switch"
+  | "layout"
 
 export type TableFilterOp = "contains" | "equals" | "notEquals" | "isEmpty" | "isNotEmpty" | "gt" | "lt" | "gte" | "lte"
 
@@ -115,6 +116,14 @@ export interface FormField {
   options?: string[]
 }
 
+export interface LayoutColumn {
+  blocks: Block[]
+}
+
+export interface LayoutData {
+  columns: LayoutColumn[]
+}
+
 export interface InputData {
   options?: string[]
   /** Selected option for radio groups. */
@@ -179,6 +188,7 @@ export interface Block {
   database?: DatabaseData
   form?: FormData
   input?: InputData
+  layout?: LayoutData
   map?: MapData
   poll?: PollData
   translations?: Record<string, string>
@@ -200,6 +210,7 @@ export interface User {
   id: string
   name: string
   email: string
+  avatar?: string
   isAdmin?: boolean
   notifyPrefs?: NotifyPrefs
   createdAt: string
@@ -210,6 +221,7 @@ export interface Member {
   userId: string
   name: string
   email: string
+  avatar?: string
   role: "owner" | "editor" | "viewer"
   joinedAt: string
   isOwner?: boolean
@@ -384,6 +396,16 @@ export interface Comment {
   updatedAt: string
 }
 
+export interface AISettingsProvider {
+  provider: string
+  label: string
+  model: string
+  baseUrl: string
+  keyHint?: string
+  configured: boolean
+  active: boolean
+}
+
 export interface AISettings {
   configured: boolean
   provider: string
@@ -392,6 +414,7 @@ export interface AISettings {
   baseUrl: string
   keyHint?: string
   updatedAt?: string
+  providers?: AISettingsProvider[]
 }
 
 export interface AIChatResponse {

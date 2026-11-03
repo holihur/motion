@@ -121,6 +121,17 @@ func Markdown(page model.Page) []byte {
 		case "table":
 			numbered = 0
 			sb.WriteString(renderMDTable(b) + "\n")
+		case "layout":
+			numbered = 0
+			if b.Layout != nil {
+				for index, column := range b.Layout.Columns {
+					if index > 0 {
+						sb.WriteString("\n---\n\n")
+					}
+					sb.WriteString(renderLayoutMarkdown(column.Blocks))
+				}
+				sb.WriteString("\n")
+			}
 		case "toggle", "toggleHeading1", "toggleHeading2", "toggleHeading3":
 			numbered = 0
 			sb.WriteString("### " + inline(text) + "\n\n")
@@ -161,6 +172,48 @@ func renderMDTable(b model.Block) string {
 			cells[i] = strings.ReplaceAll(b.Table.DisplayCell(rowIndex, i), "|", "\\|")
 		}
 		sb.WriteString("| " + strings.Join(cells, " | ") + " |\n")
+	}
+	return sb.String()
+}
+
+func renderLayoutMarkdown(blocks []model.Block) string {
+	var sb strings.Builder
+	for _, block := range blocks {
+		switch block.Type {
+		case "heading1", "toggleHeading1":
+			sb.WriteString("# " + block.Text + "\n\n")
+		case "heading2", "toggleHeading2":
+			sb.WriteString("## " + block.Text + "\n\n")
+		case "heading3", "toggleHeading3":
+			sb.WriteString("### " + block.Text + "\n\n")
+		case "bulleted":
+			sb.WriteString("- " + block.Text + "\n")
+		case "numbered":
+			sb.WriteString("1. " + block.Text + "\n")
+		case "todo":
+			box := " "
+			if block.Checked {
+				box = "x"
+			}
+			sb.WriteString("- [" + box + "] " + block.Text + "\n")
+		case "code", "curl":
+			sb.WriteString("```" + block.Language + "\n" + block.Text + "\n```\n\n")
+		case "table", "gantt", "chart", "columns":
+			sb.WriteString(renderMDTable(block) + "\n")
+		case "layout":
+			if block.Layout != nil {
+				for index, column := range block.Layout.Columns {
+					if index > 0 {
+						sb.WriteString("\n---\n\n")
+					}
+					sb.WriteString(renderLayoutMarkdown(column.Blocks))
+				}
+			}
+		default:
+			if strings.TrimSpace(block.Text) != "" {
+				sb.WriteString(block.Text + "\n\n")
+			}
+		}
 	}
 	return sb.String()
 }

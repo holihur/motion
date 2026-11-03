@@ -11,6 +11,7 @@ type User struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Name        string             `bson:"name" json:"name"`
 	Email       string             `bson:"email" json:"email"`
+	Avatar      string             `bson:"avatar,omitempty" json:"avatar,omitempty"`
 	Password    string             `bson:"password" json:"-"`
 	OIDCIssuer  string             `bson:"oidcIssuer,omitempty" json:"-"`
 	OIDCSubject string             `bson:"oidcSubject,omitempty" json:"-"`
@@ -220,6 +221,14 @@ type FormData struct {
 	Fields      []FormField `bson:"fields,omitempty" json:"fields,omitempty"`
 }
 
+type LayoutColumn struct {
+	Blocks []Block `bson:"blocks" json:"blocks"`
+}
+
+type LayoutData struct {
+	Columns []LayoutColumn `bson:"columns" json:"columns"`
+}
+
 type InputData struct {
 	Options []string `bson:"options,omitempty" json:"options,omitempty"`
 	Value   string   `bson:"value,omitempty" json:"value,omitempty"`
@@ -258,6 +267,7 @@ type Block struct {
 	Database     *DatabaseData     `bson:"database,omitempty" json:"database,omitempty"`
 	Form         *FormData         `bson:"form,omitempty" json:"form,omitempty"`
 	Input        *InputData        `bson:"input,omitempty" json:"input,omitempty"`
+	Layout       *LayoutData       `bson:"layout,omitempty" json:"layout,omitempty"`
 	Map          *MapData          `bson:"map,omitempty" json:"map,omitempty"`
 	Poll         *PollData         `bson:"poll,omitempty" json:"poll,omitempty"`
 	Translations map[string]string `bson:"translations,omitempty" json:"translations,omitempty"`
@@ -379,6 +389,15 @@ type Comment struct {
 	UpdatedAt   time.Time           `bson:"updatedAt" json:"updatedAt"`
 }
 
+type AIProviderConfig struct {
+	Provider  string    `bson:"provider" json:"provider"`
+	Model     string    `bson:"model" json:"model"`
+	BaseURL   string    `bson:"baseUrl,omitempty" json:"baseUrl,omitempty"`
+	KeyCipher string    `bson:"keyCipher,omitempty" json:"-"`
+	KeyHint   string    `bson:"keyHint,omitempty" json:"keyHint,omitempty"`
+	UpdatedAt time.Time `bson:"updatedAt" json:"updatedAt"`
+}
+
 type AISetting struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	UserID    primitive.ObjectID `bson:"userId" json:"userId"`
@@ -387,6 +406,7 @@ type AISetting struct {
 	BaseURL   string             `bson:"baseUrl,omitempty" json:"baseUrl,omitempty"`
 	KeyCipher string             `bson:"keyCipher" json:"-"`
 	KeyHint   string             `bson:"keyHint" json:"keyHint"`
+	Configs   []AIProviderConfig `bson:"configs,omitempty" json:"-"`
 	UpdatedAt time.Time          `bson:"updatedAt" json:"updatedAt"`
 	CreatedAt time.Time          `bson:"createdAt" json:"createdAt"`
 }

@@ -30,23 +30,43 @@ type aiProvider struct {
 }
 
 var aiProviders = map[string]aiProvider{
-	"deepseek":   {Label: "DeepSeek", DefaultBase: "https://api.deepseek.com", DefaultModel: "deepseek-chat", KeyRequired: true},
-	"openai":     {Label: "OpenAI", DefaultBase: "https://api.openai.com/v1", DefaultModel: "gpt-5-mini", KeyRequired: true},
-	"openrouter": {Label: "OpenRouter", DefaultBase: "https://openrouter.ai/api/v1", DefaultModel: "openai/gpt-5-mini", KeyRequired: true},
-	"groq":       {Label: "Groq", DefaultBase: "https://api.groq.com/openai/v1", DefaultModel: "openai/gpt-oss-120b", KeyRequired: true},
-	"ollama":     {Label: "Ollama (local)", DefaultBase: "http://localhost:11434/v1", DefaultModel: "qwen3:8b", KeyRequired: false},
-	"custom":     {Label: "Custom OpenAI-compatible", DefaultBase: "", DefaultModel: "", KeyRequired: true},
-	"gemini":     {Label: "Google Gemini (ADK native)", DefaultBase: "", DefaultModel: "gemini-flash-lite-latest", KeyRequired: true},
+	"deepseek":    {Label: "DeepSeek", DefaultBase: "https://api.deepseek.com", DefaultModel: "deepseek-chat", KeyRequired: true},
+	"qwen":        {Label: "Alibaba Qwen (DashScope)", DefaultBase: "https://dashscope.aliyuncs.com/compatible-mode/v1", DefaultModel: "qwen3-max", KeyRequired: true},
+	"zhipu":       {Label: "Zhipu GLM", DefaultBase: "https://open.bigmodel.cn/api/paas/v4", DefaultModel: "glm-4.6", KeyRequired: true},
+	"moonshot":    {Label: "Moonshot Kimi", DefaultBase: "https://api.moonshot.cn/v1", DefaultModel: "kimi-k2-turbo-preview", KeyRequired: true},
+	"doubao":      {Label: "ByteDance Doubao (Ark)", DefaultBase: "https://ark.cn-beijing.volces.com/api/v3", DefaultModel: "doubao-seed-1-6-250615", KeyRequired: true},
+	"qianfan":     {Label: "Baidu ERNIE (Qianfan)", DefaultBase: "https://qianfan.baidubce.com/v2", DefaultModel: "ernie-4.5-turbo-128k", KeyRequired: true},
+	"hunyuan":     {Label: "Tencent Hunyuan", DefaultBase: "https://api.hunyuan.cloud.tencent.com/v1", DefaultModel: "hunyuan-turbos-latest", KeyRequired: true},
+	"minimax":     {Label: "MiniMax", DefaultBase: "https://api.minimax.chat/v1", DefaultModel: "MiniMax-M2", KeyRequired: true},
+	"spark":       {Label: "iFlytek Spark", DefaultBase: "https://spark-api-open.xf-yun.com/v1", DefaultModel: "4.0Ultra", KeyRequired: true},
+	"siliconflow": {Label: "SiliconFlow", DefaultBase: "https://api.siliconflow.cn/v1", DefaultModel: "deepseek-ai/DeepSeek-V3.2", KeyRequired: true},
+	"openai":      {Label: "OpenAI", DefaultBase: "https://api.openai.com/v1", DefaultModel: "gpt-5-mini", KeyRequired: true},
+	"openrouter":  {Label: "OpenRouter", DefaultBase: "https://openrouter.ai/api/v1", DefaultModel: "openai/gpt-5-mini", KeyRequired: true},
+	"groq":        {Label: "Groq", DefaultBase: "https://api.groq.com/openai/v1", DefaultModel: "openai/gpt-oss-120b", KeyRequired: true},
+	"ollama":      {Label: "Ollama (local)", DefaultBase: "http://localhost:11434/v1", DefaultModel: "qwen3:8b", KeyRequired: false},
+	"custom":      {Label: "Custom OpenAI-compatible", DefaultBase: "", DefaultModel: "", KeyRequired: true},
+	"gemini":      {Label: "Google Gemini (ADK native)", DefaultBase: "", DefaultModel: "gemini-flash-lite-latest", KeyRequired: true},
+}
+
+type aiProviderOption struct {
+	Provider   string `json:"provider"`
+	Label      string `json:"label"`
+	Model      string `json:"model"`
+	BaseURL    string `json:"baseUrl"`
+	KeyHint    string `json:"keyHint,omitempty"`
+	Configured bool   `json:"configured"`
+	Active     bool   `json:"active"`
 }
 
 type aiSettingsView struct {
-	Configured    bool   `json:"configured"`
-	Provider      string `json:"provider"`
-	ProviderLabel string `json:"providerLabel"`
-	Model         string `json:"model"`
-	BaseURL       string `json:"baseUrl"`
-	KeyHint       string `json:"keyHint,omitempty"`
-	UpdatedAt     string `json:"updatedAt,omitempty"`
+	Configured    bool               `json:"configured"`
+	Provider      string             `json:"provider"`
+	ProviderLabel string             `json:"providerLabel"`
+	Model         string             `json:"model"`
+	BaseURL       string             `json:"baseUrl"`
+	KeyHint       string             `json:"keyHint,omitempty"`
+	UpdatedAt     string             `json:"updatedAt,omitempty"`
+	Providers     []aiProviderOption `json:"providers"`
 }
 
 func (s *Server) aiSetting(r *http.Request) (model.AISetting, error) {
@@ -73,6 +93,61 @@ func aiConfigured(setting model.AISetting) bool {
 	return true
 }
 
+func aiConfigs(setting model.AISetting) []model.AIProviderConfig {
+	if len(setting.Configs) > 0 {
+		return append([]model.AIProviderConfig(nil), setting.Configs...)
+	}
+	if setting.Provider == "" {
+		return nil
+	}
+	return []model.AIProviderConfig{{
+		Provider: setting.Provider, Model: setting.Model, BaseURL: setting.BaseURL,
+		KeyCipher: setting.KeyCipher, KeyHint: setting.KeyHint, UpdatedAt: setting.UpdatedAt,
+	}}
+}
+
+func aiFindConfig(configs []model.AIProviderConfig, provider string) (int, bool) {
+	for i := range configs {
+		if configs[i].Provider == provider {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
+func aiSyncActive(setting *model.AISetting, config model.AIProviderConfig) {
+	setting.Provider = config.Provider
+	setting.Model = config.Model
+	setting.BaseURL = config.BaseURL
+	setting.KeyCipher = config.KeyCipher
+	setting.KeyHint = config.KeyHint
+}
+
+func aiProviderOptions(setting model.AISetting, siteModel string) []aiProviderOption {
+	configs := aiConfigs(setting)
+	options := make([]aiProviderOption, 0, len(configs))
+	for _, config := range configs {
+		info, ok := aiProviders[config.Provider]
+		if !ok {
+			continue
+		}
+		modelName := config.Model
+		if modelName == "" {
+			modelName = aiDefaultModel(config.Provider, siteModel)
+		}
+		base := config.BaseURL
+		if base == "" {
+			base = info.DefaultBase
+		}
+		options = append(options, aiProviderOption{
+			Provider: config.Provider, Label: info.Label, Model: modelName, BaseURL: base,
+			KeyHint: config.KeyHint, Configured: !info.KeyRequired || config.KeyCipher != "",
+			Active: setting.Provider == config.Provider,
+		})
+	}
+	return options
+}
+
 func aiView(setting model.AISetting, siteModel string) aiSettingsView {
 	provider := setting.Provider
 	if provider == "" {
@@ -91,6 +166,7 @@ func aiView(setting model.AISetting, siteModel string) aiSettingsView {
 		Configured: aiConfigured(setting), Provider: provider, ProviderLabel: info.Label,
 		Model: modelName, BaseURL: base, KeyHint: setting.KeyHint,
 		UpdatedAt: setting.UpdatedAt.Format(time.RFC3339),
+		Providers: aiProviderOptions(setting, siteModel),
 	}
 }
 
@@ -143,47 +219,40 @@ func (s *Server) saveAISettings(w http.ResponseWriter, r *http.Request) {
 	if setting.ID.IsZero() {
 		setting.ID = primitive.NewObjectID()
 		setting.CreatedAt = now
-		setting.Provider = "deepseek"
 	}
-	oldProvider := setting.Provider
+	provider := "deepseek"
 	if req.Provider != nil {
-		provider := strings.ToLower(strings.TrimSpace(*req.Provider))
-		info, ok := aiProviders[provider]
-		if !ok {
-			writeErr(w, http.StatusBadRequest, "unsupported AI provider")
-			return
-		}
-		setting.Provider = provider
-		if provider != oldProvider && setting.Model == "" {
-			setting.Model = aiDefaultModel(provider, s.siteSnapshot().AIModel)
-		}
-		if provider != oldProvider && setting.BaseURL == "" {
-			setting.BaseURL = info.DefaultBase
-		}
+		provider = strings.ToLower(strings.TrimSpace(*req.Provider))
 	}
-	info, ok := aiProviders[setting.Provider]
+	info, ok := aiProviders[provider]
 	if !ok {
 		writeErr(w, http.StatusBadRequest, "unsupported AI provider")
 		return
 	}
+	configs := aiConfigs(setting)
+	index, found := aiFindConfig(configs, provider)
+	config := model.AIProviderConfig{Provider: provider}
+	if found {
+		config = configs[index]
+	}
 
 	if req.BaseURL != nil {
-		setting.BaseURL = strings.TrimRight(strings.TrimSpace(*req.BaseURL), "/")
+		config.BaseURL = strings.TrimRight(strings.TrimSpace(*req.BaseURL), "/")
 	}
-	if setting.BaseURL == "" {
-		setting.BaseURL = info.DefaultBase
+	if config.BaseURL == "" {
+		config.BaseURL = info.DefaultBase
 	}
-	if setting.BaseURL == "" && setting.Provider != "gemini" {
+	if config.BaseURL == "" && provider != "gemini" {
 		writeErr(w, http.StatusBadRequest, "this provider requires a base URL")
 		return
 	}
 	if req.Model != nil {
-		setting.Model = strings.TrimSpace(*req.Model)
+		config.Model = strings.TrimSpace(*req.Model)
 	}
-	if setting.Model == "" {
-		setting.Model = aiDefaultModel(setting.Provider, s.siteSnapshot().AIModel)
+	if config.Model == "" {
+		config.Model = aiDefaultModel(provider, s.siteSnapshot().AIModel)
 	}
-	if len(setting.Model) > 120 {
+	if len(config.Model) > 120 {
 		writeErr(w, http.StatusBadRequest, "model name is too long")
 		return
 	}
@@ -200,25 +269,29 @@ func (s *Server) saveAISettings(w http.ResponseWriter, r *http.Request) {
 				writeErr(w, http.StatusInternalServerError, "could not secure API key")
 				return
 			}
-			setting.KeyCipher = encrypted
+			config.KeyCipher = encrypted
 			if len(key) > 4 {
-				setting.KeyHint = "…" + key[len(key)-4:]
+				config.KeyHint = "…" + key[len(key)-4:]
 			} else {
-				setting.KeyHint = "…"
+				config.KeyHint = "…"
 			}
-		} else if info.KeyRequired && setting.Provider != oldProvider {
-			writeErr(w, http.StatusBadRequest, "enter an API key for "+info.Label)
-			return
+		} else if !info.KeyRequired && provider == "ollama" {
+			config.KeyCipher = ""
+			config.KeyHint = ""
 		}
 	}
-	if info.KeyRequired && setting.KeyCipher == "" {
+	if info.KeyRequired && config.KeyCipher == "" {
 		writeErr(w, http.StatusBadRequest, "an API key is required for "+info.Label)
 		return
 	}
-	if !info.KeyRequired && setting.Provider == "ollama" && req.APIKey != nil && strings.TrimSpace(*req.APIKey) == "" {
-		setting.KeyCipher = ""
-		setting.KeyHint = ""
+	config.UpdatedAt = now
+	if found {
+		configs[index] = config
+	} else {
+		configs = append(configs, config)
 	}
+	setting.Configs = configs
+	aiSyncActive(&setting, config)
 	setting.UpdatedAt = now
 	if _, err := s.store.AISettings.UpdateOne(r.Context(),
 		bson.M{"userId": currentUserID(r)},
@@ -226,6 +299,83 @@ func (s *Server) saveAISettings(w http.ResponseWriter, r *http.Request) {
 		options.Update().SetUpsert(true),
 	); err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not save AI settings")
+		return
+	}
+	writeJSON(w, http.StatusOK, aiView(setting, s.siteSnapshot().AIModel))
+}
+
+// activateAIProvider makes one of the saved provider configs the active one.
+func (s *Server) activateAIProvider(w http.ResponseWriter, r *http.Request) {
+	if currentAuth(r).Method != "jwt" {
+		writeErr(w, http.StatusForbidden, "AI settings can only be managed from a signed-in session")
+		return
+	}
+	var req struct {
+		Provider string `json:"provider"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	setting, err := s.aiSetting(r)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "save your AI provider first")
+		return
+	}
+	configs := aiConfigs(setting)
+	index, found := aiFindConfig(configs, strings.ToLower(strings.TrimSpace(req.Provider)))
+	if !found {
+		writeErr(w, http.StatusNotFound, "provider is not configured")
+		return
+	}
+	setting.Configs = configs
+	aiSyncActive(&setting, configs[index])
+	setting.UpdatedAt = time.Now().UTC()
+	if _, err := s.store.AISettings.UpdateOne(r.Context(), bson.M{"userId": currentUserID(r)}, bson.M{"$set": setting}); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not activate AI provider")
+		return
+	}
+	writeJSON(w, http.StatusOK, aiView(setting, s.siteSnapshot().AIModel))
+}
+
+// deleteAIProvider removes one provider config and picks another active config.
+func (s *Server) deleteAIProvider(w http.ResponseWriter, r *http.Request) {
+	if currentAuth(r).Method != "jwt" {
+		writeErr(w, http.StatusForbidden, "AI settings can only be managed from a signed-in session")
+		return
+	}
+	setting, err := s.aiSetting(r)
+	if err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	provider := strings.ToLower(strings.TrimSpace(chiURLParam(r, "provider")))
+	configs := aiConfigs(setting)
+	kept := make([]model.AIProviderConfig, 0, len(configs))
+	for _, config := range configs {
+		if config.Provider != provider {
+			kept = append(kept, config)
+		}
+	}
+	if len(kept) == len(configs) {
+		writeErr(w, http.StatusNotFound, "provider is not configured")
+		return
+	}
+	setting.Configs = kept
+	if setting.Provider == provider {
+		if len(kept) > 0 {
+			aiSyncActive(&setting, kept[0])
+		} else {
+			setting.Provider = "deepseek"
+			setting.Model = ""
+			setting.BaseURL = ""
+			setting.KeyCipher = ""
+			setting.KeyHint = ""
+		}
+	}
+	setting.UpdatedAt = time.Now().UTC()
+	if _, err := s.store.AISettings.UpdateOne(r.Context(), bson.M{"userId": currentUserID(r)}, bson.M{"$set": setting}); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not remove AI provider")
 		return
 	}
 	writeJSON(w, http.StatusOK, aiView(setting, s.siteSnapshot().AIModel))

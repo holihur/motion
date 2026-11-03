@@ -1,15 +1,5 @@
 import type { Block } from "@/lib/types"
-
-type MermaidApi = {
-  initialize: (config: Record<string, unknown>) => void
-  render: (id: string, source: string) => Promise<{ svg: string }>
-}
-
-declare global {
-  interface Window {
-    mermaid?: MermaidApi
-  }
-}
+import { renderMermaid } from "@/lib/mermaid-render"
 
 export type DiagramImage = {
   svg: string
@@ -18,36 +8,8 @@ export type DiagramImage = {
   height: number
 }
 
-let mermaidPromise: Promise<MermaidApi> | null = null
-
-function loadMermaid(): Promise<MermaidApi> {
-  if (typeof window === "undefined") return Promise.reject(new Error("Mermaid requires a browser"))
-  if (window.mermaid) return Promise.resolve(window.mermaid)
-  if (mermaidPromise) return mermaidPromise
-  mermaidPromise = new Promise<MermaidApi>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>("script[data-motion-mermaid]")
-    if (existing) {
-      existing.addEventListener("load", () => resolve(window.mermaid!))
-      existing.addEventListener("error", () => reject(new Error("Could not load Mermaid")))
-      return
-    }
-    const script = document.createElement("script")
-    script.src = "/vendor/mermaid.min.js"
-    script.async = true
-    script.dataset.motionMermaid = "true"
-    script.onload = () => {
-      if (window.mermaid) resolve(window.mermaid)
-      else reject(new Error("Mermaid runtime did not initialize"))
-    }
-    script.onerror = () => {
-      mermaidPromise = null
-      script.remove()
-      reject(new Error("Could not load the Mermaid runtime"))
-    }
-    document.head.appendChild(script)
-  })
-  return mermaidPromise
-}
+const imageCache = new Map<string, DiagramImage>()
+const MAX_IMAGES = 30
 
 function svgSize(svg: string): { width: number; height: number } {
   const doc = new DOMParser().parseFromString(svg, "image/svg+xml")
@@ -95,28 +57,32 @@ async function rasterize(svg: string, width: number, height: number): Promise<st
 export async function renderDiagramImages(blocks: Block[]): Promise<Record<string, DiagramImage>> {
   const diagrams = blocks.filter((block) => block.type === "diagram" && block.text.trim() && block.text.length < 20000).slice(0, 40)
   if (diagrams.length === 0) return {}
-  const mermaid = await loadMermaid()
-  mermaid.initialize({
-    startOnLoad: false,
-    securityLevel: "strict",
-    theme: "default",
-    fontFamily: "ui-sans-serif, system-ui, sans-serif",
-    // SVG text labels keep the rasterized PNG exportable: Chrome taints a
-    // canvas drawn from an SVG that contains foreignObject HTML labels.
-    htmlLabels: false,
-    flowchart: { htmlLabels: false },
-    class: { htmlLabels: false },
-  })
   const out: Record<string, DiagramImage> = {}
   for (const block of diagrams) {
+    const cached = imageCache.get(block.text)
+    if (cached) {
+      out[block.id] = cached
+      continue
+    }
     try {
-      const result = await mermaid.render(`export-${block.id}-${Date.now()}`, block.text)
-      const svg = result.svg.replace(/<\?xml[^>]*>\s*/i, "").trim()
+      const raw = await renderMermaid(block.text, {
+        theme: "default",
+        mode: "export",
+        instanceId: `export-${block.id}-${Date.now()}`,
+      })
+      const svg = raw.replace(/<\?xml[^>]*>\s*/i, "").trim()
       if (!svg.startsWith("<svg")) continue
       const size = svgSize(svg)
       const png = await rasterize(svg, size.width, size.height)
       if (svg.length > 3_000_000 || png.length > 8_000_000) continue
-      out[block.id] = { svg, png, ...size }
+      const image = { svg, png, ...size }
+      imageCache.set(block.text, image)
+      while (imageCache.size > MAX_IMAGES) {
+        const oldest = imageCache.keys().next().value
+        if (!oldest) break
+        imageCache.delete(oldest)
+      }
+      out[block.id] = image
     } catch {
       // Leave the block as a code fallback in the export.
     }

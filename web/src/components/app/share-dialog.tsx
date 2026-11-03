@@ -9,7 +9,7 @@ import { tr } from "@/lib/i18n"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Dialog,
   DialogContent,
@@ -178,6 +178,7 @@ export function ShareDialog({
           {members.map((member) => (
             <div key={member.userId} className="flex items-center gap-2.5 rounded-lg px-1 py-1.5 hover:bg-accent/40">
               <Avatar className="size-7">
+                <AvatarImage src={member.avatar} alt={member.name} />
                 <AvatarFallback>{initials(member.name)}</AvatarFallback>
               </Avatar>
               <div className="min-w-0 flex-1">

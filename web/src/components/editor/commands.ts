@@ -5,6 +5,7 @@ import {
   ChartGantt,
   CheckSquare,
   CircleDot,
+  Columns3,
   ClipboardList,
   Vote,
   Columns2,
@@ -85,7 +86,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { type: "toggleHeading3", title: "Toggle heading 3", description: "Collapsible small heading", icon: Heading3, keywords: "toggle heading h3 fold" },
   { type: "pageLink", title: "Page link", description: "Mention another page", icon: Link2, keywords: "page mention link reference backlink" },
   { type: "breadcrumb", title: "Breadcrumb", description: "Show this page's path", icon: PanelTop, keywords: "breadcrumb path parent navigation" },
-  { type: "columns", title: "Columns", description: "Place text side by side", icon: Columns2, keywords: "columns layout grid side" },
+  { type: "columns", title: "Columns", description: "Place text side by side", icon: Columns2, keywords: "columns column side by side text 分栏 文本" },
+  { type: "layout", title: "Layout", description: "Place any blocks side by side", icon: Columns3, keywords: "layout columns grid nested nest blocks side by side 布局 分栏 嵌套" },
   { type: "qrcode", title: "QR code", description: "Generate a QR code from text or a URL", icon: QrCode, keywords: "qr code url scan barcode" },
   { type: "barcode", title: "Barcode", description: "Generate a CODE128 or retail barcode", icon: ScanBarcode, keywords: "barcode code128 ean upc scan" },
   { type: "form", title: "Form", description: "Collect responses with a simple form", icon: ClipboardList, keywords: "form survey input response collect" },
@@ -140,6 +142,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   radio: "Radio",
   radioGroup: "Radio group",
   switch: "Switch",
+  layout: "Layout",
 }
 
 export function filterCommands(query: string) {

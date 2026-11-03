@@ -25,7 +25,7 @@ import { hasMarkdownSyntax, parseMarkdownToBlocks } from "@/lib/markdown-import"
 import { blocksToMarkdown } from "@/lib/markdown"
 import type { RealtimePresence } from "@/lib/realtime"
 import { filterCommands, type SlashCommand } from "@/components/editor/commands"
-import { createBlock } from "@/components/editor/block-factory"
+import { createBlock, defaultLayout } from "@/components/editor/block-factory"
 
 const LIST_TYPES: BlockType[] = ["bulleted", "numbered", "todo"]
 const TOGGLE_TYPES: BlockType[] = ["toggle", "toggleHeading1", "toggleHeading2", "toggleHeading3"]
@@ -351,6 +351,7 @@ export function BlockEditor({
           }
         : {}),
       ...(type === "columns" ? { table: block.type === "columns" && block.table ? block.table : defaultColumnsTable() } : {}),
+      ...(type === "layout" ? { layout: block.type === "layout" && block.layout ? block.layout : defaultLayout() } : {}),
       ...(type === "database" ? { database: block.type === "database" && block.database ? block.database : { columns: [{ id: "c1", name: "Name", type: "text" as const, width: 200 }, { id: "c2", name: "Status", type: "status" as const, options: ["Todo", "Doing", "Done"] }, { id: "c3", name: "Due", type: "date" as const }], rows: [{ c1: "Task 1", c2: "Todo", c3: "" }], viewMode: "table" as const } } : {}),
     })
     focusNew(block.id, clear ? "start" : "end")

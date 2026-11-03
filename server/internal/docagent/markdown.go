@@ -21,8 +21,54 @@ func textFromBlocks(blocks []model.Block) string {
 				parts = append(parts, strings.ToLower(strings.Join(row, " ")))
 			}
 		}
+		if block.Layout != nil {
+			for _, column := range block.Layout.Columns {
+				parts = append(parts, textFromBlocks(column.Blocks))
+			}
+		}
 	}
 	return strings.Join(parts, "\n")
+}
+
+func markdownNested(blocks []model.Block) string {
+	var builder strings.Builder
+	for _, block := range blocks {
+		inline := richtext.Markdown(block.Rich, block.Text)
+		switch block.Type {
+		case "heading1", "toggleHeading1":
+			builder.WriteString("# " + inline + "\n\n")
+		case "heading2", "toggleHeading2":
+			builder.WriteString("## " + inline + "\n\n")
+		case "heading3", "toggleHeading3":
+			builder.WriteString("### " + inline + "\n\n")
+		case "bulleted":
+			builder.WriteString("- " + inline + "\n")
+		case "numbered":
+			builder.WriteString("1. " + inline + "\n")
+		case "todo":
+			check := " "
+			if block.Checked {
+				check = "x"
+			}
+			builder.WriteString("- [" + check + "] " + inline + "\n")
+		case "code", "curl":
+			builder.WriteString("```" + block.Language + "\n" + block.Text + "\n```\n\n")
+		case "layout":
+			if block.Layout != nil {
+				for index, column := range block.Layout.Columns {
+					if index > 0 {
+						builder.WriteString("\n---\n\n")
+					}
+					builder.WriteString(markdownNested(column.Blocks))
+				}
+			}
+		default:
+			if strings.TrimSpace(inline) != "" {
+				builder.WriteString(inline + "\n\n")
+			}
+		}
+	}
+	return builder.String()
 }
 
 func markdownFor(page model.Page) string {
@@ -67,6 +113,15 @@ func markdownFor(page model.Page) string {
 					builder.WriteString("| " + strings.Join(cells, " | ") + " |\n")
 				}
 				builder.WriteString("\n")
+			}
+		case "layout":
+			if block.Layout != nil {
+				for index, column := range block.Layout.Columns {
+					if index > 0 {
+						builder.WriteString("\n---\n\n")
+					}
+					builder.WriteString(markdownNested(column.Blocks))
+				}
 			}
 		case "divider":
 			builder.WriteString("---\n\n")

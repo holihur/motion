@@ -117,7 +117,7 @@ export function SearchDialog() {
 
   function newPage() {
     setOpen(false)
-    navigate("/page/new")
+    navigate("/new-page")
   }
 
   return (

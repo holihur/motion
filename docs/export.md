@@ -6,6 +6,7 @@
 - **Export as HTML**：服务端生成带样式的独立 HTML
 - **Export as PDF**：A4 PDF，内嵌 Noto Sans SC 字体，支持中文
 - **Export as Word**：`.docx`，包含标题、段落、列表、代码和表格
+- **Export blocks as JSON**：下载 `.blocks.json`，包含页面元信息和完整 block 数据（含布局嵌套、表格、表单等）
 
 导出接口：
 
@@ -13,6 +14,7 @@
 GET /api/pages/{pageID}/export?format=html
 GET /api/pages/{pageID}/export?format=pdf
 GET /api/pages/{pageID}/export?format=docx
+GET /api/pages/{pageID}/export?format=json
 ```
 
 需要 `pages:read` 权限，并使用页面所在工作区的访问权限校验。

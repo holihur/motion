@@ -221,8 +221,8 @@ export const api = {
       request<{ appName: string; oidc: { enabled: boolean; name: string } }>("/auth/config"),
     oidcExchange: () =>
       request<{ token: string; user: User }>("/auth/oidc/exchange", { method: "POST" }),
-    updateMe: (name: string) =>
-      request<User>("/me", { method: "PATCH", body: body({ name }) }),
+    updateMe: (input: { name?: string; avatar?: string }) =>
+      request<User>("/me", { method: "PATCH", body: body(input) }),
   },
   workspaces: {
     list: () => request<Workspace[]>("/workspaces"),
@@ -339,6 +339,10 @@ export const api = {
     saveSettings: (input: { provider?: string; apiKey?: string; model?: string; baseUrl?: string }) =>
       request<AISettings>("/ai/settings", { method: "PUT", body: body(input) }),
     removeSettings: () => request<void>("/ai/settings", { method: "DELETE" }),
+    activateProvider: (provider: string) =>
+      request<AISettings>("/ai/active", { method: "POST", body: body({ provider }) }),
+    deleteProvider: (provider: string) =>
+      request<AISettings>(`/ai/providers/${encodeURIComponent(provider)}`, { method: "DELETE" }),
     test: () =>
       request<{ ok: boolean; model: string; message: string; latencyMs: number }>("/ai/test", {
         method: "POST",
@@ -546,7 +550,7 @@ export const api = {
       request<{ slug: string; locked: boolean; expiresAt: string | null; views: number; comments: boolean; index: boolean }>(`/pages/${id}/publish`, { method: "GET" }),
     unpublish: (id: string, includeChildren = true) =>
       request<{ ok: boolean }>(`/pages/${id}/publish`, { method: "DELETE", body: body({ includeChildren }) }),
-    exportFile: async (id: string, format: "html" | "pdf" | "docx", diagrams?: Record<string, { svg: string; png: string; width: number; height: number }>) => {
+    exportFile: async (id: string, format: "html" | "pdf" | "docx" | "json", diagrams?: Record<string, { svg: string; png: string; width: number; height: number }>) => {
       const headers = new Headers()
       const token = getToken()
       if (token) headers.set("Authorization", `Bearer ${token}`)

@@ -7,6 +7,7 @@ import { IntegrationsSettings } from "@/components/app/integrations-settings"
 import { NotificationSettings } from "@/components/app/notifications"
 import { toast } from "sonner"
 import { api, type AccessToken } from "@/lib/api"
+import type { AISettings } from "@/lib/types"
 import { LANGUAGES, getLanguage, setLanguage, tr, type Language } from "@/lib/i18n"
 import { cn, formatRelative, initials } from "@/lib/utils"
 import { useAuthStore } from "@/stores/auth"
@@ -16,7 +17,7 @@ import { useWorkspaceStore } from "@/stores/workspace"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -106,20 +107,80 @@ export function SettingsDialog() {
   )
 }
 
+async function resizeAvatar(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error(tr("Choose an image file"))
+  if (file.size > 5 * 1024 * 1024) throw new Error(tr("Image must be smaller than 5 MB"))
+  const url = URL.createObjectURL(file)
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error(tr("Could not read this image")))
+      img.src = url
+    })
+    const size = 256
+    const canvas = document.createElement("canvas")
+    canvas.width = size
+    canvas.height = size
+    const context = canvas.getContext("2d")
+    if (!context) throw new Error(tr("Could not read this image"))
+    context.fillStyle = "#ffffff"
+    context.fillRect(0, 0, size, size)
+    const scale = Math.max(size / image.width, size / image.height)
+    const width = image.width * scale
+    const height = image.height * scale
+    context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height)
+    return canvas.toDataURL("image/jpeg", 0.85)
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 function ProfileSettings() {
   const user = useAuthStore((state) => state.user)
   const setUser = useAuthStore((state) => state.setUser)
   const [name, setName] = useState(user?.name ?? "")
   const [pending, setPending] = useState(false)
+  const [avatarPending, setAvatarPending] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => setName(user?.name ?? ""), [user?.name])
+
+  async function uploadAvatar(file: File) {
+    if (avatarPending) return
+    setAvatarPending(true)
+    try {
+      const avatar = await resizeAvatar(file)
+      const updated = await api.auth.updateMe({ avatar })
+      setUser(updated)
+      toast.success(tr("Avatar updated"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not update avatar"))
+    } finally {
+      setAvatarPending(false)
+    }
+  }
+
+  async function removeAvatar() {
+    if (avatarPending) return
+    setAvatarPending(true)
+    try {
+      const updated = await api.auth.updateMe({ avatar: "" })
+      setUser(updated)
+      toast.success(tr("Avatar removed"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not update avatar"))
+    } finally {
+      setAvatarPending(false)
+    }
+  }
 
   async function save(event: React.FormEvent) {
     event.preventDefault()
     if (!name.trim() || pending) return
     setPending(true)
     try {
-      const updated = await api.auth.updateMe(name.trim())
+      const updated = await api.auth.updateMe({ name: name.trim() })
       setUser(updated)
       toast.success(tr("Profile updated"))
     } catch (error) {
@@ -133,13 +194,36 @@ function ProfileSettings() {
     <form onSubmit={save} className="space-y-6 pt-2">
       <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-gradient-to-br from-brand-soft/45 via-background to-background p-4">
         <Avatar className="size-14 text-lg shadow-sm ring-2 ring-background">
+          <AvatarImage src={user?.avatar} alt={user?.name} />
           <AvatarFallback className="bg-brand-soft text-base font-semibold text-brand">{initials(user?.name ?? "M")}</AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold">{user?.name}</div>
           <div className="truncate text-xs text-muted-foreground">{user?.email}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                event.target.value = ""
+                if (file) void uploadAvatar(file)
+              }}
+            />
+            <Button type="button" variant="outline" size="sm" className="h-7 text-[11px]" onClick={() => avatarInputRef.current?.click()} disabled={avatarPending}>
+              {avatarPending ? <span className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" /> : null}
+              {tr("Change avatar")}
+            </Button>
+            {user?.avatar && (
+              <Button type="button" variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => void removeAvatar()} disabled={avatarPending}>
+                {tr("Remove avatar")}
+              </Button>
+            )}
+          </div>
         </div>
-        <span className="shrink-0 rounded-full border border-border/70 bg-background/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{tr("Account")}</span>
+        <span className="shrink-0 self-start rounded-full border border-border/70 bg-background/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{tr("Account")}</span>
       </div>
       <Separator />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -318,7 +402,16 @@ function WorkspaceSettings() {
 }
 
 const AI_PROVIDERS = {
-  deepseek: { label: "DeepSeek", base: "https://api.deepseek.com", model: "deepseek-chat", key: true, hint: "Your DeepSeek API key (sk-…)" },
+  deepseek: { label: "DeepSeek", base: "https://api.deepseek.com", model: "deepseek-chat", key: true, hint: "sk-…" },
+  qwen: { label: "Alibaba Qwen (DashScope)", base: "https://dashscope.aliyuncs.com/compatible-mode/v1", model: "qwen3-max", key: true, hint: "sk-… (DashScope)" },
+  zhipu: { label: "Zhipu GLM", base: "https://open.bigmodel.cn/api/paas/v4", model: "glm-4.6", key: true, hint: "API key from bigmodel.cn" },
+  moonshot: { label: "Moonshot Kimi", base: "https://api.moonshot.cn/v1", model: "kimi-k2-turbo-preview", key: true, hint: "sk-…" },
+  doubao: { label: "ByteDance Doubao (Ark)", base: "https://ark.cn-beijing.volces.com/api/v3", model: "doubao-seed-1-6-250615", key: true, hint: "Ark API key" },
+  qianfan: { label: "Baidu ERNIE (Qianfan)", base: "https://qianfan.baidubce.com/v2", model: "ernie-4.5-turbo-128k", key: true, hint: "bce-v3/…" },
+  hunyuan: { label: "Tencent Hunyuan", base: "https://api.hunyuan.cloud.tencent.com/v1", model: "hunyuan-turbos-latest", key: true, hint: "sk-…" },
+  minimax: { label: "MiniMax", base: "https://api.minimax.chat/v1", model: "MiniMax-M2", key: true, hint: "API key" },
+  spark: { label: "iFlytek Spark", base: "https://spark-api-open.xf-yun.com/v1", model: "4.0Ultra", key: true, hint: "APIPassword" },
+  siliconflow: { label: "SiliconFlow", base: "https://api.siliconflow.cn/v1", model: "deepseek-ai/DeepSeek-V3.2", key: true, hint: "sk-…" },
   openai: { label: "OpenAI", base: "https://api.openai.com/v1", model: "gpt-5-mini", key: true, hint: "sk-…" },
   openrouter: { label: "OpenRouter", base: "https://openrouter.ai/api/v1", model: "openai/gpt-5-mini", key: true, hint: "sk-or-…" },
   groq: { label: "Groq", base: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-120b", key: true, hint: "gsk_…" },
@@ -330,7 +423,16 @@ const AI_PROVIDERS = {
 type AIProviderKey = keyof typeof AI_PROVIDERS
 
 const AI_MODEL_SUGGESTIONS: Record<AIProviderKey, string[]> = {
-  deepseek: ["deepseek-chat", "deepseek-reasoner"],
+  deepseek: ["deepseek-chat", "deepseek-reasoner", "deepseek-v3.2-exp"],
+  qwen: ["qwen3-max", "qwen3-coder-plus", "qwen-plus-latest", "qwen-turbo-latest", "qwen3-vl-plus", "qwen-long-latest"],
+  zhipu: ["glm-4.6", "glm-4.5", "glm-4.5-air", "glm-4-plus", "glm-z1-air"],
+  moonshot: ["kimi-k2-turbo-preview", "kimi-k2-0905-preview", "moonshot-v1-128k", "moonshot-v1-32k"],
+  doubao: ["doubao-seed-1-6-250615", "doubao-seed-1-6-flash-250615", "doubao-1-5-pro-32k-250115", "doubao-1-5-lite-32k-250115"],
+  qianfan: ["ernie-4.5-turbo-128k", "ernie-4.5-turbo-32k", "ernie-x1-turbo-32k", "ernie-4.5-8k-preview"],
+  hunyuan: ["hunyuan-turbos-latest", "hunyuan-t1-latest", "hunyuan-large", "hunyuan-lite"],
+  minimax: ["MiniMax-M2", "MiniMax-Text-01", "abab6.5s-chat"],
+  spark: ["4.0Ultra", "max-32k", "pro-128k", "lite", "generalv3.5"],
+  siliconflow: ["deepseek-ai/DeepSeek-V3.2", "Qwen/Qwen3-235B-A22B-Instruct-2507", "moonshotai/Kimi-K2-Instruct-0905", "zai-org/GLM-4.6"],
   openai: ["gpt-5-mini", "gpt-5", "gpt-4.1"],
   openrouter: ["openai/gpt-5-mini", "anthropic/claude-sonnet-4.5", "google/gemini-flash-lite-latest"],
   groq: ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"],
@@ -342,35 +444,49 @@ const AI_MODEL_SUGGESTIONS: Record<AIProviderKey, string[]> = {
 function AISettings() {
   const user = useAuthStore((state) => state.user)
   const [loading, setLoading] = useState(true)
-  const [configured, setConfigured] = useState(false)
-  const [keyHint, setKeyHint] = useState("")
-  const [apiKey, setApiKey] = useState("")
+  const [providers, setProviders] = useState<AISettings["providers"]>([])
   const [provider, setProvider] = useState<AIProviderKey>("deepseek")
-  const [model, setModel] = useState("deepseek-chat")
-  const [baseUrl, setBaseUrl] = useState("https://api.deepseek.com")
+  const [model, setModel] = useState(AI_PROVIDERS.deepseek.model)
+  const [baseUrl, setBaseUrl] = useState(AI_PROVIDERS.deepseek.base)
+  const [apiKey, setApiKey] = useState("")
   const [pending, setPending] = useState(false)
   const [testing, setTesting] = useState(false)
   const providerInfo = AI_PROVIDERS[provider]
+  const saved = (providers ?? []).find((item) => item.provider === provider)
+  const selectedConfigured = saved?.configured ?? false
+  const activeProvider = (providers ?? []).find((item) => item.active)
+
+  function applySettings(settings: AISettings) {
+    const list = settings.providers ?? []
+    setProviders(list)
+    const next = (settings.provider in AI_PROVIDERS ? settings.provider : "deepseek") as AIProviderKey
+    setProvider(next)
+    const savedNext = list.find((item) => item.provider === next)
+    setModel(settings.model || savedNext?.model || AI_PROVIDERS[next].model)
+    setBaseUrl(settings.baseUrl || savedNext?.baseUrl || AI_PROVIDERS[next].base)
+    setApiKey("")
+  }
 
   useEffect(() => {
     api.ai
       .settings()
-      .then((settings) => {
-        setConfigured(settings.configured)
-        setKeyHint(settings.keyHint ?? "")
-        const nextProvider = (settings.provider in AI_PROVIDERS ? settings.provider : "deepseek") as AIProviderKey
-        setProvider(nextProvider)
-        setModel(settings.model || AI_PROVIDERS[nextProvider].model)
-        setBaseUrl(settings.baseUrl || AI_PROVIDERS[nextProvider].base)
-      })
+      .then(applySettings)
       .catch(() => undefined)
       .finally(() => setLoading(false))
   }, [user?.id])
 
+  function selectProvider(next: AIProviderKey) {
+    setProvider(next)
+    setApiKey("")
+    const item = (providers ?? []).find((entry) => entry.provider === next)
+    setModel(item?.model || AI_PROVIDERS[next].model)
+    setBaseUrl(item?.baseUrl || AI_PROVIDERS[next].base)
+  }
+
   async function save(event: React.FormEvent) {
     event.preventDefault()
     if (pending) return
-    if (!configured && providerInfo.key && !apiKey.trim()) {
+    if (!selectedConfigured && providerInfo.key && !apiKey.trim()) {
       toast.error(tr("Paste your {provider} API key first", { provider: providerInfo.label }))
       return
     }
@@ -378,13 +494,11 @@ function AISettings() {
     try {
       const settings = await api.ai.saveSettings({
         provider,
-        ...(apiKey.trim() ? { apiKey: apiKey.trim() } : { apiKey: "" }),
+        ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
         model: model.trim(),
         baseUrl: baseUrl.trim(),
       })
-      setConfigured(settings.configured)
-      setKeyHint(settings.keyHint ?? "")
-      setApiKey("")
+      applySettings(settings)
       toast.success(tr("AI provider saved securely"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not save AI settings"))
@@ -393,18 +507,21 @@ function AISettings() {
     }
   }
 
-  async function remove() {
-    setPending(true)
+  async function activate(providerKey: string) {
     try {
-      await api.ai.removeSettings()
-      setConfigured(false)
-      setKeyHint("")
-      setApiKey("")
+      applySettings(await api.ai.activateProvider(providerKey))
+      toast.success(tr("AI provider activated"))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not save AI settings"))
+    }
+  }
+
+  async function removeProvider(providerKey: string) {
+    try {
+      applySettings(await api.ai.deleteProvider(providerKey))
       toast.success(tr("AI provider removed"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not remove AI key"))
-    } finally {
-      setPending(false)
     }
   }
 
@@ -432,7 +549,7 @@ function AISettings() {
         <div className="min-w-0 text-xs leading-5 text-muted-foreground">
           <div className="font-medium text-foreground">{tr("Bring your own AI provider")}</div>
           <p className="mt-0.5">
-            Use your own key with DeepSeek, OpenAI, OpenRouter, Groq, Ollama or Gemini. Keys are encrypted on the server and never sent to the browser.
+            {tr("DeepSeek, Qwen, Zhipu GLM, Kimi, Doubao, ERNIE, Hunyuan, MiniMax, Spark, SiliconFlow, OpenAI, Gemini and any OpenAI-compatible endpoint. Save multiple providers and switch the active one.")}
           </p>
         </div>
       </div>
@@ -442,17 +559,56 @@ function AISettings() {
       ) : (
         <>
           <div className="space-y-2">
-            <Label htmlFor="ai-provider">{tr("Provider")}</Label>
+            <div className="flex items-center justify-between">
+              <Label>{tr("Saved providers")}</Label>
+              <span className="text-[10px] text-muted-foreground">{providers?.length ?? 0}</span>
+            </div>
+            {!providers || providers.length === 0 ? (
+              <p className="text-[11px] text-muted-foreground">{tr("No provider configured yet.")}</p>
+            ) : (
+              <div className="space-y-1.5">
+                {providers.map((item) => (
+                  <div key={item.provider} className={cn("flex flex-wrap items-center gap-2 rounded-lg border p-2", item.active && "border-brand/40 bg-brand-soft/20")}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium">
+                        <span className="truncate">{item.label}</span>
+                        {item.active && <span className="rounded-full bg-brand/10 px-1.5 py-0.5 text-[9px] font-medium text-brand">{tr("Active")}</span>}
+                        {!item.configured && item.provider !== "ollama" && <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[9px] font-medium text-destructive">{tr("Key missing")}</span>}
+                      </div>
+                      <div className="truncate text-[10px] text-muted-foreground">{item.model}{item.keyHint ? ` · ${item.keyHint}` : ""}</div>
+                    </div>
+                    {!item.active && (
+                      <Button type="button" variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => void activate(item.provider)}>
+                        {tr("Use")}
+                      </Button>
+                    )}
+                    <Button type="button" variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => selectProvider(item.provider as AIProviderKey)}>
+                      {tr("Edit")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={tr("Remove {provider}", { provider: item.label })}
+                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => void removeProvider(item.provider)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <Label htmlFor="ai-provider">{saved ? tr("Edit provider") : tr("Add provider")}</Label>
             <select
               id="ai-provider"
               value={provider}
-              onChange={(event) => {
-                const next = event.target.value as AIProviderKey
-                setProvider(next)
-                setModel(AI_PROVIDERS[next].model)
-                setBaseUrl(AI_PROVIDERS[next].base)
-                setApiKey("")
-              }}
+              onChange={(event) => selectProvider(event.target.value as AIProviderKey)}
               className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none"
             >
               {Object.entries(AI_PROVIDERS).map(([value, details]) => (
@@ -460,7 +616,7 @@ function AISettings() {
               ))}
             </select>
             <p className="text-[11px] text-muted-foreground">
-              DeepSeek is the default. Any OpenAI-compatible endpoint works.
+              {activeProvider ? tr("Active provider: {provider}", { provider: activeProvider.label }) : tr("Save a provider to start using AI.")}
             </p>
           </div>
 
@@ -474,16 +630,16 @@ function AISettings() {
                 autoComplete="off"
                 value={apiKey}
                 onChange={(event) => setApiKey(event.target.value)}
-                placeholder={configured ? `Saved key ${keyHint}` : providerInfo.hint}
+                placeholder={selectedConfigured ? `Saved key ${saved?.keyHint ?? ""}` : providerInfo.hint}
                 className="pl-9 font-mono text-xs"
               />
             </div>
             <p className="text-[11px] text-muted-foreground">
               {providerInfo.key
-                ? configured
-                  ? "A key is saved. Leave this blank to keep it, or paste a new key to replace it."
-                  : "Stored with AES-256-GCM encryption. Only this server can decrypt it."
-                : "Ollama runs locally — no API key is required."}
+                ? selectedConfigured
+                  ? tr("A key is saved. Leave this blank to keep it, or paste a new key to replace it.")
+                  : tr("Stored with AES-256-GCM encryption. Only this server can decrypt it.")
+                : tr("Ollama runs locally — no API key is required.")}
             </p>
           </div>
 
@@ -506,23 +662,21 @@ function AISettings() {
             </div>
           </div>
           <p className="-mt-2 text-[11px] text-muted-foreground">
-            The AI document agent uses this model and key. For OpenAI-compatible servers the base URL should end with <code>/v1</code>.
+            {tr("The AI document agent uses the active provider. OpenAI-compatible base URLs usually end with /v1.")}
           </p>
 
           <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
             <div className="flex flex-wrap items-center gap-2">
-              {configured ? (
-                <Button type="button" variant="outline" size="sm" onClick={() => void remove()} disabled={pending}>
-                  <Trash2 /> {tr("Remove provider")}
-                </Button>
-              ) : (
-                <span className="text-[11px] text-muted-foreground">{tr("No provider configured yet.")}</span>
-              )}
-              {configured && (
+              {selectedConfigured && saved?.active && (
                 <Button type="button" variant="outline" size="sm" onClick={() => void testConnection()} disabled={testing || pending}>
                   {testing ? <span className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Check className="size-3.5" />}
                   {tr("Test connection")}
                 </Button>
+              )}
+              {providers && providers.length > 0 && (
+                <span className="text-[11px] text-muted-foreground">
+                  {tr("Saving makes this provider active.")}
+                </span>
               )}
             </div>
             <Button type="submit" size="sm" disabled={pending}>

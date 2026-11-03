@@ -30,6 +30,7 @@ var blockTypes = map[string]bool{
 	"radio":          true,
 	"radioGroup":     true,
 	"switch":         true,
+	"layout":         true,
 	"quote":          true,
 	"callout":        true,
 	"code":           true,
@@ -622,23 +623,14 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		if b.Type == "radioGroup" {
 			b.Input = sanitizeInput(b.Input)
 		}
-		if b.Type == "form" && b.Form != nil {
-			b.Form.Title = truncateRunes(b.Form.Title, 200)
-			b.Form.Description = truncateRunes(b.Form.Description, 1000)
-			b.Form.SubmitLabel = truncateRunes(b.Form.SubmitLabel, 60)
-			if len(b.Form.Fields) > 50 {
-				b.Form.Fields = b.Form.Fields[:50]
-			}
-			for i := range b.Form.Fields {
-				field := &b.Form.Fields[i]
-				field.Label = truncateRunes(field.Label, 200)
-				if len(field.Options) > 50 {
-					field.Options = field.Options[:50]
-				}
-				for j := range field.Options {
-					field.Options[j] = truncateRunes(field.Options[j], 200)
-				}
-			}
+		if b.Type == "layout" {
+			b.Layout = sanitizeLayout(b.Layout, 0)
+		}
+		if b.Type == "layout" {
+			b.Layout = sanitizeLayout(b.Layout, 0)
+		}
+		if b.Type == "form" {
+			b.Form = sanitizeFormData(b.Form)
 		}
 		if b.Indent < 0 {
 			b.Indent = 0
@@ -774,23 +766,14 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 		if b.Type == "radioGroup" {
 			b.Input = sanitizeInput(b.Input)
 		}
-		if b.Type == "form" && b.Form != nil {
-			b.Form.Title = truncateRunes(b.Form.Title, 200)
-			b.Form.Description = truncateRunes(b.Form.Description, 1000)
-			b.Form.SubmitLabel = truncateRunes(b.Form.SubmitLabel, 60)
-			if len(b.Form.Fields) > 50 {
-				b.Form.Fields = b.Form.Fields[:50]
-			}
-			for i := range b.Form.Fields {
-				field := &b.Form.Fields[i]
-				field.Label = truncateRunes(field.Label, 200)
-				if len(field.Options) > 50 {
-					field.Options = field.Options[:50]
-				}
-				for j := range field.Options {
-					field.Options[j] = truncateRunes(field.Options[j], 200)
-				}
-			}
+		if b.Type == "layout" {
+			b.Layout = sanitizeLayout(b.Layout, 0)
+		}
+		if b.Type == "layout" {
+			b.Layout = sanitizeLayout(b.Layout, 0)
+		}
+		if b.Type == "form" {
+			b.Form = sanitizeFormData(b.Form)
 		}
 		if b.Indent < 0 {
 			b.Indent = 0

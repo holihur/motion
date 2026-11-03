@@ -8,5 +8,5 @@ export function WorkspaceIcon({ value, className, alt = "" }: { value?: string; 
   if (isImageIcon(value)) {
     return <img src={value} alt={alt} className={cn("size-full rounded-[inherit] object-cover", className)} />
   }
-  return <span className={cn("leading-none", className)}>{value || "🧭"}</span>
+  return <span className={cn("inline-flex items-center justify-center leading-none", className)}>{value || "🧭"}</span>
 }

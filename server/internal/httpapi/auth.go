@@ -2,9 +2,11 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -262,26 +264,62 @@ func withUserID(ctx context.Context, id primitive.ObjectID) context.Context {
 	return context.WithValue(ctx, userIDKey, id)
 }
 
+// sanitizeAvatar accepts a small data URL or a plain http(s) image URL. Data
+// URLs are resized client-side to keep user documents small.
+func sanitizeAvatar(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+	if len(value) > 400_000 {
+		return "", fmt.Errorf("avatar is too large")
+	}
+	if strings.HasPrefix(value, "data:image/") {
+		for _, prefix := range []string{"data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,"} {
+			if strings.HasPrefix(value, prefix) {
+				return value, nil
+			}
+		}
+		return "", fmt.Errorf("avatar must be a PNG, JPEG or WebP image")
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return "", fmt.Errorf("avatar must be an image URL or data URL")
+	}
+	return value, nil
+}
+
 func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name *string `json:"name"`
+		Name   *string `json:"name"`
+		Avatar *string `json:"avatar"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.Name == nil {
+	if req.Name == nil && req.Avatar == nil {
 		writeErr(w, http.StatusBadRequest, "nothing to update")
 		return
 	}
-	name := strings.TrimSpace(*req.Name)
-	if name == "" || len([]rune(name)) > 80 {
-		writeErr(w, http.StatusBadRequest, "name must be between 1 and 80 characters")
-		return
+	updates := bson.M{"updatedAt": time.Now().UTC()}
+	if req.Name != nil {
+		name := strings.TrimSpace(*req.Name)
+		if name == "" || len([]rune(name)) > 80 {
+			writeErr(w, http.StatusBadRequest, "name must be between 1 and 80 characters")
+			return
+		}
+		updates["name"] = name
 	}
-	if _, err := s.store.Users.UpdateByID(r.Context(), currentUserID(r), bson.M{"$set": bson.M{
-		"name": name, "updatedAt": time.Now().UTC(),
-	}}); err != nil {
+	if req.Avatar != nil {
+		avatar, err := sanitizeAvatar(*req.Avatar)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		updates["avatar"] = avatar
+	}
+	if _, err := s.store.Users.UpdateByID(r.Context(), currentUserID(r), bson.M{"$set": updates}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not update profile")
 		return
 	}

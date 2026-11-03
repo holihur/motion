@@ -232,6 +232,8 @@ func (s *Server) Router() http.Handler {
 			r.Get("/ai/settings", s.getAISettings)
 			r.Put("/ai/settings", s.saveAISettings)
 			r.Delete("/ai/settings", s.deleteAISettings)
+			r.Post("/ai/active", s.activateAIProvider)
+			r.Delete("/ai/providers/{provider}", s.deleteAIProvider)
 			r.With(s.requireScope("ai:use"), s.requireScope("pages:read")).Get("/ai/status", s.aiStatus)
 			r.Post("/ai/test", s.testAISettings)
 			r.With(s.requireScope("ai:use"), s.requireScope("pages:read")).Post("/ai/chat", s.aiChat)

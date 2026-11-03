@@ -51,8 +51,11 @@ func (s *Server) exportPage(w http.ResponseWriter, r *http.Request) {
 	case "docx", "word":
 		data, err = export.DOCX(page, diagrams)
 		contentType, extension = "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx"
+	case "json":
+		data, err = export.BlocksJSON(page)
+		contentType, extension = "application/json; charset=utf-8", ".blocks.json"
 	default:
-		writeErr(w, http.StatusBadRequest, "format must be html, pdf or docx")
+		writeErr(w, http.StatusBadRequest, "format must be html, pdf, docx or json")
 		return
 	}
 	if err != nil {

@@ -20,7 +20,7 @@ test("toggles, columns, code highlighting, page links, backlinks, breadcrumbs an
   await page.getByRole("button", { name: "Add a block" }).click()
   await expect(page.locator("[data-block-input]").last()).toBeFocused()
   await page.keyboard.type("/toggle")
-  await page.getByRole("button", { name: /^Toggle Collapsible text section/ }).click()
+  await page.getByRole("option", { name: /^Toggle Collapsible text section/ }).click()
   await page.keyboard.type("Toggle title")
   await page.keyboard.press("Enter")
   await page.keyboard.type("Hidden child")
@@ -43,7 +43,7 @@ test("toggles, columns, code highlighting, page links, backlinks, breadcrumbs an
   await page.getByRole("button", { name: "Add a block" }).click()
   await expect(page.locator("[data-block-input]").last()).toBeFocused()
   await page.keyboard.type("/columns")
-  await page.getByRole("button", { name: /^Columns Place text/ }).click()
+  await page.getByRole("option", { name: /^Columns Place text/ }).click()
   const columns = page.locator("[data-block-row]").last()
   await columns.locator("textarea").nth(0).fill("Left")
   await columns.locator("textarea").nth(1).fill("Right")
@@ -55,9 +55,10 @@ test("toggles, columns, code highlighting, page links, backlinks, breadcrumbs an
   await page.getByRole("button", { name: "Add a block" }).click()
   await expect(page.locator("[data-block-input]").last()).toBeFocused()
   await page.keyboard.type("/code")
-  await page.getByRole("button", { name: /^Code Capture/ }).click()
+  await page.getByRole("option", { name: /^Code Capture/ }).click()
   const code = page.locator("[data-block-row]").last()
-  await code.getByLabel("Code language").selectOption("typescript")
+  await code.getByLabel("Code language").fill("typescript")
+  await code.getByLabel("Code language").press("Enter")
   await code.locator("textarea").fill("const answer = 42;")
   await expect(code.locator(".hljs-keyword")).toBeVisible()
 
@@ -65,7 +66,7 @@ test("toggles, columns, code highlighting, page links, backlinks, breadcrumbs an
   await page.getByRole("button", { name: "Add a block" }).click()
   await expect(page.locator("[data-block-input]").last()).toBeFocused()
   await page.keyboard.type("/page link")
-  await page.getByRole("button", { name: /^Page link Mention/ }).click()
+  await page.getByRole("option", { name: /^Page link Mention/ }).click()
   await page.getByPlaceholder("Search pages…").fill("Linked target")
   await page.getByRole("button", { name: /Linked target/ }).last().click()
   await expect(page.locator("[data-block-row]").filter({ hasText: "Linked target" })).toBeVisible()
@@ -85,7 +86,7 @@ test("toggles, columns, code highlighting, page links, backlinks, breadcrumbs an
   await page.getByRole("button", { name: "Add a block" }).click()
   await expect(page.locator("[data-block-input]").last()).toBeFocused()
   await page.keyboard.type("/breadcrumb")
-  await page.getByRole("button", { name: /^Breadcrumb Show this page/ }).click()
+  await page.getByRole("option", { name: /^Breadcrumb Show this page/ }).click()
   await expect(page.locator("[data-block-row]").getByRole("button", { name: /Breadcrumb parent/ })).toBeVisible()
 
   // Image upload through the block's file picker.
@@ -93,7 +94,7 @@ test("toggles, columns, code highlighting, page links, backlinks, breadcrumbs an
   await page.getByRole("button", { name: "Add a block" }).click()
   await expect(page.locator("[data-block-input]").last()).toBeFocused()
   await page.keyboard.type("/image")
-  await page.getByRole("button", { name: /^Image / }).click()
+  await page.getByRole("option", { name: /^Image / }).click()
   await page.locator('input[type="file"][accept="image/*"]').last().setInputFiles({
     name: "pixel.png",
     mimeType: "image/png",

@@ -78,6 +78,15 @@ func DOCX(page model.Page, diagrams ...map[string]Diagram) ([]byte, error) {
 			} else {
 				body.WriteString(docxParagraph(block.Text, 18, false, "F3F4F6", "Courier New"))
 			}
+		case "layout":
+			if block.Layout != nil {
+				for index, column := range block.Layout.Columns {
+					if index > 0 {
+						body.WriteString(docxParagraph("────────", 0, false, ""))
+					}
+					body.WriteString(docxFlatBlocks(column.Blocks))
+				}
+			}
 		case "equation":
 			body.WriteString(docxParagraph(block.Text, 18, false, "F3F4F6", "Courier New"))
 		case "pageLink", "bookmark", "video", "embed", "file":
@@ -336,4 +345,48 @@ func (m *docxMedia) drawing(asset Diagram) string {
 	}
 	blip += `</a:blip>`
 	return `<w:p><w:pPr><w:spacing w:after="160"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="` + fmt.Sprint(cx) + `" cy="` + fmt.Sprint(cy) + `"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="` + fmt.Sprint(id) + `" name="Diagram ` + fmt.Sprint(id) + `"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="diagram"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill>` + blip + `<a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="` + fmt.Sprint(cx) + `" cy="` + fmt.Sprint(cy) + `"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`
+}
+
+func docxFlatBlocks(blocks []model.Block) string {
+	var out strings.Builder
+	for _, block := range blocks {
+		switch block.Type {
+		case "heading1", "toggleHeading1":
+			out.WriteString(docxParagraph(block.Text, 30, true, ""))
+		case "heading2", "toggleHeading2":
+			out.WriteString(docxParagraph(block.Text, 24, true, ""))
+		case "heading3", "toggleHeading3":
+			out.WriteString(docxParagraph(block.Text, 20, true, ""))
+		case "bulleted":
+			out.WriteString(docxParagraph("• "+block.Text, 0, false, ""))
+		case "numbered":
+			out.WriteString(docxParagraph("1. "+block.Text, 0, false, ""))
+		case "todo":
+			mark := "☐"
+			if block.Checked {
+				mark = "☑"
+			}
+			out.WriteString(docxParagraph(mark+" "+block.Text, 0, false, ""))
+		case "code", "curl":
+			out.WriteString(docxParagraph(block.Text, 18, false, "F3F4F6", "Courier New"))
+		case "table", "gantt", "chart", "columns":
+			if block.Table != nil {
+				out.WriteString(docxTable(block))
+			}
+		case "layout":
+			if block.Layout != nil {
+				for index, column := range block.Layout.Columns {
+					if index > 0 {
+						out.WriteString(docxParagraph("────────", 0, false, ""))
+					}
+					out.WriteString(docxFlatBlocks(column.Blocks))
+				}
+			}
+		default:
+			if strings.TrimSpace(block.Text) != "" {
+				out.WriteString(docxParagraph(block.Text, 0, false, ""))
+			}
+		}
+	}
+	return out.String()
 }

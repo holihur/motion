@@ -147,3 +147,37 @@ func TestSanitizeInput(t *testing.T) {
 		t.Fatalf("empty radio groups need default options: %#v", fallback)
 	}
 }
+
+func TestSanitizeLayout(t *testing.T) {
+	layout := sanitizeLayout(&model.LayoutData{Columns: []model.LayoutColumn{
+		{Blocks: []model.Block{
+			{ID: "p1", Type: "paragraph", Text: "nested"},
+			{ID: "c1", Type: "content", Text: "not allowed"},
+			{ID: "f1", Type: "form", Form: &model.FormData{Title: strings.Repeat("x", 300), Fields: []model.FormField{{Label: "name"}}}},
+		}},
+		{Blocks: []model.Block{{ID: "p2", Type: "todo", Text: "task", Checked: true}}},
+		{Blocks: []model.Block{{ID: "p3", Type: "paragraph", Text: "third"}}},
+		{Blocks: []model.Block{{ID: "p4", Type: "paragraph", Text: "fourth"}}},
+		{Blocks: []model.Block{{ID: "p5", Type: "paragraph", Text: "dropped"}}},
+	}}, 0)
+	if len(layout.Columns) != 4 {
+		t.Fatalf("layout columns must be capped at 4: %d", len(layout.Columns))
+	}
+	if len(layout.Columns[0].Blocks) != 2 || layout.Columns[0].Blocks[0].Text != "nested" {
+		t.Fatalf("unexpected nested blocks: %#v", layout.Columns[0].Blocks)
+	}
+	if len([]rune(layout.Columns[0].Blocks[1].Form.Title)) != 200 {
+		t.Fatalf("nested form title was not truncated: %d", len([]rune(layout.Columns[0].Blocks[1].Form.Title)))
+	}
+	if len(layout.Columns[1].Blocks) != 1 || !layout.Columns[1].Blocks[0].Checked {
+		t.Fatalf("nested todo was not preserved: %#v", layout.Columns[1].Blocks)
+	}
+
+	narrow := sanitizeLayout(&model.LayoutData{Columns: []model.LayoutColumn{{}}}, 0)
+	if len(narrow.Columns) != 2 {
+		t.Fatalf("layout should be padded to two columns: %d", len(narrow.Columns))
+	}
+	if deep := sanitizeLayout(nil, 3); deep != nil {
+		t.Fatalf("layout depth must be capped: %#v", deep)
+	}
+}

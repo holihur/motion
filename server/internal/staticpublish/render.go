@@ -408,6 +408,21 @@ func renderBlock(block model.Block, files map[string]string, base string) string
 		return `<pre class="equation">` + html.EscapeString(block.Text) + `</pre>`
 	case "gantt", "chart", "columns":
 		return renderTable(block.Table, base)
+	case "layout":
+		if block.Layout == nil || len(block.Layout.Columns) == 0 {
+			return ""
+		}
+		var layout strings.Builder
+		layout.WriteString(`<div class="layout">`)
+		for _, column := range block.Layout.Columns {
+			layout.WriteString(`<div class="layout-col">`)
+			for _, child := range column.Blocks {
+				layout.WriteString(renderBlock(child, files, base))
+			}
+			layout.WriteString(`</div>`)
+		}
+		layout.WriteString(`</div>`)
+		return layout.String()
 	case "pageLink":
 		if href := pageHref(block.URL, files, base); href != "" && href != "#" {
 			return `<p><a class="page-link" href="` + html.EscapeString(href) + `">🔗 ` + inline + `</a></p>`
@@ -643,6 +658,7 @@ img{max-width:100%;height:auto;border-radius:10px}figure{margin:18px 0}figcaptio
 .breadcrumb{color:var(--muted);font-size:13px}.toggle summary{cursor:pointer;font-weight:600}
 .children{margin-top:48px;border-top:1px solid var(--border);padding-top:20px}.children h2{font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .children ul{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:8px}.children a{display:inline-block;border:1px solid var(--border);border-radius:999px;padding:6px 12px;color:inherit;text-decoration:none;font-size:14px}.children a:hover{background:var(--card)}
+.layout{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:16px 0}.layout-col{min-width:0}
 footer{margin-top:60px;color:var(--muted);font-size:12px}hr{border:0;border-top:1px solid var(--border);margin:24px 0}
 .muted{color:var(--muted)}.comments{margin-top:48px;border-top:1px solid var(--border);padding-top:20px}.comments h2{font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .comment{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:10px 0;background:var(--card)}.comment p{margin:6px 0 0}

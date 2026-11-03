@@ -217,6 +217,7 @@ export function PasswordBlock({
               value={password}
               readOnly={readOnly}
               autoComplete="new-password"
+              aria-label={tr("Password")}
               onChange={(event) => setPassword(event.target.value)}
               placeholder={tr("At least 8 characters")}
               className="h-8 w-full rounded-md border bg-background px-2.5 text-xs font-normal outline-none focus-visible:ring-2 focus-visible:ring-ring/25"

@@ -57,7 +57,7 @@ test.describe("page editor", () => {
     await page.keyboard.type("/")
     await expect(page.getByText("Turn into", { exact: true })).toBeVisible()
     await page.keyboard.type("co")
-    await page.getByRole("button", { name: /Code/ }).click()
+    await page.getByRole("option", { name: /Code/ }).click()
     const code = page.locator('textarea[data-block-input]').last()
     await expect(code).toBeVisible()
     await code.fill("const answer = 42;")

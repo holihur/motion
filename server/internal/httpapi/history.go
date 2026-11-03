@@ -20,6 +20,11 @@ func textFromBlocks(blocks []model.Block) string {
 	text := make([]string, 0, len(blocks))
 	for _, block := range blocks {
 		text = append(text, strings.ToLower(block.Text))
+		if block.Layout != nil {
+			for _, column := range block.Layout.Columns {
+				text = append(text, textFromBlocks(column.Blocks))
+			}
+		}
 	}
 	return strings.Join(text, "\n")
 }

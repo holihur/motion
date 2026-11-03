@@ -4,6 +4,7 @@ import { useAuthStore } from "@/stores/auth"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { useUIStore } from "@/stores/ui"
 import { tr } from "@/lib/i18n"
+import { preloadPageEditor } from "@/lib/route-preload"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { Sidebar } from "@/components/app/sidebar"
 import { useWorkspaceRealtime } from "@/components/app/use-workspace-realtime"
@@ -54,6 +55,14 @@ export function AppShell() {
     }, 1500)
     return () => window.clearTimeout(timer)
   }, [])
+
+  // Warm the editor route once the workspace is ready so opening the first
+  // page does not wait for its ~1.3 MB chunk.
+  useEffect(() => {
+    if (!ready) return
+    const id = window.setTimeout(() => preloadPageEditor(), 250)
+    return () => window.clearTimeout(id)
+  }, [ready])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

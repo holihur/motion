@@ -26,6 +26,10 @@ var blockTypes = map[string]bool{
 	"bulleted":       true,
 	"numbered":       true,
 	"todo":           true,
+	"checkbox":       true,
+	"radio":          true,
+	"radioGroup":     true,
+	"switch":         true,
 	"quote":          true,
 	"callout":        true,
 	"code":           true,
@@ -615,6 +619,9 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		if b.Type == "poll" {
 			b.Poll = sanitizePoll(b.Poll)
 		}
+		if b.Type == "radioGroup" {
+			b.Input = sanitizeInput(b.Input)
+		}
 		if b.Type == "form" && b.Form != nil {
 			b.Form.Title = truncateRunes(b.Form.Title, 200)
 			b.Form.Description = truncateRunes(b.Form.Description, 1000)
@@ -763,6 +770,9 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 		}
 		if b.Type == "poll" {
 			b.Poll = sanitizePoll(b.Poll)
+		}
+		if b.Type == "radioGroup" {
+			b.Input = sanitizeInput(b.Input)
 		}
 		if b.Type == "form" && b.Form != nil {
 			b.Form.Title = truncateRunes(b.Form.Title, 200)

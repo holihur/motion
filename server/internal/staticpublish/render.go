@@ -358,6 +358,32 @@ func renderBlock(block model.Block, files map[string]string, base string) string
 			check = " checked"
 		}
 		return `<div class="todo"><input type="checkbox" disabled` + check + `> <span>` + inline + `</span></div>`
+	case "checkbox", "switch":
+		check := ""
+		if block.Checked {
+			check = " checked"
+		}
+		return `<div class="todo"><input type="checkbox" disabled` + check + `> <span>` + inline + `</span></div>`
+	case "radio":
+		check := ""
+		if block.Checked {
+			check = " checked"
+		}
+		return `<div class="todo"><input type="radio" disabled` + check + `> <span>` + inline + `</span></div>`
+	case "radioGroup":
+		var group strings.Builder
+		group.WriteString(`<div class="radio-group"><div>` + inline + `</div>`)
+		if block.Input != nil {
+			for _, option := range block.Input.Options {
+				check := ""
+				if block.Input.Value == option {
+					check = " checked"
+				}
+				group.WriteString(`<label><input type="radio" disabled` + check + `> <span>` + escapeLines(option) + `</span></label>`)
+			}
+		}
+		group.WriteString(`</div>`)
+		return group.String()
 	case "quote":
 		return `<blockquote>` + inline + `</blockquote>`
 	case "callout":
@@ -584,7 +610,7 @@ func renderTable(table *model.TableData, base string) string {
 		for position, index := range indexes {
 			cell := ""
 			if index < len(row) {
-				cell = row[index]
+				cell = table.DisplayCell(rowIndex, index)
 			}
 			class := ""
 			if position == 0 {

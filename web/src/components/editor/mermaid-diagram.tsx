@@ -1,8 +1,9 @@
 import { useEffect, useId, useRef, useState } from "react"
-import { AlertTriangle, Download, Loader2, Maximize, Minimize, ZoomIn, ZoomOut } from "lucide-react"
+import { AlertTriangle, Download, Hand, Loader2, Maximize, Minimize, ZoomIn, ZoomOut } from "lucide-react"
 import { toast } from "sonner"
 import { useThemeStore } from "@/stores/theme"
 import { tr } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -227,7 +228,11 @@ export function DiagramLightbox({ source, title, open, onOpenChange }: {
   const [zoom, setZoom] = useState(100)
   const [fullscreen, setFullscreen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [hand, setHand] = useState(false)
+  const [panning, setPanning] = useState(false)
   const frameRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const panRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
 
   useEffect(() => {
     if (open) setZoom(100)
@@ -235,6 +240,32 @@ export function DiagramLightbox({ source, title, open, onOpenChange }: {
 
   function currentSVG(): SVGSVGElement | null {
     return frameRef.current?.querySelector("svg") ?? null
+  }
+
+  function startPan(event: React.PointerEvent<HTMLDivElement>) {
+    if (!hand || event.button !== 0) return
+    const element = event.currentTarget
+    panRef.current = { x: event.clientX, y: event.clientY, left: element.scrollLeft, top: element.scrollTop }
+    element.setPointerCapture(event.pointerId)
+    setPanning(true)
+    event.preventDefault()
+  }
+
+  function movePan(event: React.PointerEvent<HTMLDivElement>) {
+    const start = panRef.current
+    if (!start) return
+    const element = event.currentTarget
+    element.scrollLeft = start.left - (event.clientX - start.x)
+    element.scrollTop = start.top - (event.clientY - start.y)
+  }
+
+  function endPan(event: React.PointerEvent<HTMLDivElement>) {
+    if (!panRef.current) return
+    panRef.current = null
+    setPanning(false)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
   }
 
   async function onDownload(kind: "svg" | "png") {
@@ -283,6 +314,16 @@ export function DiagramLightbox({ source, title, open, onOpenChange }: {
               className="hidden h-1 w-24 accent-[var(--brand)] sm:block"
               aria-label={tr("Zoom")}
             />
+            <Button
+              variant={hand ? "secondary" : "ghost"}
+              size="sm"
+              className="h-7 w-7 p-0"
+              aria-pressed={hand}
+              onClick={() => setHand((value) => !value)}
+              title={tr("Hand tool")}
+            >
+              <Hand className="size-3.5" />
+            </Button>
             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setFullscreen((v) => !v)} title={fullscreen ? tr("Exit fullscreen") : tr("Fullscreen")}>
               {fullscreen ? <Minimize className="size-3.5" /> : <Maximize className="size-3.5" />}
             </Button>
@@ -295,8 +336,18 @@ export function DiagramLightbox({ source, title, open, onOpenChange }: {
             </Button>
           </div>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-auto bg-muted/20 p-4 thin-scrollbar">
-          <div ref={frameRef} style={{ width: zoom === 100 ? undefined : `${zoom}%`, minWidth: zoom > 100 ? `${zoom}%` : undefined }} className="mx-auto [&_.mermaid-frame]:border-0 [&_.mermaid-frame]:bg-transparent [&_.mermaid-frame]:p-2 [&_svg]:h-auto [&_svg]:w-full">
+        <div
+          ref={scrollRef}
+          onPointerDown={startPan}
+          onPointerMove={movePan}
+          onPointerUp={endPan}
+          onPointerCancel={endPan}
+          className={cn(
+            "min-h-0 flex-1 overflow-auto bg-muted/20 p-4 thin-scrollbar",
+            hand && (panning ? "cursor-grabbing touch-none select-none" : "cursor-grab touch-none select-none"),
+          )}
+        >
+          <div ref={frameRef} style={{ width: zoom === 100 ? undefined : `${zoom}%`, minWidth: zoom > 100 ? `${zoom}%` : undefined }} className={cn("mx-auto [&_.mermaid-frame]:border-0 [&_.mermaid-frame]:bg-transparent [&_.mermaid-frame]:p-2 [&_svg]:h-auto [&_svg]:w-full", hand && "[&_*]:pointer-events-none")}>
             <MermaidDiagram source={source} />
           </div>
         </div>

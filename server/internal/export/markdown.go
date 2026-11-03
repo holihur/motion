@@ -45,6 +45,33 @@ func Markdown(page model.Page) []byte {
 				box = "x"
 			}
 			sb.WriteString(fmt.Sprintf("%s- [%s] %s\n", indent, box, inline(text)))
+		case "checkbox", "switch":
+			numbered = 0
+			box := " "
+			if b.Checked {
+				box = "x"
+			}
+			sb.WriteString(fmt.Sprintf("%s- [%s] %s\n", indent, box, inline(text)))
+		case "radio":
+			numbered = 0
+			mark := " "
+			if b.Checked {
+				mark = "x"
+			}
+			sb.WriteString(fmt.Sprintf("%s- (%s) %s\n", indent, mark, inline(text)))
+		case "radioGroup":
+			numbered = 0
+			sb.WriteString("**" + inline(text) + "**\n")
+			if b.Input != nil {
+				for _, option := range b.Input.Options {
+					mark := " "
+					if b.Input.Value == option {
+						mark = "x"
+					}
+					sb.WriteString("- (" + mark + ") " + option + "\n")
+				}
+			}
+			sb.WriteString("\n")
 		case "quote":
 			numbered = 0
 			sb.WriteString("> " + inline(text) + "\n\n")
@@ -128,12 +155,10 @@ func renderMDTable(b model.Block) string {
 		seps[i] = "---"
 	}
 	sb.WriteString("| " + strings.Join(seps, " | ") + " |\n")
-	for _, row := range b.Table.Rows {
+	for rowIndex := range b.Table.Rows {
 		cells := make([]string, len(cols))
 		for i := range cols {
-			if i < len(row) {
-				cells[i] = strings.ReplaceAll(row[i], "|", "\\|")
-			}
+			cells[i] = strings.ReplaceAll(b.Table.DisplayCell(rowIndex, i), "|", "\\|")
 		}
 		sb.WriteString("| " + strings.Join(cells, " | ") + " |\n")
 	}

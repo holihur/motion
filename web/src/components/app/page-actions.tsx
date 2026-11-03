@@ -65,6 +65,7 @@ import { MergePagesDialog, SplitPageDialog } from "@/components/app/page-structu
 import { ImportDialog } from "@/components/app/import-dialog"
 import { PageThemeDialog } from "@/components/app/page-theme-dialog"
 import { PageLayoutDialog } from "@/components/app/page-layout-dialog"
+import { renderDiagramImages } from "@/lib/mermaid-export"
 
 interface PageActionsProps {
   page: PageSummary
@@ -83,7 +84,6 @@ function safeFilename(name: string) {
 export function PageActionsMenu({ page, align = "start", trigger, readOnly = false, onRenameRequest, onMoveUp, onMoveDown }: PageActionsProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const createPage = useWorkspaceStore((state) => state.createPage)
   const toggleFavorite = useWorkspaceStore((state) => state.toggleFavorite)
   const archivePage = useWorkspaceStore((state) => state.archivePage)
   const restorePage = useWorkspaceStore((state) => state.restorePage)
@@ -161,8 +161,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     window.dispatchEvent(
       new CustomEvent("motion:expand-page", { detail: { id: page.id } }),
     )
-    const created = await createPage(page.id)
-    navigate(`/page/${created.id}`)
+    navigate("/page/new", { state: { parentId: page.id } })
   }
 
   async function onDuplicate() {
@@ -280,7 +279,16 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
 
   async function exportFile(format: "html" | "pdf" | "docx") {
     try {
-      const blob = await api.pages.exportFile(page.id, format)
+      let diagrams: Awaited<ReturnType<typeof renderDiagramImages>> | undefined
+      if (format !== "html") {
+        try {
+          const full = await api.pages.get(page.id)
+          diagrams = await renderDiagramImages(full.blocks ?? [])
+        } catch {
+          diagrams = undefined
+        }
+      }
+      const blob = await api.pages.exportFile(page.id, format, diagrams)
       const href = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = href

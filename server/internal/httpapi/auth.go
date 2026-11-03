@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"net/http"
 	"regexp"
@@ -148,8 +149,9 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now().UTC()
-	count, countErr := s.store.Users.CountDocuments(ctx, bson.M{})
-	if countErr != nil {
+	isAdmin, err := s.shouldPromoteFirstUser(ctx)
+	if err != nil {
+		slog.Error("could not count users during signup", "error", err)
 		writeErr(w, http.StatusInternalServerError, "could not create account")
 		return
 	}
@@ -158,7 +160,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		Name:      req.Name,
 		Email:     req.Email,
 		Password:  string(hash),
-		IsAdmin:   len(s.siteSnapshot().AdminEmails) == 0 && count == 0,
+		IsAdmin:   isAdmin,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -184,6 +186,21 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	}
 	s.decorateUser(&user)
 	writeJSON(w, http.StatusCreated, authResponse{Token: token, User: user})
+}
+
+// shouldPromoteFirstUser reports whether a newly created account should become
+// the instance administrator. Configured admin emails take precedence; otherwise
+// the user count decides. The error is returned so callers can fail closed: a
+// storage hiccup must never silently grant the first account admin rights.
+func (s *Server) shouldPromoteFirstUser(ctx context.Context) (bool, error) {
+	if len(s.siteSnapshot().AdminEmails) > 0 {
+		return false, nil
+	}
+	count, err := s.store.Users.CountDocuments(ctx, bson.M{})
+	if err != nil {
+		return false, err
+	}
+	return count == 0, nil
 }
 
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {

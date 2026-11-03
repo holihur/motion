@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner"
 import { ApiError, api, getClientId } from "@/lib/api"
 import { tr } from "@/lib/i18n"
+import { takeCreatedPage } from "@/lib/created-page-cache"
 import { pageThemeStyle } from "@/lib/page-theme"
 import type { Block, Comment, Member, Page } from "@/lib/types"
 import type { HeadingItem } from "@/components/editor/rich-blocks"
@@ -359,8 +360,9 @@ export function PageEditor() {
     setError(null)
     setPage(null)
 
-    api.pages
-      .get(pageId)
+    const cached = takeCreatedPage(pageId)
+    const request = cached ? Promise.resolve(cached) : api.pages.get(pageId)
+    request
       .then(async (loaded) => {
         if (!alive) return
         if (loaded.workspaceId !== useWorkspaceStore.getState().activeId) {

@@ -97,3 +97,20 @@ test.describe("rich blocks", () => {
     expect(await page.evaluate(() => window.CSS?.highlights?.get?.("motion-comment")?.size ?? 0)).toBeGreaterThan(0)
   })
 })
+
+test("turning a text block into a table keeps hooks stable", async ({ page, request }) => {
+  test.setTimeout(60_000)
+  await signIn(page, request)
+  await page.locator("aside").getByRole("button", { name: "New page" }).first().click()
+  await expect(page).toHaveURL(/\/page\//)
+  await page.locator("[data-editor-title=true]").fill("Turn into table")
+
+  const block = page.locator("[data-block-input]").first()
+  await block.click()
+  await page.keyboard.type("hello")
+  await page.getByRole("button", { name: "Block options" }).first().click()
+  await page.getByRole("menuitem", { name: "Turn into" }).hover()
+  await page.getByRole("menuitem", { name: "Table", exact: true }).last().click()
+  await expect(page.locator("table")).toBeVisible()
+  await expect(page.locator("table input").first()).toBeVisible()
+})

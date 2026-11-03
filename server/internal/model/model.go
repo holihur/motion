@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -110,6 +111,54 @@ type TableData struct {
 	Widths        []int             `bson:"widths,omitempty" json:"widths,omitempty"`
 	Align         []string          `bson:"align,omitempty" json:"align,omitempty"`
 	Formulas      map[string]string `bson:"formulas,omitempty" json:"formulas,omitempty"`
+	ColumnTypes   []string          `bson:"columnTypes,omitempty" json:"columnTypes,omitempty"`
+	ColumnOptions [][]string        `bson:"columnOptions,omitempty" json:"columnOptions,omitempty"`
+}
+
+// TruthyTableCell reports whether a checkbox/switch cell value means "on".
+// It accepts the values produced by older clients and spreadsheet imports.
+func TruthyTableCell(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "1", "yes", "on", "done", "checked", "x", "✓", "✔", "☑":
+		return true
+	}
+	return false
+}
+
+// ColumnTypeAt returns the input type for a column, defaulting to text.
+func (t *TableData) ColumnTypeAt(index int) string {
+	if t == nil || index < 0 || index >= len(t.ColumnTypes) {
+		return "text"
+	}
+	switch t.ColumnTypes[index] {
+	case "checkbox", "switch", "select":
+		return t.ColumnTypes[index]
+	}
+	return "text"
+}
+
+// DisplayCell renders a cell for text exports (Markdown, DOCX, PDF, ADF).
+func (t *TableData) DisplayCell(row, column int) string {
+	if t == nil || row < 0 || row >= len(t.Rows) {
+		return ""
+	}
+	value := ""
+	if column >= 0 && column < len(t.Rows[row]) {
+		value = t.Rows[row][column]
+	}
+	switch t.ColumnTypeAt(column) {
+	case "checkbox":
+		if TruthyTableCell(value) {
+			return "☑"
+		}
+		return "☐"
+	case "switch":
+		if TruthyTableCell(value) {
+			return "On"
+		}
+		return "Off"
+	}
+	return value
 }
 
 type DatabaseColumn struct {
@@ -171,6 +220,11 @@ type FormData struct {
 	Fields      []FormField `bson:"fields,omitempty" json:"fields,omitempty"`
 }
 
+type InputData struct {
+	Options []string `bson:"options,omitempty" json:"options,omitempty"`
+	Value   string   `bson:"value,omitempty" json:"value,omitempty"`
+}
+
 type FormSubmission struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	PageID      primitive.ObjectID `bson:"pageId" json:"pageId"`
@@ -203,6 +257,7 @@ type Block struct {
 	Table        *TableData        `bson:"table,omitempty" json:"table,omitempty"`
 	Database     *DatabaseData     `bson:"database,omitempty" json:"database,omitempty"`
 	Form         *FormData         `bson:"form,omitempty" json:"form,omitempty"`
+	Input        *InputData        `bson:"input,omitempty" json:"input,omitempty"`
 	Map          *MapData          `bson:"map,omitempty" json:"map,omitempty"`
 	Poll         *PollData         `bson:"poll,omitempty" json:"poll,omitempty"`
 	Translations map[string]string `bson:"translations,omitempty" json:"translations,omitempty"`

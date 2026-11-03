@@ -38,6 +38,10 @@ export type BlockType =
   | "breadcrumb"
   | "columns"
   | "jsonVisual"
+  | "checkbox"
+  | "radio"
+  | "radioGroup"
+  | "switch"
 
 export type TableFilterOp = "contains" | "equals" | "notEquals" | "isEmpty" | "isNotEmpty" | "gt" | "lt" | "gte" | "lte"
 
@@ -59,6 +63,8 @@ export interface TableCellStyle {
   italic?: boolean
 }
 
+export type TableColumnType = "text" | "checkbox" | "switch" | "select"
+
 export interface TableData {
   columns: string[]
   rows: string[][]
@@ -75,6 +81,8 @@ export interface TableData {
   widths?: number[]
   align?: ("left" | "center" | "right")[]
   formulas?: Record<string, string>
+  columnTypes?: TableColumnType[]
+  columnOptions?: (string[] | null)[]
 }
 
 export type DatabaseColumnType = "text" | "select" | "status" | "person" | "date" | "number"
@@ -105,6 +113,12 @@ export interface FormField {
   type: "text" | "email" | "number" | "date" | "textarea" | "select" | "checkbox"
   required?: boolean
   options?: string[]
+}
+
+export interface InputData {
+  options?: string[]
+  /** Selected option for radio groups. */
+  value?: string
 }
 
 export interface FormData {
@@ -164,6 +178,7 @@ export interface Block {
   table?: TableData
   database?: DatabaseData
   form?: FormData
+  input?: InputData
   map?: MapData
   poll?: PollData
   translations?: Record<string, string>

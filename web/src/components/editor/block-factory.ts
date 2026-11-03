@@ -70,6 +70,7 @@ export function createBlock(type: BlockType = "paragraph"): Block {
     ...(type === "qrcode" ? { language: "280" } : {}),
     ...(type === "barcode" ? { language: "CODE128" } : {}),
     ...(type === "form" ? { form: defaultForm() } : {}),
+    ...(type === "radioGroup" ? { input: { options: ["Option 1", "Option 2"], value: "" } } : {}),
     ...(type === "poll"
       ? {
           text: "",

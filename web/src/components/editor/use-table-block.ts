@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo } from "react"
-import type { Block, TableData } from "@/lib/types"
+import type { Block, TableColumnType, TableData } from "@/lib/types"
 import { tableColumnOrder, tableFrozenColumnIndexes, tableVisibleColumnIndexes } from "@/lib/table-layout"
 import { computeTableFormulas, formulaCellKey, isFormulaInput, remapFormulas } from "@/lib/table-formula"
+import {
+  normalizeTableCell,
+  tableCellExportValue,
+  tableColumnOptions,
+  tableColumnType,
+  tableOptionsOrUndefined,
+  tableTypesOrUndefined,
+} from "@/lib/table-input"
 import { tr } from "@/lib/i18n"
 import { toast } from "sonner"
 
@@ -28,20 +36,30 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
   const table = useMemo(() => computeTableFormulas(stored), [stored])
   const widths = table.columns.map((_, i) => table.widths?.[i] ?? 160)
   const aligns = table.columns.map((_, i) => table.align?.[i] ?? "left")
+  const types = table.columns.map((_, i) => tableColumnType(table, i))
+  const optionsByColumn = table.columns.map((_, i) => tableColumnOptions(table, i))
+
+  const inputFields = useCallback((nextTypes: TableColumnType[], nextOptions: (string[] | null)[]) => ({
+    columnTypes: tableTypesOrUndefined(nextTypes),
+    columnOptions: tableOptionsOrUndefined(nextOptions),
+  }), [])
 
   const updateTable = useCallback((next: TableData) => onUpdate({ table: computeTableFormulas(next) }), [onUpdate])
 
   // Persist repaired values (e.g. after a remote edit) so exports and the
   // server keep finished numbers instead of stale ones.
   useEffect(() => {
+    if (block.type !== "table") return
     if (table !== stored) onUpdate({ table })
-  }, [table, stored, onUpdate])
+  }, [block.type, table, stored, onUpdate])
 
   const setCell = useCallback((row: number, col: number, value: string) => {
-    const rows = table.rows.map((r, i) => (i === row ? table.columns.map((_, c) => (c === col ? value : (r[c] ?? ""))) : r))
+    const type = tableColumnType(table, col)
+    const nextValue = normalizeTableCell(value, type)
+    const rows = table.rows.map((r, i) => (i === row ? table.columns.map((_, c) => (c === col ? nextValue : (r[c] ?? ""))) : r))
     const formulas = { ...(table.formulas ?? {}) }
     const key = formulaCellKey(row, col)
-    if (isFormulaInput(value)) formulas[key] = value.trim()
+    if (type === "text" && isFormulaInput(nextValue)) formulas[key] = nextValue.trim()
     else delete formulas[key]
     updateTable({ ...table, rows, formulas: Object.keys(formulas).length ? formulas : undefined })
   }, [table, updateTable])
@@ -70,8 +88,9 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
       widths: [...widths, 160],
       align: [...aligns, "left"],
       columnOrder: table.columnOrder ? [...table.columnOrder, table.columns.length] : undefined,
+      ...inputFields([...types, "text"], [...optionsByColumn, null]),
     })
-  }, [table, widths, aligns, updateTable])
+  }, [table, widths, aligns, types, optionsByColumn, inputFields, updateTable])
 
   const removeColumn = useCallback((index: number) => {
     if (table.columns.length <= 1) return
@@ -87,10 +106,14 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
       columnOrder: table.columnOrder ? shift(table.columnOrder) : undefined,
       hiddenColumns: table.hiddenColumns ? shift(table.hiddenColumns) : undefined,
       frozenColumns: table.frozenColumns ? shift(table.frozenColumns) : undefined,
+      ...inputFields(
+        types.filter((_, i) => i !== index),
+        optionsByColumn.filter((_, i) => i !== index),
+      ),
       formulas: remapFormulas(table.formulas, (row, column) => (column === index ? null : { row, column: column > index ? column - 1 : column })),
       query: table.query ? { ...table.query, filters: table.query.filters.filter((filter) => filter.column !== removedName) } : undefined,
     })
-  }, [table, widths, aligns, updateTable])
+  }, [table, widths, aligns, types, optionsByColumn, inputFields, updateTable])
 
   const reorderColumn = useCallback((from: number, to: number) => {
     if (from === to) return
@@ -139,6 +162,32 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
     updateTable({ ...table, columns: table.columns.map((c, i) => (i === index ? value : c)) })
   }, [table, updateTable])
 
+  const setColumnType = useCallback((index: number, type: TableColumnType) => {
+    const previous = tableColumnType(table, index)
+    const nextTypes = table.columns.map((_, i) => (i === index ? type : tableColumnType(table, i)))
+    const nextOptions = table.columns.map((_, i) => table.columnOptions?.[i] ?? null)
+    if (previous === type) return
+    if (type === "select") {
+      const distinct = [...new Set(table.rows.map((row) => (row[index] ?? "").trim()).filter(Boolean))].slice(0, 50)
+      nextOptions[index] = previous === "text" && distinct.length > 0 ? distinct : ["Todo", "Doing", "Done"]
+    } else {
+      nextOptions[index] = null
+    }
+    const rows = table.rows.map((row) => row.map((cell, i) => {
+      if (i !== index) return cell
+      if (type === "select") return previous === "text" ? cell : ""
+      return normalizeTableCell(cell, type)
+    }))
+    updateTable({ ...table, rows, ...inputFields(nextTypes, nextOptions) })
+  }, [table, inputFields, updateTable])
+
+  const setColumnOptions = useCallback((index: number, values: string[]) => {
+    const cleaned = [...new Set(values.map((value) => value.trim()).filter(Boolean))].slice(0, 50)
+    const nextOptions = table.columns.map((_, i) => table.columnOptions?.[i] ?? null)
+    nextOptions[index] = cleaned
+    updateTable({ ...table, ...inputFields(types, nextOptions) })
+  }, [table, types, inputFields, updateTable])
+
   const setAlignment = useCallback((index: number, value: "left" | "center" | "right") => {
     updateTable({ ...table, align: aligns.map((v, i) => (i === index ? value : v)) })
   }, [table, aligns, updateTable])
@@ -183,7 +232,8 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
   const copyTable = useCallback(() => {
     const indexes = tableVisibleColumnIndexes(table)
     const columns = indexes.map((index) => table.columns[index])
-    const tsv = [columns, ...table.rows].map((r) => indexes.map((index) => r[index] ?? "").join("\t")).join("\n")
+    const cell = (row: string[], index: number) => tableCellExportValue(row[index] ?? "", tableColumnType(table, index))
+    const tsv = [[...columns], ...table.rows.map((row) => indexes.map((index) => cell(row, index)))].map((r) => r.join("\t")).join("\n")
     void navigator.clipboard.writeText(tsv).then(
       () => toast.success(tr("Table copied")),
       () => toast.error(tr("Could not copy table")),
@@ -194,7 +244,8 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
     const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
     const indexes = tableVisibleColumnIndexes(table)
     const columns = indexes.map((index) => table.columns[index])
-    const csv = "\ufeff" + [columns, ...table.rows].map((r) => indexes.map((index) => esc(r[index] ?? "")).join(",")).join("\n")
+    const cell = (row: string[], index: number) => tableCellExportValue(row[index] ?? "", tableColumnType(table, index))
+    const csv = "\ufeff" + [[...columns], ...table.rows.map((row) => indexes.map((index) => esc(cell(row, index))))].map((r) => r.join(",")).join("\n")
     downloadFile("table.csv", "text/csv;charset=utf-8", csv)
     toast.success(tr("Export ready"))
   }, [table])
@@ -202,7 +253,10 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
   const downloadJSONL = useCallback(() => {
     const indexes = tableVisibleColumnIndexes(table)
     const columns = indexes.map((index) => table.columns[index])
-    const lines = table.rows.map((row) => JSON.stringify(Object.fromEntries(columns.map((column, position) => [column, row[indexes[position]] ?? ""]))))
+    const lines = table.rows.map((row) => JSON.stringify(Object.fromEntries(columns.map((column, position) => {
+      const index = indexes[position]
+      return [column, tableCellExportValue(row[index] ?? "", tableColumnType(table, index))]
+    }))))
     downloadFile("table.jsonl", "application/x-ndjson;charset=utf-8", lines.join("\n"))
     toast.success(tr("Export ready"))
   }, [table])
@@ -211,14 +265,15 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
     const esc = (value: string) => value.replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char] ?? char))
     const indexes = tableVisibleColumnIndexes(table)
     const columns = indexes.map((index) => table.columns[index])
+    const cell = (row: string[], index: number) => tableCellExportValue(row[index] ?? "", tableColumnType(table, index))
     const header = columns.map((column) => `<Cell><Data ss:Type="String">${esc(column)}</Data></Cell>`).join("")
-    const rows = table.rows.map((row) => `<Row>${indexes.map((index) => `<Cell><Data ss:Type="String">${esc(row[index] ?? "")}</Data></Cell>`).join("")}</Row>`).join("")
+    const rows = table.rows.map((row) => `<Row>${indexes.map((index) => `<Cell><Data ss:Type="String">${esc(cell(row, index))}</Data></Cell>`).join("")}</Row>`).join("")
     const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Table"><Table><Row>${header}</Row>${rows}</Table></Worksheet></Workbook>`
     downloadFile("table.xls", "application/vnd.ms-excel;charset=utf-8", xml)
     toast.success(tr("Export ready"))
   }, [table])
 
   return {
-    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, sortRows, copyTable, downloadCSV, downloadJSONL, downloadExcel,
+    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setColumnType, setColumnOptions, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, sortRows, copyTable, downloadCSV, downloadJSONL, downloadExcel,
   }
 }

@@ -97,7 +97,7 @@ export function PasswordBlock({
       setMode("unlocked")
       toast.success(tr("Protected area encrypted"))
     } catch (err) {
-      setError(err instanceof Error ? err.message : tr("Could not encrypt this area"))
+      setError(err instanceof Error ? tr(err.message) : tr("Could not encrypt this area"))
     } finally {
       setBusy(false)
     }

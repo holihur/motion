@@ -977,6 +977,24 @@ func tableEqual(a, b *model.TableData) bool {
 			}
 		}
 	}
+	if len(a.ColumnTypes) != len(b.ColumnTypes) || len(a.ColumnOptions) != len(b.ColumnOptions) {
+		return false
+	}
+	for i := range a.ColumnTypes {
+		if a.ColumnTypes[i] != b.ColumnTypes[i] {
+			return false
+		}
+	}
+	for i := range a.ColumnOptions {
+		if len(a.ColumnOptions[i]) != len(b.ColumnOptions[i]) {
+			return false
+		}
+		for j := range a.ColumnOptions[i] {
+			if a.ColumnOptions[i][j] != b.ColumnOptions[i][j] {
+				return false
+			}
+		}
+	}
 	return true
 }
 

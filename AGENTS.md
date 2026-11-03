@@ -45,6 +45,13 @@ make test         # Go 测试 + 前端类型检查
 - **交给 GitHub CI 跑**：`go vet ./...`、`go test ./...`、`go build ./...`、`pnpm build:fast`、Playwright
   （`.github/workflows/ci.yml`，`push` 到 `main` 与 `pull_request` 都会触发）
 
+## i18n
+
+- 源文案 key 使用英文；`en.json` 只是部分覆盖，命中不到时 `tr()` 直接回退到 key 本身，所以英文界面不依赖 `en.json`。
+- **只有 `zh.json` 是全量维护的翻译**。其余 8 个 locale（ar/de/es/fr/hi/ja/pt/ru）目前大多数条目是与 key 相同的英文占位，真正的多语言翻译属于单独的翻译专项，不要把它们视为已完成本地化。
+- 新增 key 必须同时补进 10 个 locale（`pnpm i18n:check` 强制二者 key 集合一致），并保留 `{placeholder}`；中文必须给出真实翻译，其他 locale 暂用英文占位。
+- `pnpm i18n:check` 同时会检查重复 key 和占位符丢失。
+
 ## 版本升级
 
 升级工具链只改 `mise.toml`，并保持与 CI 的 `jdx/mise-action` 一致：

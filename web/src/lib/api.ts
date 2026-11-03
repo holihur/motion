@@ -546,11 +546,17 @@ export const api = {
       request<{ slug: string; locked: boolean; expiresAt: string | null; views: number; comments: boolean; index: boolean }>(`/pages/${id}/publish`, { method: "GET" }),
     unpublish: (id: string, includeChildren = true) =>
       request<{ ok: boolean }>(`/pages/${id}/publish`, { method: "DELETE", body: body({ includeChildren }) }),
-    exportFile: async (id: string, format: "html" | "pdf" | "docx") => {
+    exportFile: async (id: string, format: "html" | "pdf" | "docx", diagrams?: Record<string, { svg: string; png: string; width: number; height: number }>) => {
       const headers = new Headers()
       const token = getToken()
       if (token) headers.set("Authorization", `Bearer ${token}`)
-      const response = await fetch(`/api/pages/${id}/export?format=${format}`, { headers })
+      const init: RequestInit = { headers }
+      if (diagrams && Object.keys(diagrams).length > 0) {
+        headers.set("Content-Type", "application/json")
+        init.method = "POST"
+        init.body = JSON.stringify({ diagrams })
+      }
+      const response = await fetch(`/api/pages/${id}/export?format=${format}`, init)
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null
         throw new ApiError(localizeApiError(payload?.error || `请求失败（${response.status}）`), response.status)

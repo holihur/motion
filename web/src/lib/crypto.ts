@@ -1,5 +1,3 @@
-import { tr } from "@/lib/i18n"
-
 const ITERATIONS = 210_000
 
 function toBase64(bytes: Uint8Array): string {
@@ -17,7 +15,7 @@ function fromBase64(value: string): Uint8Array {
 
 async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
   if (!globalThis.crypto?.subtle) {
-    throw new Error(tr("Password protection requires HTTPS or localhost."))
+    throw new Error("Password protection requires HTTPS or localhost.")
   }
   const material = await crypto.subtle.importKey(
     "raw",

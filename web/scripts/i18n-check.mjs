@@ -11,9 +11,38 @@ if (files.length === 0) {
 const zhKeys = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(localesDir, "zh.json"), "utf8"))))
 let hasError = false
 
+// Duplicate keys in a JSON object silently overwrite each other, so catch them
+// before JSON.parse hides the problem.
+for (const file of files) {
+  const raw = fs.readFileSync(path.join(localesDir, file), "utf8")
+  const seen = new Set()
+  for (const match of raw.matchAll(/^\s*"((?:\\.|[^"\\])*)"\s*:/gm)) {
+    if (seen.has(match[1])) {
+      console.error(`[${file}] duplicate key: ${match[1]}`)
+      hasError = true
+    }
+    seen.add(match[1])
+  }
+}
+
+// Placeholders such as {version} must survive translation; a missing or renamed
+// one renders the raw template to users.
+const placeholders = (value) => [...value.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort().join(",")
+const dicts = Object.fromEntries(
+  files.map((file) => [file, JSON.parse(fs.readFileSync(path.join(localesDir, file), "utf8"))]),
+)
+for (const [file, dict] of Object.entries(dicts)) {
+  for (const [key, value] of Object.entries(dict)) {
+    if (placeholders(key) !== placeholders(String(value))) {
+      console.error(`[${file}] placeholder mismatch: ${key} -> ${value}`)
+      hasError = true
+    }
+  }
+}
+
 for (const file of files) {
   if (file === "en.json") continue
-  const dict = JSON.parse(fs.readFileSync(path.join(localesDir, file), "utf8"))
+  const dict = dicts[file]
   const keys = new Set(Object.keys(dict))
   for (const key of zhKeys) {
     if (!keys.has(key)) {

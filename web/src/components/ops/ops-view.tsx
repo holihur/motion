@@ -197,7 +197,7 @@ export function OpsView() {
       setSecret("")
       setClearSecret(false)
       setJustSaved(true)
-      toast.success( tr("Ops settings saved"))
+      toast.success(tr("Ops settings saved"))
       window.setTimeout(() => setJustSaved(false), 2500)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : tr("Could not save settings"))
@@ -213,7 +213,7 @@ export function OpsView() {
       if (!token) return
       const result = await api.ops.applyUpdate(token)
       toast.success(tr("Updated to {version}", { version: result.version }), {
-        description: result.restarting ? "Motion is restarting now." : "Restart Motion to finish.",
+        description: result.restarting ? tr("Motion is restarting now.") : tr("Restart Motion to finish."),
         duration: 8000,
       })
     } catch (err) {
@@ -229,9 +229,9 @@ export function OpsView() {
       if (!token) return
       const result = await api.ops.checkUpdate(token)
       setUpdateCheck(result)
-      if (!result.latest) toast( tr("No update information available yet"))
+      if (!result.latest) toast(tr("No update information available yet"))
       else if (result.available) toast(tr("Update available: {version}", { version: result.latest }))
-      else toast.success( tr("Motion is up to date"))
+      else toast.success(tr("Motion is up to date"))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : tr("Could not check for updates"))
     } finally {
@@ -247,7 +247,7 @@ export function OpsView() {
     .filter((item) => !emailPattern.test(item))
   const issuerError = settings?.oidc.enabled
     ? !/^https?:\/\//i.test(settings.oidc.issuer.trim())
-      ? "Enter the OIDC issuer URL, starting with https://."
+      ? tr("Enter the OIDC issuer URL, starting with https://.")
       : ""
     : ""
   const canSave = Boolean(settings) && !issuerError && invalidAdminEmails.length === 0
@@ -267,7 +267,7 @@ export function OpsView() {
             {tr("Back to workspace")}
           </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={lock}>
-            <LockKeyhole className="size-3.5" /> Lock Ops
+            <LockKeyhole className="size-3.5" /> {tr("Lock Ops")}
           </Button>
           <div className="flex items-center gap-2">
           {justSaved && <span className="flex items-center gap-1 text-xs font-medium text-emerald-600"><CheckCircle2 className="size-3.5" /> {tr("Saved")}</span>}
@@ -290,7 +290,7 @@ export function OpsView() {
                 </span>
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Configure this Motion instance without touching the command line. Saved values override environment defaults.
+                {tr("Configure this Motion instance without touching the command line. Saved values override environment defaults.")}
               </p>
             </div>
             {(updateCheck || checking) && (
@@ -298,9 +298,9 @@ export function OpsView() {
                 {checking ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
                 {updateCheck?.latest
                   ? updateCheck.available
-                    ? `Update available: ${updateCheck.latest}`
-                    : "Up to date"
-                  : "Checking…"}
+                    ? tr("Update available: {version}", { version: updateCheck.latest })
+                    : tr("Up to date")
+                  : tr("Checking…")}
               </div>
             )}
           </div>
@@ -345,7 +345,7 @@ export function OpsView() {
                       <option value="gemini-3.1-flash-lite" />
                     </datalist>
                     <p className="text-[10px] text-muted-foreground">
-                      Used only for the native Gemini provider. Users can override model IDs in Settings → AI.
+                      {tr("Used only for the native Gemini provider. Users can override model IDs in Settings → AI.")}
                     </p>
                   </div>
                 </div>
@@ -360,7 +360,7 @@ export function OpsView() {
                       value={settings.trashRetentionDays}
                       onChange={(event) => patch({ trashRetentionDays: Math.max(0, Number(event.target.value) || 0) })}
                     />
-                    <p className="text-[10px] text-muted-foreground">0 keeps archived pages forever. Older leaf pages are permanently removed every six hours.</p>
+                    <p className="text-[10px] text-muted-foreground">{tr("0 keeps archived pages forever. Older leaf pages are permanently removed every six hours.")}</p>
                   </div>
                   <ToggleRow
                     title={tr("Allow new sign-ups")}
@@ -370,7 +370,7 @@ export function OpsView() {
                   />
                   <ToggleRow
                     title={tr("Enable MCP endpoint")}
-                    description="Expose /mcp to personal access tokens with scoped permissions."
+                    description={tr("Expose /mcp to personal access tokens with scoped permissions.")}
                     checked={settings.mcpEnabled}
                     onChange={(checked) => patch({ mcpEnabled: checked })}
                   />
@@ -386,10 +386,10 @@ export function OpsView() {
                     className={invalidAdminEmails.length > 0 ? "border-destructive focus-visible:ring-destructive/30" : undefined}
                   />
                   {invalidAdminEmails.length > 0 ? (
-                    <p className="text-[11px] text-destructive">Check: {invalidAdminEmails.join(", ")}</p>
+                    <p className="text-[11px] text-destructive">{tr("Check: {emails}", { emails: invalidAdminEmails.join(", ") })}</p>
                   ) : (
                     <p className="text-[11px] text-muted-foreground">
-                      Comma separated. Your own email must remain in this list to avoid lockout.
+                      {tr("Comma separated. Your own email must remain in this list to avoid lockout.")}
                     </p>
                   )}
                 </div>
@@ -399,7 +399,7 @@ export function OpsView() {
                 <SectionTitle
                   icon={Globe2}
                   title={tr("Map providers")}
-                  description="Client keys for map blocks. Mapbox is the default; Google, Amap and Baidu fall back to their keyless embeds when a key is empty."
+                  description={tr("Client keys for map blocks. Mapbox is the default; Google, Amap and Baidu fall back to their keyless embeds when a key is empty.")}
                 />
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <Field label={tr("Mapbox access token")} htmlFor="ops-mapbox-token">
@@ -421,7 +421,7 @@ export function OpsView() {
                 <SectionTitle
                   icon={ShieldCheck}
                   title={tr("Single sign-on (OIDC)")}
-                  description="Connect any OpenID Connect provider. Leave disabled to use email and password only."
+                  description={tr("Connect any OpenID Connect provider. Leave disabled to use email and password only.")}
                 />
                 <div className="mt-4">
                   <ToggleRow
@@ -432,7 +432,7 @@ export function OpsView() {
                   />
                 </div>
                 <div className="mt-4">
-                  <Field label={tr("Provider preset")} htmlFor="ops-oidc-preset" hint="Fills the issuer and scopes. Replace the tenant placeholders.">
+                  <Field label={tr("Provider preset")} htmlFor="ops-oidc-preset" hint={tr("Fills the issuer and scopes. Replace the tenant placeholders.")}>
                     <select
                       id="ops-oidc-preset"
                       defaultValue=""
@@ -474,7 +474,7 @@ export function OpsView() {
                         setSecret(event.target.value)
                         if (event.target.value) setClearSecret(false)
                       }}
-                      placeholder={settings.oidc.hasClientSecret ? "•••••••• saved" : "Client secret"}
+                      placeholder={settings.oidc.hasClientSecret ? tr("•••••••• saved") : tr("Client secret")}
                     />
                     {settings.oidc.hasClientSecret && (
                       <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -495,7 +495,7 @@ export function OpsView() {
                       placeholder={tr("Continue with Google")}
                     />
                   </Field>
-                  <Field label={tr("Callback URL")} htmlFor="ops-oidc-redirect" hint="Leave empty to derive it from the request host.">
+                  <Field label={tr("Callback URL")} htmlFor="ops-oidc-redirect" hint={tr("Leave empty to derive it from the request host.")}>
                     <Input
                       id="ops-oidc-redirect"
                       value={settings.oidc.redirectUrl}
@@ -507,8 +507,8 @@ export function OpsView() {
                       onClick={() => {
                         const url = settings.oidc.redirectUrl || `${window.location.origin}/api/auth/oidc/callback`
                         void navigator.clipboard.writeText(url).then(
-                          () => toast.success( tr("Callback URL copied")),
-                          () => toast.error( tr("Could not copy callback URL")),
+                          () => toast.success(tr("Callback URL copied")),
+                          () => toast.error(tr("Could not copy callback URL")),
                         )
                       }}
                       className="text-left text-[11px] font-medium text-brand hover:underline"
@@ -516,10 +516,10 @@ export function OpsView() {
                       {tr("Copy callback URL")}
                     </button>
                   </Field>
-                  <Field label={tr("Scopes")} htmlFor="ops-oidc-scopes" hint="Comma separated.">
+                  <Field label={tr("Scopes")} htmlFor="ops-oidc-scopes" hint={tr("Comma separated.")}>
                     <Input id="ops-oidc-scopes" value={scopes} onChange={(event) => setScopes(event.target.value)} />
                   </Field>
-                  <Field label={tr("Allowed email domains")} htmlFor="ops-oidc-domains" hint="Optional. Comma separated.">
+                  <Field label={tr("Allowed email domains")} htmlFor="ops-oidc-domains" hint={tr("Optional. Comma separated.")}>
                     <Input id="ops-oidc-domains" value={domains} onChange={(event) => setDomains(event.target.value)} />
                   </Field>
                 </div>
@@ -537,7 +537,7 @@ export function OpsView() {
                 <SectionTitle
                   icon={RefreshCw}
                   title={tr("Updates")}
-                  description="Check for new releases from GitHub. Auto-update can restart the service when supervised."
+                  description={tr("Check for new releases from GitHub. Auto-update can restart the service when supervised.")}
                 />
                 <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_150px_140px]">
                   <Field label={tr("Release repository")} htmlFor="ops-update-repo">
@@ -585,7 +585,7 @@ export function OpsView() {
                   {updateCheck?.available && (
                     <Button size="sm" onClick={() => void installUpdate()} disabled={applying}>
                       {applying ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
-                      Install {updateCheck.latest}
+                      {tr("Install {version}", { version: updateCheck.latest ?? "" })}
                     </Button>
                   )}
                   <span className="text-[11px] text-muted-foreground">
@@ -593,9 +593,9 @@ export function OpsView() {
                       ? updateCheck.error
                       : updateCheck?.latest
                         ? updateCheck.available
-                          ? `Latest release: ${updateCheck.latest}`
-                          : `Latest release ${updateCheck.latest} is already installed.`
-                        : "Auto-update requires a supervisor that restarts Motion after it exits."}
+                          ? tr("Latest release: {version}", { version: updateCheck.latest })
+                          : tr("Latest release {version} is already installed.", { version: updateCheck.latest })
+                        : tr("Auto-update requires a supervisor that restarts Motion after it exits.")}
                   </span>
                 </div>
               </section>
@@ -605,20 +605,20 @@ export function OpsView() {
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {stats &&
                     [
-                      ["Users", stats.users],
-                      ["Workspaces", stats.workspaces],
-                      ["Pages", stats.pages],
-                      ["Archived", stats.archived],
-                      ["Comments", stats.comments],
-                      ["Versions", stats.revisions],
-                      ["Access tokens", stats.tokens],
-                      ["AI keys", stats.aiConfigured],
-                      ["Live collaborators", stats.realtimeClients],
-                      ["Live pages", stats.realtimePages],
-                      ["Failed webhooks", stats.webhookFailed],
-                      ["AI runs today", stats.agentRunsToday],
-                      ["Exports today", stats.exportsToday],
-                      ["Comments today", stats.commentsToday],
+                      [tr("Users"), stats.users],
+                      [tr("Workspaces"), stats.workspaces],
+                      [tr("Pages"), stats.pages],
+                      [tr("Archived"), stats.archived],
+                      [tr("Comments"), stats.comments],
+                      [tr("Versions"), stats.revisions],
+                      [tr("Access tokens"), stats.tokens],
+                      [tr("AI keys"), stats.aiConfigured],
+                      [tr("Live collaborators"), stats.realtimeClients],
+                      [tr("Live pages"), stats.realtimePages],
+                      [tr("Failed webhooks"), stats.webhookFailed],
+                      [tr("AI runs today"), stats.agentRunsToday],
+                      [tr("Exports today"), stats.exportsToday],
+                      [tr("Comments today"), stats.commentsToday],
                     ].map(([label, value]) => (
                       <div key={String(label)} className="rounded-xl bg-muted/40 px-3 py-2.5">
                         <div className="text-lg font-semibold tabular-nums">{value as number}</div>
@@ -672,9 +672,7 @@ function OpsGate({
           </div>
           <h1 className="mt-4 text-lg font-semibold tracking-tight">{tr("Ops console")}</h1>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Ops uses a dedicated access token, separate from your Motion account. Enter the
-            <code className="mx-1 rounded bg-muted px-1 py-0.5 text-[10px]">OPS_TOKEN</code>
-            configured on the server.
+            {tr("Ops uses a dedicated access token, separate from your Motion account. Enter the {token} configured on the server.", { token: "OPS_TOKEN" })}
           </p>
           <div className="mt-5 space-y-2">
             <Label htmlFor="ops-access-token">{tr("Ops access token")}</Label>
@@ -699,7 +697,7 @@ function OpsGate({
             </div>
           )}
           <Button type="submit" className="mt-4 w-full gap-1.5" disabled={!token.trim()}>
-            <LockKeyhole className="size-3.5" /> Unlock Ops
+            <LockKeyhole className="size-3.5" /> {tr("Unlock Ops")}
           </Button>
           <button
             type="button"

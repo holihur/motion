@@ -4,6 +4,7 @@ import {
   ChartColumn,
   ChartGantt,
   CheckSquare,
+  CircleDot,
   ClipboardList,
   Vote,
   Columns2,
@@ -19,6 +20,7 @@ import {
   Map,
   KeyRound,
   List,
+  ListChecks,
   ListCollapse,
   ListTree,
   Link2,
@@ -35,6 +37,7 @@ import {
   Network,
   QrCode,
   ScanBarcode,
+  ToggleRight,
   Type,
 } from "lucide-react"
 import type { BlockType } from "@/lib/types"
@@ -86,6 +89,10 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { type: "qrcode", title: "QR code", description: "Generate a QR code from text or a URL", icon: QrCode, keywords: "qr code url scan barcode" },
   { type: "barcode", title: "Barcode", description: "Generate a CODE128 or retail barcode", icon: ScanBarcode, keywords: "barcode code128 ean upc scan" },
   { type: "form", title: "Form", description: "Collect responses with a simple form", icon: ClipboardList, keywords: "form survey input response collect" },
+  { type: "checkbox", title: "Checkbox", description: "A single checkbox input", icon: CheckSquare, keywords: "checkbox check tick input done" },
+  { type: "radio", title: "Radio", description: "A single radio option", icon: CircleDot, keywords: "radio option single choice input" },
+  { type: "radioGroup", title: "Radio group", description: "Choose one option", icon: ListChecks, keywords: "radio group options single choice input status" },
+  { type: "switch", title: "Switch", description: "On/off toggle", icon: ToggleRight, keywords: "switch toggle on off input" },
   { type: "poll", title: "Poll", description: "Vote on options with live results", icon: Vote, keywords: "poll vote voting survey option toupiao" },
 ]
 
@@ -129,6 +136,10 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   barcode: "Barcode",
   form: "Form",
   poll: "Poll",
+  checkbox: "Checkbox",
+  radio: "Radio",
+  radioGroup: "Radio group",
+  switch: "Switch",
 }
 
 export function filterCommands(query: string) {

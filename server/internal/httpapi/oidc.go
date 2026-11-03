@@ -260,11 +260,14 @@ func (s *Server) findOrCreateOIDCUser(r *http.Request, email, name, issuer, subj
 		return model.User{}, errOIDCNoAccount
 	}
 	now := time.Now().UTC()
-	count, _ := s.store.Users.CountDocuments(r.Context(), bson.M{})
+	isAdmin, err := s.shouldPromoteFirstUser(r.Context())
+	if err != nil {
+		return model.User{}, err
+	}
 	user = model.User{
 		ID: primitive.NewObjectID(), Name: name, Email: email, Password: "!oidc",
 		OIDCIssuer: issuer, OIDCSubject: subject,
-		IsAdmin:   len(s.siteSnapshot().AdminEmails) == 0 && count == 0,
+		IsAdmin:   isAdmin,
 		CreatedAt: now, UpdatedAt: now,
 	}
 	if _, err := s.store.Users.InsertOne(r.Context(), user); err != nil {

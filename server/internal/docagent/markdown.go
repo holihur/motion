@@ -59,8 +59,12 @@ func markdownFor(page model.Page) string {
 			if block.Table != nil {
 				builder.WriteString("| " + strings.Join(block.Table.Columns, " | ") + " |\n")
 				builder.WriteString("| " + strings.Repeat("--- | ", len(block.Table.Columns)) + "\n")
-				for _, row := range block.Table.Rows {
-					builder.WriteString("| " + strings.Join(row, " | ") + " |\n")
+				for rowIndex := range block.Table.Rows {
+					cells := make([]string, len(block.Table.Columns))
+					for columnIndex := range block.Table.Columns {
+						cells[columnIndex] = block.Table.DisplayCell(rowIndex, columnIndex)
+					}
+					builder.WriteString("| " + strings.Join(cells, " | ") + " |\n")
 				}
 				builder.WriteString("\n")
 			}
@@ -85,8 +89,12 @@ func markdownFor(page model.Page) string {
 			if block.Table != nil {
 				builder.WriteString("| " + strings.Join(block.Table.Columns, " | ") + " |\n")
 				builder.WriteString("| " + strings.Repeat("--- | ", len(block.Table.Columns)) + "\n")
-				for _, row := range block.Table.Rows {
-					builder.WriteString("| " + strings.Join(row, " | ") + " |\n")
+				for rowIndex := range block.Table.Rows {
+					cells := make([]string, len(block.Table.Columns))
+					for columnIndex := range block.Table.Columns {
+						cells[columnIndex] = block.Table.DisplayCell(rowIndex, columnIndex)
+					}
+					builder.WriteString("| " + strings.Join(cells, " | ") + " |\n")
 				}
 				builder.WriteString("\n")
 			}
@@ -116,8 +124,12 @@ func markdownFor(page model.Page) string {
 			builder.WriteString(prefix + block.Text + "\n\n")
 		case "breadcrumb", "columns":
 			if block.Table != nil {
-				for _, row := range block.Table.Rows {
-					builder.WriteString(strings.Join(row, " | ") + "\n\n")
+				for rowIndex := range block.Table.Rows {
+					cells := make([]string, len(block.Table.Columns))
+					for columnIndex := range block.Table.Columns {
+						cells[columnIndex] = block.Table.DisplayCell(rowIndex, columnIndex)
+					}
+					builder.WriteString(strings.Join(cells, " | ") + "\n\n")
 				}
 			}
 		case "password":

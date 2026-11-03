@@ -190,17 +190,8 @@ export function PageTree({
     }
   }
 
-  async function createFirstPage() {
-    if (createPageRef.current) return
-    createPageRef.current = true
-    try {
-      const page = await createPage(null)
-      navigate(`/page/${page.id}`)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not create page"))
-    } finally {
-      createPageRef.current = false
-    }
+  function createFirstPage() {
+    navigate("/page/new")
   }
 
   if (roots.length === 0 && layoutPages.length === 0) {

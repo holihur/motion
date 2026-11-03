@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"html"
+	"math"
 	"strings"
 
 	"github.com/signintech/gopdf"
@@ -25,7 +26,7 @@ func HTML(page model.Page) ([]byte, error) {
 	return files["index.html"], nil
 }
 
-func PDF(page model.Page) ([]byte, error) {
+func PDF(page model.Page, diagrams ...map[string]Diagram) ([]byte, error) {
 	pdf := gopdf.GoPdf{}
 	pdf.Start(gopdf.Config{PageSize: *gopdf.PageSizeA4})
 	pdf.AddPage()
@@ -35,7 +36,7 @@ func PDF(page model.Page) ([]byte, error) {
 	if err := pdf.SetFont("noto", "", 11); err != nil {
 		return nil, err
 	}
-	r := pdfRenderer{pdf: &pdf, x: 48, y: 58, width: gopdf.PageSizeA4.W - 96, bottom: gopdf.PageSizeA4.H - 48}
+	r := pdfRenderer{pdf: &pdf, x: 48, y: 58, width: gopdf.PageSizeA4.W - 96, bottom: gopdf.PageSizeA4.H - 48, diagrams: firstDiagramMap(diagrams)}
 	r.heading(page.Title, 24)
 	for _, block := range page.Blocks {
 		r.block(block)
@@ -48,10 +49,39 @@ func PDF(page model.Page) ([]byte, error) {
 }
 
 type pdfRenderer struct {
-	pdf    *gopdf.GoPdf
-	x, y   float64
-	width  float64
-	bottom float64
+	pdf      *gopdf.GoPdf
+	x, y     float64
+	width    float64
+	bottom   float64
+	diagrams map[string]Diagram
+}
+
+// diagram embeds a browser-rendered PNG. PDF stays raster here because gopdf
+// cannot draw SVG paths; the PNG is rendered at 2x for print quality.
+func (r *pdfRenderer) diagram(block model.Block) bool {
+	asset, ok := r.diagrams[block.ID]
+	if !ok || len(asset.PNG) == 0 {
+		return false
+	}
+	holder, err := gopdf.ImageHolderByBytes(asset.PNG)
+	if err != nil {
+		return false
+	}
+	width, height := float64(asset.Width), float64(asset.Height)
+	if width <= 0 || height <= 0 {
+		width, height = 800, 600
+	}
+	scale := math.Min(r.width/width, 460/height)
+	if scale <= 0 {
+		return false
+	}
+	w, h := width*scale, height*scale
+	r.ensure(h + 16)
+	if err := r.pdf.ImageByHolder(holder, r.x+(r.width-w)/2, r.y, &gopdf.Rect{W: w, H: h}); err != nil {
+		return false
+	}
+	r.y += h + 16
+	return true
 }
 
 func (r *pdfRenderer) ensure(height float64) {
@@ -116,6 +146,29 @@ func (r *pdfRenderer) block(block model.Block) {
 			mark = "☑"
 		}
 		r.richBlock(block, mark+" ", 11, 17, 10)
+	case "checkbox", "switch":
+		mark := "☐"
+		if block.Checked {
+			mark = "☑"
+		}
+		r.richBlock(block, mark+" ", 11, 17, 10)
+	case "radio":
+		mark := "○"
+		if block.Checked {
+			mark = "◉"
+		}
+		r.richBlock(block, mark+" ", 11, 17, 10)
+	case "radioGroup":
+		r.text(block.Text, 13, 18, 8)
+		if block.Input != nil {
+			for _, option := range block.Input.Options {
+				mark := "○"
+				if block.Input.Value == option {
+					mark = "◉"
+				}
+				r.text(mark+" "+option, 10, 15, 12)
+			}
+		}
 	case "quote":
 		r.richBlock(block, "“", 10.5, 17, 16)
 	case "callout":
@@ -134,12 +187,20 @@ func (r *pdfRenderer) block(block model.Block) {
 		if block.Table != nil {
 			var rows []string
 			rows = append(rows, strings.Join(block.Table.Columns, "  |  "))
-			for _, row := range block.Table.Rows {
-				rows = append(rows, strings.Join(row, "  |  "))
+			for rowIndex := range block.Table.Rows {
+				cells := make([]string, len(block.Table.Columns))
+				for columnIndex := range block.Table.Columns {
+					cells[columnIndex] = block.Table.DisplayCell(rowIndex, columnIndex)
+				}
+				rows = append(rows, strings.Join(cells, "  |  "))
 			}
 			r.text(strings.Join(rows, "\n"), 9.5, 15, 4)
 		}
-	case "equation", "diagram":
+	case "diagram":
+		if !r.diagram(block) {
+			r.code(block.Text)
+		}
+	case "equation":
 		r.code(block.Text)
 	case "pageLink", "bookmark", "video", "embed", "file":
 		r.text(block.Text+"  "+block.URL, 10.5, 16, 6)

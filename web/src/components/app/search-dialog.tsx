@@ -34,7 +34,6 @@ export function SearchDialog() {
   const setSettingsOpen = useUIStore((state) => state.setSettingsOpen)
   const activeId = useWorkspaceStore((state) => state.activeId)
   const pages = useWorkspaceStore((state) => state.pages)
-  const createPage = useWorkspaceStore((state) => state.createPage)
   const toggleTheme = useThemeStore((state) => state.toggle)
   const navigate = useNavigate()
 
@@ -116,19 +115,9 @@ export function SearchDialog() {
     navigate(`/page/${pageId}`)
   }
 
-  const newPageRef = useRef(false)
-  async function newPage() {
-    if (newPageRef.current) return
-    newPageRef.current = true
-    try {
-      const page = await createPage(null)
-      setOpen(false)
-      navigate(`/page/${page.id}`)
-    } catch {
-      setOpen(false)
-    } finally {
-      newPageRef.current = false
-    }
+  function newPage() {
+    setOpen(false)
+    navigate("/page/new")
   }
 
   return (

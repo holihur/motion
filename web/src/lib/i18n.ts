@@ -126,7 +126,7 @@ export function tr(text: string, vars?: Record<string, string | number>) {
   let value = dictionaries[lang]?.[text] ?? text
   if (vars) {
     for (const [key, replacement] of Object.entries(vars)) {
-      value = value.replaceAll(`{${key}}`, String(replacement))
+      value = value.replaceAll(`{${key}}`, () => String(replacement))
     }
   }
   return value

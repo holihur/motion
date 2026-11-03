@@ -11,7 +11,9 @@ import (
 	"github.com/motion/server/internal/richtext"
 )
 
-func DOCX(page model.Page) ([]byte, error) {
+func DOCX(page model.Page, diagrams ...map[string]Diagram) ([]byte, error) {
+	assets := firstDiagramMap(diagrams)
+	media := newDocxMedia()
 	var body strings.Builder
 	body.WriteString(docxParagraph(page.Title, 42, true, ""))
 	links := newDocxLinks()
@@ -33,6 +35,29 @@ func DOCX(page model.Page) ([]byte, error) {
 				mark = "☑"
 			}
 			body.WriteString(docxRichParagraph(block, mark+" ", 0, false, "", links))
+		case "checkbox", "switch":
+			mark := "☐"
+			if block.Checked {
+				mark = "☑"
+			}
+			body.WriteString(docxRichParagraph(block, mark+" ", 0, false, "", links))
+		case "radio":
+			mark := "○"
+			if block.Checked {
+				mark = "◉"
+			}
+			body.WriteString(docxRichParagraph(block, mark+" ", 0, false, "", links))
+		case "radioGroup":
+			body.WriteString(docxParagraph(block.Text, 0, true, ""))
+			if block.Input != nil {
+				for _, option := range block.Input.Options {
+					mark := "○"
+					if block.Input.Value == option {
+						mark = "◉"
+					}
+					body.WriteString(docxParagraph(mark+" "+option, 0, false, ""))
+				}
+			}
 		case "quote":
 			body.WriteString(docxRichParagraph(block, "“", 0, false, "F3F4F6", links))
 		case "callout":
@@ -47,7 +72,13 @@ func DOCX(page model.Page) ([]byte, error) {
 			if block.Table != nil {
 				body.WriteString(docxTable(block))
 			}
-		case "equation", "diagram":
+		case "diagram":
+			if asset, ok := assets[block.ID]; ok && (len(asset.PNG) > 0 || len(asset.SVG) > 0) {
+				body.WriteString(media.drawing(asset))
+			} else {
+				body.WriteString(docxParagraph(block.Text, 18, false, "F3F4F6", "Courier New"))
+			}
+		case "equation":
 			body.WriteString(docxParagraph(block.Text, 18, false, "F3F4F6", "Courier New"))
 		case "pageLink", "bookmark", "video", "embed", "file":
 			body.WriteString(docxParagraph(block.Text+"  "+block.URL, 0, false, ""))
@@ -76,14 +107,14 @@ func DOCX(page model.Page) ([]byte, error) {
 		}
 	}
 	document := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>` + body.String() + `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr></w:body></w:document>`
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main"><w:body>` + body.String() + `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr></w:body></w:document>`
 	files := map[string]string{
 		"[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>`,
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="svg" ContentType="image/svg+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>`,
 		"_rels/.rels": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`,
 		"word/document.xml":            document,
-		"word/_rels/document.xml.rels": links.rels(),
+		"word/_rels/document.xml.rels": links.rels(media),
 		"word/styles.xml": `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Noto Sans SC"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style></w:styles>`,
 	}
@@ -95,6 +126,15 @@ func DOCX(page model.Page) ([]byte, error) {
 			return nil, err
 		}
 		if _, err := writer.Write([]byte(content)); err != nil {
+			return nil, err
+		}
+	}
+	for _, entry := range media.entries {
+		writer, err := archive.Create("word/" + entry.path)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := writer.Write(entry.data); err != nil {
 			return nil, err
 		}
 	}
@@ -123,11 +163,16 @@ func (l *docxLinks) id(url string) string {
 	return id
 }
 
-func (l *docxLinks) rels() string {
+func (l *docxLinks) rels(media *docxMedia) string {
 	var b strings.Builder
 	b.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`)
 	for index, url := range l.list {
 		b.WriteString(fmt.Sprintf(`<Relationship Id="rId%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="%s" TargetMode="External"/>`, index+1, html.EscapeString(url)))
+	}
+	if media != nil {
+		for _, entry := range media.entries {
+			b.WriteString(`<Relationship Id="` + entry.relID + `" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="` + entry.path + `"/>`)
+		}
 	}
 	b.WriteString(`</Relationships>`)
 	return b.String()
@@ -228,17 +273,67 @@ func docxTable(block model.Block) string {
 		out.WriteString(`<w:tc><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="F3F4F6"/></w:tcPr>` + docxParagraph(column, 20, true, "") + `</w:tc>`)
 	}
 	out.WriteString(`</w:tr>`)
-	for _, row := range block.Table.Rows {
+	for rowIndex := range block.Table.Rows {
 		out.WriteString(`<w:tr>`)
 		for index := range block.Table.Columns {
-			value := ""
-			if index < len(row) {
-				value = row[index]
-			}
-			out.WriteString(`<w:tc>` + docxParagraph(value, 20, false, "") + `</w:tc>`)
+			out.WriteString(`<w:tc>` + docxParagraph(block.Table.DisplayCell(rowIndex, index), 20, false, "") + `</w:tc>`)
 		}
 		out.WriteString(`</w:tr>`)
 	}
 	out.WriteString(`</w:tbl>`)
 	return out.String()
+}
+
+type docxMediaEntry struct {
+	relID string
+	path  string
+	data  []byte
+}
+
+type docxMedia struct {
+	entries  []docxMediaEntry
+	nextID   int
+	drawings int
+}
+
+func newDocxMedia() *docxMedia {
+	return &docxMedia{}
+}
+
+func (m *docxMedia) add(ext string, data []byte) (relID, path string) {
+	m.nextID++
+	relID = fmt.Sprintf("img%d", m.nextID)
+	path = fmt.Sprintf("media/diagram%d.%s", m.nextID, ext)
+	m.entries = append(m.entries, docxMediaEntry{relID: relID, path: path, data: data})
+	return relID, path
+}
+
+func (m *docxMedia) drawing(asset Diagram) string {
+	var pngRel, svgRel string
+	if len(asset.PNG) > 0 {
+		pngRel, _ = m.add("png", asset.PNG)
+	}
+	if len(asset.SVG) > 0 {
+		svgRel, _ = m.add("svg", asset.SVG)
+	}
+	if pngRel == "" {
+		pngRel = svgRel
+	}
+	width, height := asset.Width, asset.Height
+	if width <= 0 || height <= 0 {
+		width, height = 800, 600
+	}
+	if width > 600 {
+		height = height * 600 / width
+		width = 600
+	}
+	cx, cy := int64(width)*9525, int64(height)*9525
+	m.drawings++
+	id := m.drawings
+	blip := `<a:blip r:embed="` + pngRel + `">`
+	if svgRel != "" && svgRel != pngRel {
+		blip += `<a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}"><asvg:svgBlip r:embed="` + svgRel + `"/></a:ext></a:extLst>`
+	}
+	blip += `</a:blip>`
+	return `<w:p><w:pPr><w:spacing w:after="160"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="` + fmt.Sprint(cx) + `" cy="` + fmt.Sprint(cy) + `"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="` + fmt.Sprint(id) + `" name="Diagram ` + fmt.Sprint(id) + `"/><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="diagram"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill>` + blip + `<a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="` + fmt.Sprint(cx) + `" cy="` + fmt.Sprint(cy) + `"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`
 }

@@ -36,6 +36,44 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 			columns[i] = "Column " + strconv.Itoa(i+1)
 		}
 	}
+	columnTypes := make([]string, len(columns))
+	columnOptions := make([][]string, len(columns))
+	hasTypes := false
+	hasOptions := false
+	for i := range columns {
+		columnType := "text"
+		if i < len(table.ColumnTypes) {
+			switch table.ColumnTypes[i] {
+			case "checkbox", "switch", "select":
+				columnType = table.ColumnTypes[i]
+			}
+		}
+		columnTypes[i] = columnType
+		if columnType != "text" {
+			hasTypes = true
+		}
+		if columnType == "select" {
+			seen := map[string]bool{}
+			options := make([]string, 0, 4)
+			if i < len(table.ColumnOptions) {
+				for _, option := range table.ColumnOptions[i] {
+					option = truncateRunes(strings.TrimSpace(clean(option)), 100)
+					if option == "" || seen[option] {
+						continue
+					}
+					seen[option] = true
+					options = append(options, option)
+					if len(options) >= 50 {
+						break
+					}
+				}
+			}
+			columnOptions[i] = options
+			if len(options) > 0 {
+				hasOptions = true
+			}
+		}
+	}
 	rows := table.Rows
 	if len(rows) > 200 {
 		rows = rows[:200]
@@ -45,10 +83,24 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 		out := make([]string, len(columns))
 		for j := range columns {
 			if j < len(row) {
-				out[j] = clean(row[j])
+				value := clean(row[j])
+				if columnTypes[j] == "checkbox" || columnTypes[j] == "switch" {
+					if model.TruthyTableCell(value) {
+						value = "true"
+					} else {
+						value = ""
+					}
+				}
+				out[j] = value
 			}
 		}
 		cleaned[i] = out
+	}
+	if !hasTypes {
+		columnTypes = nil
+	}
+	if !hasOptions {
+		columnOptions = nil
 	}
 	widths := make([]int, len(columns))
 	align := make([]string, len(columns))
@@ -75,7 +127,9 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 		FrozenColumns: sanitizeFrozenColumns(table.FrozenColumns, len(columns)),
 		StickyHeader:  table.StickyHeader,
 		Widths:        widths, Align: align,
-		Formulas: sanitizeTableFormulas(table.Formulas, len(columns), len(cleaned), clean),
+		Formulas:      sanitizeTableFormulas(table.Formulas, len(columns), len(cleaned), clean),
+		ColumnTypes:   columnTypes,
+		ColumnOptions: columnOptions,
 	}
 }
 
@@ -350,4 +404,31 @@ func sanitizeTranslations(in map[string]string) map[string]string {
 		return nil
 	}
 	return out
+}
+
+func sanitizeInput(input *model.InputData) *model.InputData {
+	if input == nil {
+		input = &model.InputData{}
+	}
+	options := make([]string, 0, len(input.Options))
+	seen := map[string]bool{}
+	for _, option := range input.Options {
+		option = truncateRunes(strings.TrimSpace(option), 200)
+		if option == "" || seen[option] {
+			continue
+		}
+		seen[option] = true
+		options = append(options, option)
+		if len(options) >= 30 {
+			break
+		}
+	}
+	if len(options) == 0 {
+		options = []string{"Option 1", "Option 2"}
+	}
+	value := truncateRunes(strings.TrimSpace(input.Value), 200)
+	if value != "" && !seen[value] {
+		value = ""
+	}
+	return &model.InputData{Options: options, Value: value}
 }

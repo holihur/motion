@@ -65,17 +65,9 @@ export function HomeView() {
     if (pages.length > 0) markOnboardingStep("page")
   }, [pages.length])
 
-  async function newPage() {
+  function newPage() {
     if (createPageRef.current) return
-    createPageRef.current = true
-    try {
-      const page = await createPage(null)
-      navigate(`/page/${page.id}`)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not create page"))
-    } finally {
-      createPageRef.current = false
-    }
+    navigate("/page/new")
   }
 
   async function useTemplate(template: PageTemplate) {

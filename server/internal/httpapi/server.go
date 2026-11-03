@@ -303,6 +303,7 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("pages:read"), middleware.Compress(5, "application/json")).Get("/pages/{pageID}", s.getPage)
 			r.With(s.requireScope("pages:read"), middleware.Compress(5, "application/json")).Get("/pages/{pageID}/backlinks", s.pageBacklinks)
 			r.With(s.requireScope("pages:read")).Get("/pages/{pageID}/export", s.exportPage)
+			r.With(s.requireScope("pages:read")).Post("/pages/{pageID}/export", s.exportPage)
 			r.With(s.requireScope("pages:read")).Post("/pages/{pageID}/form-submissions", s.submitForm)
 			r.With(s.requireScope("pages:read")).Get("/pages/{pageID}/form-submissions", s.listFormSubmissions)
 			r.With(s.requireScope("pages:write")).Patch("/pages/{pageID}", s.updatePage)

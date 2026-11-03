@@ -334,7 +334,7 @@ export function AuthPage() {
 
             <div className="mt-6 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
               <div className="flex items-center justify-center gap-2 text-[11px] font-medium">
-                <span className="rounded bg-brand px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">{tr("Tip")}</span>
+                <span className="shrink-0 whitespace-nowrap rounded bg-brand px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">{tr("Tip")}</span>
                 <span className="text-muted-foreground">{tr("Demo account: demo@motion.app · demo1234")} — {tr("Explore the demo workspace")}</span>
               </div>
               <div className="mt-1.5 hidden justify-center gap-1.5 text-[10px] text-muted-foreground/70 sm:flex">

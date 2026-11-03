@@ -98,3 +98,52 @@ func TestSanitizeTableKeepsFormulas(t *testing.T) {
 		t.Fatalf("computed value must be preserved: %#v", table.Rows)
 	}
 }
+
+func TestSanitizeTableInputColumns(t *testing.T) {
+	table := sanitizeTable(&model.TableData{
+		Columns:       []string{"Task", "Done", "Status", "Enabled", "Extra"},
+		Rows:          [][]string{{"Write", "yes", "Done", "TRUE", "x"}, {"Ship", "", "Todo", "false", "y"}},
+		Header:        true,
+		ColumnTypes:   []string{"text", "checkbox", "select", "switch", "bogus"},
+		ColumnOptions: [][]string{nil, nil, {"Done", "Todo", "Done", " "}, nil, nil},
+	})
+	if len(table.ColumnTypes) != 5 || table.ColumnTypes[0] != "text" || table.ColumnTypes[1] != "checkbox" || table.ColumnTypes[2] != "select" || table.ColumnTypes[3] != "switch" || table.ColumnTypes[4] != "text" {
+		t.Fatalf("unexpected column types: %#v", table.ColumnTypes)
+	}
+	if len(table.ColumnOptions) != 5 || len(table.ColumnOptions[2]) != 2 || table.ColumnOptions[2][0] != "Done" || table.ColumnOptions[2][1] != "Todo" {
+		t.Fatalf("unexpected column options: %#v", table.ColumnOptions)
+	}
+	if table.Rows[0][1] != "true" || table.Rows[1][1] != "" || table.Rows[0][3] != "true" || table.Rows[1][3] != "" {
+		t.Fatalf("checkbox/switch values were not normalized: %#v", table.Rows)
+	}
+	if got := table.DisplayCell(0, 1); got != "☑" {
+		t.Fatalf("unexpected checked display: %q", got)
+	}
+	if got := table.DisplayCell(1, 1); got != "☐" {
+		t.Fatalf("unexpected unchecked display: %q", got)
+	}
+	if got := table.DisplayCell(0, 3); got != "On" {
+		t.Fatalf("unexpected switch display: %q", got)
+	}
+	if got := table.DisplayCell(1, 3); got != "Off" {
+		t.Fatalf("unexpected switch display: %q", got)
+	}
+	if plain := sanitizeTable(&model.TableData{Columns: []string{"A"}, Rows: [][]string{{"x"}}, Header: true}); plain.ColumnTypes != nil || plain.ColumnOptions != nil {
+		t.Fatalf("text-only tables should omit input metadata: %#v %#v", plain.ColumnTypes, plain.ColumnOptions)
+	}
+}
+
+func TestSanitizeInput(t *testing.T) {
+	input := sanitizeInput(&model.InputData{Options: []string{" A ", "", "A", "B"}, Value: "B"})
+	if len(input.Options) != 2 || input.Options[0] != "A" || input.Options[1] != "B" || input.Value != "B" {
+		t.Fatalf("unexpected sanitized input: %#v", input)
+	}
+	cleared := sanitizeInput(&model.InputData{Options: []string{"A"}, Value: "missing"})
+	if cleared.Value != "" {
+		t.Fatalf("selection outside the options should be cleared: %#v", cleared)
+	}
+	fallback := sanitizeInput(nil)
+	if len(fallback.Options) != 2 {
+		t.Fatalf("empty radio groups need default options: %#v", fallback)
+	}
+}

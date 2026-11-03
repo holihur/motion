@@ -4,6 +4,8 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -36,6 +38,7 @@ func (s *Server) exportPage(w http.ResponseWriter, r *http.Request) {
 	page = s.applyLayout(r.Context(), page)
 	format := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("format")))
 	name := staticpublish.Slug(page.Title, page.ID)
+	diagrams := exportDiagrams(w, r, format)
 	var data []byte
 	var contentType, extension string
 	switch format {
@@ -43,10 +46,10 @@ func (s *Server) exportPage(w http.ResponseWriter, r *http.Request) {
 		data, err = export.HTML(page)
 		contentType, extension = "text/html; charset=utf-8", ".html"
 	case "pdf":
-		data, err = export.PDF(page)
+		data, err = export.PDF(page, diagrams)
 		contentType, extension = "application/pdf", ".pdf"
 	case "docx", "word":
-		data, err = export.DOCX(page)
+		data, err = export.DOCX(page, diagrams)
 		contentType, extension = "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx"
 	default:
 		writeErr(w, http.StatusBadRequest, "format must be html, pdf or docx")
@@ -64,6 +67,63 @@ func (s *Server) exportPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"; filename*=UTF-8''"+url.PathEscape(filename))
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	_, _ = w.Write(data)
+}
+
+// exportDiagrams reads browser-rendered Mermaid images from a POST body. The
+// GET export path stays unchanged and falls back to Mermaid source text.
+func exportDiagrams(w http.ResponseWriter, r *http.Request, format string) map[string]export.Diagram {
+	if r.Method != http.MethodPost || (format != "pdf" && format != "docx" && format != "word") {
+		return nil
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<20)
+	var req struct {
+		Diagrams map[string]struct {
+			SVG    string `json:"svg"`
+			PNG    string `json:"png"`
+			Width  int    `json:"width"`
+			Height int    `json:"height"`
+		} `json:"diagrams"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err != io.EOF {
+		return nil
+	}
+	out := make(map[string]export.Diagram, len(req.Diagrams))
+	for blockID, item := range req.Diagrams {
+		if len(out) >= 40 {
+			break
+		}
+		png, err := base64.StdEncoding.DecodeString(item.PNG)
+		if err != nil {
+			png = nil
+		}
+		svg, err := base64.StdEncoding.DecodeString(item.SVG)
+		if err != nil {
+			// The editor sends SVG markup as-is; API clients may send base64.
+			svg = []byte(item.SVG)
+		}
+		if len(png) > 8<<20 || len(svg) > 3<<20 {
+			continue
+		}
+		if len(png) > 0 && !bytes.HasPrefix(png, []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}) {
+			continue
+		}
+		trimmed := bytes.TrimSpace(svg)
+		if len(trimmed) > 0 && !bytes.HasPrefix(trimmed, []byte("<svg")) && !bytes.HasPrefix(trimmed, []byte("<?xml")) {
+			continue
+		}
+		if len(png) == 0 && len(trimmed) == 0 {
+			continue
+		}
+		width, height := item.Width, item.Height
+		if width < 10 || width > 4000 {
+			width = 800
+		}
+		if height < 10 || height > 4000 {
+			height = 600
+		}
+		out[blockID] = export.Diagram{SVG: trimmed, PNG: png, Width: width, Height: height}
+	}
+	return out
 }
 
 // exportJob tracks a background workspace export.

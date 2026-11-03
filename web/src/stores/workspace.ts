@@ -24,7 +24,7 @@ interface WorkspaceState {
   createWorkspace: (name: string, icon?: string) => Promise<Workspace>
   updateWorkspace: (id: string, patch: { name?: string; icon?: string }) => Promise<void>
   deleteWorkspace: (id: string) => Promise<void>
-  createPage: (parentId?: string | null) => Promise<Page>
+  createPage: (parentId?: string | null, options?: { deferRefresh?: boolean }) => Promise<Page>
   toggleFavorite: (id: string) => Promise<boolean>
   patchSummary: (id: string, patch: Partial<PageSummary>) => void
   archivePage: (id: string) => Promise<void>
@@ -153,7 +153,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
   },
 
-  createPage: async (parentId) => {
+  createPage: async (parentId, options) => {
     let activeId = get().activeId
     if (!activeId) {
       const workspace = await get().createWorkspace("My Workspace", "🧭")
@@ -165,7 +165,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       title: "",
     })
     markOnboardingStep("page")
-    await get().refreshPages(activeId)
+    if (!options?.deferRefresh) {
+      // Show the page immediately and refresh the tree in the background; the
+      // navigation must not wait for a second workspace request.
+      set({ pages: [...get().pages, page] })
+      void get().refreshPages(activeId).catch(() => {})
+    }
     return page
   },
 

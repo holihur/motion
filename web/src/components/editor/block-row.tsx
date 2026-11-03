@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { lazy, Suspense, useEffect, useRef, useState } from "react"
 import {
   AlignCenter,
   AlignLeft,
@@ -20,6 +20,7 @@ import {
   Languages,
   Link2,
   List,
+  ListFilter,
   ListOrdered,
   Maximize2,
   Minus,
@@ -37,8 +38,11 @@ import {
   Rows3,
   Sigma,
   Snowflake,
+  SquareCheckBig,
   ChevronRight,
   Table2,
+  TextCursorInput,
+  ToggleRight,
   Trash2,
   Upload,
   X,
@@ -74,21 +78,26 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Switch } from "@/components/ui/switch"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import type { RealtimePresence } from "@/lib/realtime"
 import { DiagramLightbox, MermaidDiagram } from "@/components/editor/mermaid-diagram"
 import { LexicalBlock } from "@/components/editor/lexical-block"
 import { PasswordBlock } from "@/components/editor/password-block"
-import { CodeBlock } from "@/components/editor/code-block"
 import { CurlBlock } from "@/components/editor/curl-block"
 import { TableCell } from "@/components/editor/table-cell"
+import { TableInputCell } from "@/components/editor/table-input-cell"
 import { parseTableImport } from "@/lib/table-import"
 import { columnLabel, formulaCellKey, isFormulaInput } from "@/lib/table-formula"
+import { TABLE_COLUMN_TYPES, normalizeTableCell, tableColumnOptions, tableColumnType } from "@/lib/table-input"
 import { tableColumnOrder, tableFrozenColumnIndexes, tableFrozenOffsets, tableVisibleColumnIndexes } from "@/lib/table-layout"
 import { DatabaseBlock } from "@/components/editor/database-block"
 import { JsonVisualBlock } from "@/components/editor/json-visual-block"
 import { ChartBlock, GanttBlock } from "@/components/editor/data-blocks"
-import { BarcodeBlock, QRCodeBlock } from "@/components/editor/code-image-blocks"
 import { FormBlock } from "@/components/editor/form-block"
+import { RadioGroupBlock } from "@/components/editor/input-blocks"
 import { PollBlock } from "@/components/editor/poll-block"
 import { ImageBlock } from "@/components/editor/image-block"
 import { MapBlock } from "@/components/editor/map-block"
@@ -96,7 +105,6 @@ import { BreadcrumbBlock, ColumnsBlock, PageLinkBlock } from "@/components/edito
 import {
   BookmarkBlock,
   EmbedBlock,
-  EquationBlock,
   FileBlock,
   TocBlock,
   VideoBlock,
@@ -105,6 +113,11 @@ import {
 import { tr } from "@/lib/i18n"
 import { TRANSLATE_LANGS, translateText } from "@/lib/translate"
 import { ColorGrid } from "@/components/ui/color-grid"
+
+const CodeBlock = lazy(() => import("@/components/editor/code-block").then((module) => ({ default: module.CodeBlock })))
+const EquationBlock = lazy(() => import("@/components/editor/equation-block").then((module) => ({ default: module.EquationBlock })))
+const QRCodeBlock = lazy(() => import("@/components/editor/code-image-blocks").then((module) => ({ default: module.QRCodeBlock })))
+const BarcodeBlock = lazy(() => import("@/components/editor/code-image-blocks").then((module) => ({ default: module.BarcodeBlock })))
 
 export interface BlockRowProps {
   block: Block
@@ -169,6 +182,10 @@ function tableCellStyleClasses(style?: TableCellStyle | null) {
     style.bold && "font-semibold",
     style.italic && "italic",
   )
+}
+
+function LazyBlockFallback() {
+  return <div className="my-2 h-20 animate-pulse rounded-lg border border-border/60 bg-muted/20" />
 }
 
 function TableStylePopover({ label, style, onChange, className }: {
@@ -260,6 +277,8 @@ export function BlockRow(props: BlockRowProps) {
   const locked = Boolean(block.locked)
   const tableImportRef = useRef<HTMLInputElement>(null)
   const [dragColumn, setDragColumn] = useState<number | null>(null)
+  const [statusColumn, setStatusColumn] = useState<number | null>(null)
+  const [statusDraft, setStatusDraft] = useState("")
   const readOnly = pageReadOnly || locked
   const textStyled = TEXT_STYLE_TYPES.has(block.type)
   const aligned = ALIGN_STYLE_TYPES.has(block.type)
@@ -278,6 +297,9 @@ export function BlockRow(props: BlockRowProps) {
   const [diagramZoom, setDiagramZoom] = useState(false)
   const [longFolded, setLongFolded] = useState(true)
   const [calloutFolded, setCalloutFolded] = useState(false)
+  // Call the table hook unconditionally: block types can change in place
+  // (e.g. "Turn into table"), and hooks must run in the same order every render.
+  const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setColumnType, setColumnOptions, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, sortRows, copyTable, downloadCSV, downloadJSONL, downloadExcel } = useTableBlock(block, onUpdate)
   const [tableSort, setTableSort] = useState<{ column: number; dir: "asc" | "desc" } | null>(null)
   const [activeTableCell, setActiveTableCell] = useState<{ row: number; column: number } | null>(null)
 
@@ -517,6 +539,7 @@ export function BlockRow(props: BlockRowProps) {
         return <CurlBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "code":
         return (
+          <Suspense fallback={<LazyBlockFallback />}>
           <CodeBlock
             block={block}
             index={index}
@@ -528,15 +551,15 @@ export function BlockRow(props: BlockRowProps) {
             onFocus={() => onFocusBlock?.(block.id)}
             onUpdate={onUpdate}
           />
+          </Suspense>
         )
       case "table": {
-        const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, sortRows, copyTable, downloadCSV, downloadJSONL, downloadExcel } = useTableBlock(block, onUpdate)
         const sortByColumn = (index: number, dir?: "asc" | "desc") => {
           const nextDir: "asc" | "desc" = dir ?? (tableSort?.column === index && tableSort.dir === "asc" ? "desc" : "asc")
           setTableSort({ column: index, dir: nextDir })
           sortRows(index, nextDir)
         }
-        const formulaTarget = activeTableCell && activeTableCell.row >= 0 ? activeTableCell : null
+        const formulaTarget = activeTableCell && activeTableCell.row >= 0 && tableColumnType(table, activeTableCell.column) === "text" ? activeTableCell : null
         const insertFormula = (name: string) => {
           const target = formulaTarget ?? { row: Math.max(0, table.rows.length - 1), column: activeTableCell?.column ?? 0 }
           const label = columnLabel(target.column)
@@ -680,8 +703,10 @@ export function BlockRow(props: BlockRowProps) {
             cells.forEach((value, columnOffset) => {
               const row = rowIndex + rowOffset
               const column = columnIndex + columnOffset
-              rows[row][column] = value
-              if (isFormulaInput(value)) pastedFormulas[formulaCellKey(row, column)] = value.trim()
+              const type = column < table.columns.length ? tableColumnType(table, column) : "text"
+              const normalized = normalizeTableCell(value, type)
+              rows[row][column] = normalized
+              if (type === "text" && isFormulaInput(normalized)) pastedFormulas[formulaCellKey(row, column)] = normalized.trim()
             })
           })
           if (Object.keys(pastedFormulas).length > 0) formulas = { ...(formulas ?? {}), ...pastedFormulas }
@@ -853,9 +878,11 @@ export function BlockRow(props: BlockRowProps) {
                           columnStyles: undefined,
                           rowStyles: undefined,
                           query: undefined,
+                          columnTypes: undefined,
+                          columnOptions: undefined,
                         })
                         toast.success(tr("Imported {n} row(s)", { n: imported.rows.length }))
-                      }).catch((error) => toast.error(error instanceof Error ? error.message : tr("Could not import file")))
+                      }).catch((error) => toast.error(error instanceof Error ? tr(error.message) : tr("Could not import file")))
                     }}
                   />
                   <button type="button" onClick={() => tableImportRef.current?.click()} title={tr("Import CSV, JSONL or Excel")} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"><Upload className="size-3" /> {tr("Import")}</button>
@@ -871,7 +898,9 @@ export function BlockRow(props: BlockRowProps) {
                 {table.header !== false && <thead className={cn("z-10", table.stickyHeader !== false && "sticky top-0")}>
                   <tr>
                     {table.rowNumbers && <th className={cn("border-b border-r border-border/60 bg-muted/35 px-2 text-center text-[10px] font-medium text-muted-foreground", frozenOffsets.size > 0 && "sticky left-0 z-20")}>#</th>}
-                    {columnIndexes.map((columnIndex) => (
+                    {columnIndexes.map((columnIndex) => {
+                      const type = tableColumnType(table, columnIndex)
+                      return (
                       <th
                         key={columnIndex}
                         className={cn("group/head relative border-b border-r border-border/60 bg-muted/35 p-0 text-left last:border-r-0", tableCellStyleClasses(table.columnStyles?.[columnIndex]), frozenOffsets.has(columnIndex) && "sticky z-20")}
@@ -916,6 +945,32 @@ export function BlockRow(props: BlockRowProps) {
                                 <DropdownMenuSeparator />
                                 <DropdownMenuSub>
                                   <DropdownMenuSubTrigger>
+                                    {tableColumnType(table, columnIndex) === "checkbox" ? <SquareCheckBig className="mr-2 size-3.5" /> : tableColumnType(table, columnIndex) === "switch" ? <ToggleRight className="mr-2 size-3.5" /> : tableColumnType(table, columnIndex) === "select" ? <ListFilter className="mr-2 size-3.5" /> : <TextCursorInput className="mr-2 size-3.5" />}
+                                    {tr("Column type")}
+                                  </DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent>
+                                    {TABLE_COLUMN_TYPES.map(({ value, label }) => (
+                                      <DropdownMenuItem key={value} onSelect={() => setColumnType(columnIndex, value)}>
+                                        {tableColumnType(table, columnIndex) === value ? <Check className="mr-2 size-3.5" /> : <span className="mr-2 size-3.5" />}
+                                        {tr(label)}
+                                      </DropdownMenuItem>
+                                    ))}
+                                    {tableColumnType(table, columnIndex) === "select" && (
+                                      <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onSelect={() => {
+                                          setStatusColumn(columnIndex)
+                                          setStatusDraft(tableColumnOptions(table, columnIndex).join(", "))
+                                        }}>
+                                          <ListFilter className="mr-2 size-3.5" /> {tr("Status options")}
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuSub>
+                                  <DropdownMenuSubTrigger>
                                     {aligns[columnIndex] === "center" ? <AlignCenter className="mr-2 size-3.5" /> : aligns[columnIndex] === "right" ? <AlignRight className="mr-2 size-3.5" /> : <AlignLeft className="mr-2 size-3.5" />}
                                     {tr("Align")}
                                   </DropdownMenuSubTrigger>
@@ -953,7 +1008,8 @@ export function BlockRow(props: BlockRowProps) {
                           />
                         </div>
                       </th>
-                    ))}
+                      )
+                    })}
                     <th className="w-12 border-b border-border/60 bg-muted/35" />
                   </tr>
                 </thead>}
@@ -961,22 +1017,39 @@ export function BlockRow(props: BlockRowProps) {
                   {visibleRows.map(({ row, rowIndex }, visibleIndex) => (
                     <tr key={rowIndex} className="group/row transition-colors hover:bg-brand-soft/15">
                       {table.rowNumbers && <td className={cn("border-b border-r border-border/60 text-center text-[11px] tabular-nums text-muted-foreground", frozenOffsets.size > 0 && "sticky left-0 z-10 bg-card", tableCellStyleClasses(table.rowStyles?.[rowIndex]))}>{visibleIndex + 1}</td>}
-                      {columnIndexes.map((columnIndex) => (
+                      {columnIndexes.map((columnIndex) => {
+                        const type = tableColumnType(table, columnIndex)
+                        return (
                         <td key={columnIndex} className={cn("border-b border-r border-border/60 p-0 last:border-r-0", frozenOffsets.has(columnIndex) && "sticky z-10 bg-card", tableCellStyleClasses({ ...(table.rowStyles?.[rowIndex] ?? {}), ...(table.columnStyles?.[columnIndex] ?? {}) }))} style={frozenOffsets.has(columnIndex) ? { left: frozenOffsets.get(columnIndex) } : undefined}>
-                          <TableCell
-                            id={`table-cell-${block.id}-${rowIndex}-${columnIndex}`}
-                            value={row[columnIndex] ?? ""}
-                            formula={table.formulas?.[formulaCellKey(rowIndex, columnIndex)]}
-                            readOnly={readOnly}
-                            align={aligns[columnIndex]}
-                            onChange={(value) => setCell(rowIndex, columnIndex, value)}
-                            onKeyDown={(event) => handleCellKeyDown(event, rowIndex, columnIndex)}
-                            onPaste={(event) => pasteCells(event, rowIndex, columnIndex)}
-                            onFocus={() => { setActiveTableCell({ row: rowIndex, column: columnIndex }); onFocusBlock?.(block.id) }}
-                            placeholder=" "
-                          />
+                          {type === "text" ? (
+                            <TableCell
+                              id={`table-cell-${block.id}-${rowIndex}-${columnIndex}`}
+                              value={row[columnIndex] ?? ""}
+                              formula={table.formulas?.[formulaCellKey(rowIndex, columnIndex)]}
+                              readOnly={readOnly}
+                              align={aligns[columnIndex]}
+                              onChange={(value) => setCell(rowIndex, columnIndex, value)}
+                              onKeyDown={(event) => handleCellKeyDown(event, rowIndex, columnIndex)}
+                              onPaste={(event) => pasteCells(event, rowIndex, columnIndex)}
+                              onFocus={() => { setActiveTableCell({ row: rowIndex, column: columnIndex }); onFocusBlock?.(block.id) }}
+                              placeholder=" "
+                            />
+                          ) : (
+                            <TableInputCell
+                              id={`table-input-${block.id}-${rowIndex}-${columnIndex}`}
+                              type={type}
+                              value={row[columnIndex] ?? ""}
+                              options={tableColumnOptions(table, columnIndex)}
+                              readOnly={readOnly}
+                              align={aligns[columnIndex]}
+                              label={`${table.columns[columnIndex] || tr("Column")} ${rowIndex + 1}`}
+                              onChange={(value) => setCell(rowIndex, columnIndex, value)}
+                              onFocus={() => { setActiveTableCell({ row: rowIndex, column: columnIndex }); onFocusBlock?.(block.id) }}
+                            />
+                          )}
                         </td>
-                      ))}
+                        )
+                      })}
                       <td className="border-b border-border/60 p-0 text-center">
                         {!readOnly && <TableStylePopover label={tr("Row style")} style={table.rowStyles?.[rowIndex]} onChange={(style) => setRowStyle(rowIndex, style)} className="inline-flex group-hover/row:text-muted-foreground" />}
                         {!readOnly && table.rows.length > 1 && <button
@@ -1031,6 +1104,28 @@ export function BlockRow(props: BlockRowProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>}
+            <Dialog open={statusColumn !== null} onOpenChange={(open) => { if (!open) setStatusColumn(null) }}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>{tr("Status options")}</DialogTitle>
+                </DialogHeader>
+                <p className="text-xs text-muted-foreground">{tr("Comma or newline separated.")}</p>
+                <Textarea value={statusDraft} onChange={(event) => setStatusDraft(event.target.value)} rows={5} className="font-mono text-xs" autoFocus />
+                <DialogFooter>
+                  <Button type="button" variant="ghost" onClick={() => setStatusColumn(null)}>{tr("Cancel")}</Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (statusColumn === null) return
+                      setColumnOptions(statusColumn, statusDraft.split(/[,\n]/).map((item) => item.trim()).filter(Boolean))
+                      setStatusColumn(null)
+                    }}
+                  >
+                    {tr("Save")}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         )
       }
@@ -1151,7 +1246,7 @@ export function BlockRow(props: BlockRowProps) {
       case "file":
         return <FileBlock block={block} readOnly={readOnly} autoFocus={autoFocus} workspaceId={workspaceId} onUpdate={onUpdate} />
       case "equation":
-        return <EquationBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+        return <Suspense fallback={<LazyBlockFallback />}><EquationBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} /></Suspense>
       case "toc":
         return <TocBlock block={block} headings={headings} readOnly={readOnly} onUpdate={readOnly ? undefined : onUpdate} />
       case "jsonVisual":
@@ -1169,9 +1264,43 @@ export function BlockRow(props: BlockRowProps) {
       case "columns":
         return <ColumnsBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
       case "qrcode":
-        return <QRCodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+        return <Suspense fallback={<LazyBlockFallback />}><QRCodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} /></Suspense>
       case "barcode":
-        return <BarcodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+        return <Suspense fallback={<LazyBlockFallback />}><BarcodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} /></Suspense>
+      case "checkbox":
+      case "radio":
+      case "switch": {
+        const checked = Boolean(block.checked)
+        const round = block.type === "radio"
+        return (
+          <div className="flex items-start gap-2.5">
+            {block.type === "switch" ? (
+              <span className="mt-[1px] shrink-0">
+                <Switch checked={checked} disabled={readOnly} onCheckedChange={() => onToggle()} aria-label={block.text || tr("Switch")} />
+              </span>
+            ) : (
+              <button
+                type="button"
+                role={round ? "radio" : "checkbox"}
+                aria-checked={checked}
+                aria-label={block.text || (round ? tr("Radio") : tr("Checkbox"))}
+                disabled={readOnly}
+                onClick={onToggle}
+                className={cn(
+                  "mt-[5px] flex size-[17px] shrink-0 items-center justify-center border transition-colors disabled:cursor-default",
+                  round ? "rounded-full" : "rounded-[4px]",
+                  checked ? "border-brand bg-brand text-white" : "border-muted-foreground/40 bg-background hover:border-brand/60",
+                )}
+              >
+                {checked && (round ? <span className="size-[5px] rounded-full bg-white" /> : <Check className="size-3" strokeWidth={3.2} />)}
+              </button>
+            )}
+            {renderEditable(cn("text-[15px] leading-[1.7] py-[3px]", block.type === "checkbox" && checked && "text-muted-foreground line-through"))}
+          </div>
+        )
+      }
+      case "radioGroup":
+        return <RadioGroupBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
       case "form":
         return <FormBlock block={block} pageId={pageId} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "poll":
@@ -1353,7 +1482,7 @@ export function BlockRow(props: BlockRowProps) {
           <PopoverTrigger asChild>
             <button
               type="button"
-              aria-label={tr("View {n} comments", { n: commentCount })}
+              aria-label={tr(commentCount === 1 ? "View {n} comment" : "View {n} comments", { n: commentCount })}
               className="ml-1 mt-1 flex h-5 shrink-0 items-center gap-1 rounded-full bg-brand-soft px-1.5 text-[10px] font-medium text-brand transition hover:bg-brand/15"
             >
               <MessageSquare className="size-3" />

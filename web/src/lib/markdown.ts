@@ -1,5 +1,7 @@
 import type { Block, Page } from "./types"
 import { inlineMarkdown } from "./richtext"
+import { tr } from "./i18n"
+import { tableCellExportValue, tableColumnType } from "./table-input"
 
 function blockToMarkdown(block: Block, number: number): string {
   const inline = inlineMarkdown(block.rich, block.text).trim()
@@ -16,7 +18,15 @@ function blockToMarkdown(block: Block, number: number): string {
     case "numbered":
       return `${number}. ${text}`
     case "todo":
+    case "checkbox":
+    case "switch":
       return `- [${block.checked ? "x" : " "}] ${text}`
+    case "radio":
+      return `- (${block.checked ? "x" : " "}) ${text}`
+    case "radioGroup": {
+      const options = block.input?.options ?? []
+      return [`**${text || tr("Radio group")}**`, ...options.map((option) => `- (${block.input?.value === option ? "x" : " "}) ${option}`)].join("\n")
+    }
     case "quote":
       return `> ${text.replace(/\n/g, "\n> ")}`
     case "callout":
@@ -32,7 +42,7 @@ function blockToMarkdown(block: Block, number: number): string {
       if (!table) return ""
       const header = `| ${table.columns.join(" | ")} |`
       const divider = `| ${table.columns.map(() => "---").join(" | ")} |`
-      const rows = table.rows.map((row) => `| ${table.columns.map((_, index) => row[index] ?? "").join(" | ")} |`)
+      const rows = table.rows.map((row) => `| ${table.columns.map((_, index) => tableCellExportValue(row[index] ?? "", tableColumnType(table, index))).join(" | ")} |`)
       return [header, divider, ...rows].join("\n")
     }
     case "diagram":

@@ -108,18 +108,38 @@ func blockNode(block model.Block) []any {
 			header = append(header, tableCell(column, true))
 		}
 		rows = append(rows, map[string]any{"type": "tableRow", "content": header})
-		for _, row := range block.Table.Rows {
+		for rowIndex := range block.Table.Rows {
 			cells := make([]any, 0, len(block.Table.Columns))
 			for index := range block.Table.Columns {
-				value := ""
-				if index < len(row) {
-					value = row[index]
-				}
-				cells = append(cells, tableCell(value, false))
+				cells = append(cells, tableCell(block.Table.DisplayCell(rowIndex, index), false))
 			}
 			rows = append(rows, map[string]any{"type": "tableRow", "content": cells})
 		}
 		return []any{map[string]any{"type": "table", "content": rows}}
+	case "checkbox", "switch":
+		mark := "☐"
+		if block.Checked {
+			mark = "☑"
+		}
+		return []any{paragraph(mark + " " + block.Text)}
+	case "radio":
+		mark := "○"
+		if block.Checked {
+			mark = "◉"
+		}
+		return []any{paragraph(mark + " " + block.Text)}
+	case "radioGroup":
+		items := []any{paragraph(block.Text)}
+		if block.Input != nil {
+			for _, option := range block.Input.Options {
+				mark := "○"
+				if block.Input.Value == option {
+					mark = "◉"
+				}
+				items = append(items, paragraph(mark+" "+option))
+			}
+		}
+		return items
 	case "diagram", "equation":
 		return []any{map[string]any{"type": "codeBlock", "attrs": map[string]any{"language": "plain"}, "content": []any{text(block.Text)}}}
 	case "pageLink":

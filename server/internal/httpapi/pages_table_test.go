@@ -195,3 +195,28 @@ func TestSanitizeTableKeepsFractionalWidths(t *testing.T) {
 		t.Fatalf("fractional column width was not preserved: %#v", table.Widths)
 	}
 }
+
+func TestSanitizeDatabaseRelationAndRowIDs(t *testing.T) {
+	db := sanitizeDatabase(&model.DatabaseData{
+		Columns: []model.DatabaseColumn{
+			{ID: "name", Name: "Name", Type: "text"},
+			{ID: "rel", Name: "Related", Type: "relation", Relation: &model.DatabaseRelation{PageID: "page1", DatabaseBlockID: "block1"}},
+			{ID: "total", Name: "Total", Type: "rollup", Rollup: &model.DatabaseRollup{RelationColumnID: "rel", TargetColumnID: "n", Function: "sum"}},
+			{ID: "bad", Name: "Bad", Type: "rollup", Rollup: &model.DatabaseRollup{RelationColumnID: "rel", TargetColumnID: "n", Function: "median"}},
+		},
+		Rows:   []map[string]string{{"name": "a"}, {"name": "b"}},
+		RowIDs: []string{"duplicate", "duplicate"},
+	})
+	if len(db.RowIDs) != 2 || db.RowIDs[0] == db.RowIDs[1] || db.RowIDs[0] != "duplicate" {
+		t.Fatalf("row IDs were not backfilled and deduplicated: %#v", db.RowIDs)
+	}
+	if db.Columns[1].Relation == nil || db.Columns[1].Relation.PageID != "page1" || db.Columns[1].Relation.DatabaseBlockID != "block1" {
+		t.Fatalf("relation config was not preserved: %#v", db.Columns[1].Relation)
+	}
+	if db.Columns[2].Rollup == nil || db.Columns[2].Rollup.Function != "sum" {
+		t.Fatalf("rollup config was not preserved: %#v", db.Columns[2].Rollup)
+	}
+	if db.Columns[3].Rollup == nil || db.Columns[3].Rollup.Function != "count" {
+		t.Fatalf("invalid rollup function was not normalized: %#v", db.Columns[3].Rollup)
+	}
+}

@@ -163,17 +163,32 @@ func (t *TableData) DisplayCell(row, column int) string {
 	return value
 }
 
+type DatabaseRelation struct {
+	PageID          string `bson:"pageId" json:"pageId"`
+	DatabaseBlockID string `bson:"databaseBlockId" json:"databaseBlockId"`
+	Multiple        bool   `bson:"multiple,omitempty" json:"multiple,omitempty"`
+}
+
+type DatabaseRollup struct {
+	RelationColumnID string `bson:"relationColumnId" json:"relationColumnId"`
+	TargetColumnID   string `bson:"targetColumnId" json:"targetColumnId"`
+	Function         string `bson:"function" json:"function"`
+}
+
 type DatabaseColumn struct {
-	ID      string   `bson:"id" json:"id"`
-	Name    string   `bson:"name" json:"name"`
-	Type    string   `bson:"type" json:"type"` // text, select, status, person, date, number
-	Options []string `bson:"options,omitempty" json:"options,omitempty"`
-	Width   int      `bson:"width,omitempty" json:"width,omitempty"`
+	ID       string            `bson:"id" json:"id"`
+	Name     string            `bson:"name" json:"name"`
+	Type     string            `bson:"type" json:"type"` // text, select, status, person, date, number, relation, rollup
+	Options  []string          `bson:"options,omitempty" json:"options,omitempty"`
+	Width    int               `bson:"width,omitempty" json:"width,omitempty"`
+	Relation *DatabaseRelation `bson:"relation,omitempty" json:"relation,omitempty"`
+	Rollup   *DatabaseRollup   `bson:"rollup,omitempty" json:"rollup,omitempty"`
 }
 
 type DatabaseData struct {
 	Columns  []DatabaseColumn    `bson:"columns" json:"columns"`
 	Rows     []map[string]string `bson:"rows" json:"rows"`
+	RowIDs   []string            `bson:"rowIds,omitempty" json:"rowIds,omitempty"`
 	ViewMode string              `bson:"viewMode,omitempty" json:"viewMode,omitempty"` // table, board
 	GroupBy  string              `bson:"groupBy,omitempty" json:"groupBy,omitempty"`
 }

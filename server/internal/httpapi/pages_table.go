@@ -323,6 +323,7 @@ func sanitizeDatabase(db *model.DatabaseData) *model.DatabaseData {
 		return &model.DatabaseData{
 			Columns:  []model.DatabaseColumn{{ID: "col1", Name: "Name", Type: "text"}, {ID: "col2", Name: "Status", Type: "status", Options: []string{"Todo", "Doing", "Done"}}, {ID: "col3", Name: "Date", Type: "date"}},
 			Rows:     []map[string]string{{}, {}},
+			RowIDs:   []string{primitive.NewObjectID().Hex(), primitive.NewObjectID().Hex()},
 			ViewMode: "table",
 		}
 	}
@@ -348,9 +349,22 @@ func sanitizeDatabase(db *model.DatabaseData) *model.DatabaseData {
 			cols[i].Name = "Column " + strconv.Itoa(i+1)
 		}
 		switch cols[i].Type {
-		case "text", "select", "status", "person", "date", "number":
+		case "text", "select", "status", "person", "date", "number", "relation", "rollup":
 		default:
 			cols[i].Type = "text"
+		}
+		if cols[i].Relation != nil {
+			cols[i].Relation.PageID = truncateRunes(strings.TrimSpace(cols[i].Relation.PageID), 40)
+			cols[i].Relation.DatabaseBlockID = truncateRunes(strings.TrimSpace(cols[i].Relation.DatabaseBlockID), 100)
+		}
+		if cols[i].Rollup != nil {
+			cols[i].Rollup.RelationColumnID = truncateRunes(strings.TrimSpace(cols[i].Rollup.RelationColumnID), 40)
+			cols[i].Rollup.TargetColumnID = truncateRunes(strings.TrimSpace(cols[i].Rollup.TargetColumnID), 40)
+			switch cols[i].Rollup.Function {
+			case "count", "sum", "avg", "min", "max", "lookup":
+			default:
+				cols[i].Rollup.Function = "count"
+			}
 		}
 		if len(cols[i].Options) > 50 {
 			cols[i].Options = cols[i].Options[:50]
@@ -375,12 +389,25 @@ func sanitizeDatabase(db *model.DatabaseData) *model.DatabaseData {
 		}
 		rows[i] = cleaned
 	}
+	rowIDs := make([]string, len(rows))
+	seenIDs := make(map[string]bool, len(rows))
+	for i := range rows {
+		id := ""
+		if i < len(db.RowIDs) {
+			id = truncateRunes(strings.TrimSpace(db.RowIDs[i]), 40)
+		}
+		if id == "" || seenIDs[id] {
+			id = primitive.NewObjectID().Hex()
+		}
+		seenIDs[id] = true
+		rowIDs[i] = id
+	}
 	mode := db.ViewMode
 	if mode != "board" {
 		mode = "table"
 	}
 	groupBy := truncateRunes(db.GroupBy, 40)
-	return &model.DatabaseData{Columns: cols, Rows: rows, ViewMode: mode, GroupBy: groupBy}
+	return &model.DatabaseData{Columns: cols, Rows: rows, RowIDs: rowIDs, ViewMode: mode, GroupBy: groupBy}
 }
 
 func sanitizeTranslations(in map[string]string) map[string]string {

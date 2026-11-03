@@ -1286,7 +1286,7 @@ export function BlockRow(props: BlockRowProps) {
       case "jsonVisual":
         return <JsonVisualBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
       case "database":
-        return <DatabaseBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
+        return <DatabaseBlock block={block} workspaceId={workspaceId} readOnly={readOnly} onUpdate={onUpdate} />
       case "gantt":
         return <GanttBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "chart":

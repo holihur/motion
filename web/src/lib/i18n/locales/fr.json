@@ -1613,5 +1613,14 @@
   "No variables yet.": "No variables yet.",
   "Variable name": "Variable name",
   "Variable value": "Variable value",
-  "Remove variable": "Remove variable"
+  "Remove variable": "Remove variable",
+  "Count": "Count",
+  "Sum": "Sum",
+  "Average": "Average",
+  "Minimum": "Minimum",
+  "Maximum": "Maximum",
+  "Lookup": "Lookup",
+  "Select database": "Select database",
+  "Relation column": "Relation column",
+  "Target field": "Target field"
 }

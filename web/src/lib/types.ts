@@ -86,7 +86,19 @@ export interface TableData {
   columnOptions?: (string[] | null)[]
 }
 
-export type DatabaseColumnType = "text" | "select" | "status" | "person" | "date" | "number"
+export type DatabaseColumnType = "text" | "select" | "status" | "person" | "date" | "number" | "relation" | "rollup"
+
+export interface DatabaseRelation {
+  pageId: string
+  databaseBlockId: string
+  multiple?: boolean
+}
+
+export interface DatabaseRollup {
+  relationColumnId: string
+  targetColumnId: string
+  function: "count" | "sum" | "avg" | "min" | "max" | "lookup"
+}
 
 export interface DatabaseColumn {
   id: string
@@ -94,11 +106,14 @@ export interface DatabaseColumn {
   type: DatabaseColumnType
   options?: string[]
   width?: number
+  relation?: DatabaseRelation
+  rollup?: DatabaseRollup
 }
 
 export interface DatabaseData {
   columns: DatabaseColumn[]
   rows: Record<string, string>[]
+  rowIds?: string[]
   viewMode?: "table" | "board"
   groupBy?: string
 }
@@ -618,4 +633,13 @@ export interface UpdateCheck {
   releaseUrl?: string
   publishedAt?: string
   error?: string
+}
+
+export interface WorkspaceDatabase {
+  pageId: string
+  pageTitle: string
+  blockId: string
+  columns: DatabaseColumn[]
+  rows: Record<string, string>[]
+  rowIds: string[]
 }

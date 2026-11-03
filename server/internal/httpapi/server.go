@@ -254,6 +254,7 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/pages", s.listPages)
 			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/trash", s.listTrash)
 			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/search", s.search)
+			r.With(s.requireScope("pages:read")).Get("/workspaces/{workspaceID}/databases", s.listWorkspaceDatabases)
 			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/integrations", s.listIntegrations)
 			r.With(s.requireScope("workspace:write")).Put("/workspaces/{workspaceID}/integrations/{provider}", s.saveIntegration)
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/integrations/{provider}/test", s.testIntegration)

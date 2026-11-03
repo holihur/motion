@@ -4,6 +4,7 @@ import type {
   AIChatResponse,
   AIProposal,
   AISettings,
+  WorkspaceDatabase,
   Agent,
   AgentRun,
   AuditLog,
@@ -223,6 +224,9 @@ export const api = {
       request<{ token: string; user: User }>("/auth/oidc/exchange", { method: "POST" }),
     updateMe: (input: { name?: string; avatar?: string }) =>
       request<User>("/me", { method: "PATCH", body: body(input) }),
+  },
+  databases: {
+    list: (workspaceId: string) => request<WorkspaceDatabase[]>(`/workspaces/${workspaceId}/databases`),
   },
   workspaces: {
     list: () => request<Workspace[]>("/workspaces"),

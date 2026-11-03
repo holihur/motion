@@ -1613,5 +1613,14 @@
   "No variables yet.": "暂无变量。",
   "Variable name": "变量名",
   "Variable value": "变量值",
-  "Remove variable": "删除变量"
+  "Remove variable": "删除变量",
+  "Count": "计数",
+  "Sum": "求和",
+  "Average": "平均值",
+  "Minimum": "最小值",
+  "Maximum": "最大值",
+  "Lookup": "查找",
+  "Select database": "选择数据库",
+  "Relation column": "关联列",
+  "Target field": "目标字段"
 }

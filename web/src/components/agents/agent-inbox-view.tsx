@@ -92,7 +92,7 @@ export function AgentInboxView() {
       setAuditTotal(nextAudit.total)
       setChecked(new Set())
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not load Agent Inbox"))
+      toast.error(error instanceof Error ? error.message : tr("Could not load Agent"))
     } finally {
       setLoading(false)
     }
@@ -239,7 +239,7 @@ export function AgentInboxView() {
           <WorkspaceIcon value={workspace?.icon} alt={workspace?.name} className="text-sm" />
           <span className="truncate font-medium text-foreground">{workspace?.name ?? "Motion"}</span>
           <span className="text-muted-foreground/60">/</span>
-          <span>{tr("Agent Inbox")}</span>
+          <span>{tr("Agent")}</span>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => void load()} disabled={loading}>
@@ -256,7 +256,7 @@ export function AgentInboxView() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-                <Inbox className="size-5 text-brand" /> {tr("Agent Inbox")}
+                <Inbox className="size-5 text-brand" /> {tr("Agent")}
               </h1>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
                 {tr("Dispatch tasks to agents, review their changes, and automate recurring work.")}
@@ -521,9 +521,11 @@ function DispatchBar({ agents, forcedAgent, onForcedAgentConsumed, onDispatched,
   }, [agentId, enabled])
 
   const workspaces = useWorkspaceStore((st) => st.workspaces)
-  const workspaceName = workspaces.find((w) => w.id === activeId)?.name ?? ""
+  const workspace = workspaces.find((w) => w.id === activeId)
+  const workspaceName = workspace?.name ?? ""
+  const variables = workspace?.variables ?? {}
   const pageTitle = pages.find((p) => p.id === pageId)?.title ?? ""
-  const preview = hasTemplateVars(prompt) ? expandTemplateVars(prompt, { pageTitle, workspaceName }) : ""
+  const preview = hasTemplateVars(prompt, variables) ? expandTemplateVars(prompt, { pageTitle, workspaceName, variables }) : ""
 
   function applyTemplate(id: string) {
     const t = templates.find((item) => item.id === id)
@@ -651,6 +653,7 @@ function TemplateDialog({ open, onOpenChange, agents, templates, onSaved }: {
   onSaved: (t: TaskTemplate[]) => void
 }) {
   const activeId = useWorkspaceStore((s) => s.activeId)
+  const workspaceVariables = useWorkspaceStore((st) => st.workspaces.find((w) => w.id === st.activeId)?.variables)
   const pages = useWorkspaceStore((s) => s.pages)
   const [items, setItems] = useState<TaskTemplate[]>([])
   const [saving, setSaving] = useState(false)
@@ -686,7 +689,7 @@ function TemplateDialog({ open, onOpenChange, agents, templates, onSaved }: {
         </DialogHeader>
         <div className="flex flex-wrap items-center gap-1 rounded-lg bg-muted/40 px-2.5 py-2 text-[11px] text-muted-foreground">
           <span>{tr("Variables, replaced on send")}:</span>
-          {TEMPLATE_VARS.map((v) => (
+          {[...TEMPLATE_VARS.map((v) => ({ key: v.key, desc: String(v.desc) })), ...Object.entries(workspaceVariables ?? {}).map(([key, value]) => ({ key: `{${key}}`, desc: value }))].map((v) => (
             <code key={v.key} title={v.desc} className="cursor-pointer rounded bg-background px-1.5 py-0.5 font-mono hover:text-foreground" onClick={() => setItems((prev) => {
               if (prev.length === 0) return [...prev, { id: `new-${Date.now()}`, name: "", prompt: v.key + " ", createdAt: new Date().toISOString() }]
               return prev.map((x, k) => (k === prev.length - 1 ? { ...x, prompt: (x.prompt ? x.prompt + " " : "") + v.key } : x))

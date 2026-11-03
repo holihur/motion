@@ -40,8 +40,40 @@ func (s *Server) listWorkspaces(w http.ResponseWriter, r *http.Request) {
 }
 
 type workspaceRequest struct {
-	Name *string `json:"name,omitempty"`
-	Icon *string `json:"icon,omitempty"`
+	Name      *string            `json:"name,omitempty"`
+	Icon      *string            `json:"icon,omitempty"`
+	Variables *map[string]string `json:"variables,omitempty"`
+}
+
+func sanitizeWorkspaceVariables(values map[string]string) map[string]string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(values))
+	for key, value := range values {
+		key = strings.TrimSpace(strings.Trim(key, "{}"))
+		if key == "" || len([]rune(key)) > 40 {
+			continue
+		}
+		valid := true
+		for _, char := range key {
+			if !(char == '_' || char == '-' || (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9')) {
+				valid = false
+				break
+			}
+		}
+		if !valid {
+			continue
+		}
+		out[key] = truncateRunes(strings.TrimSpace(value), 500)
+		if len(out) >= 50 {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func (s *Server) createWorkspace(w http.ResponseWriter, r *http.Request) {
@@ -111,6 +143,9 @@ func (s *Server) updateWorkspace(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Icon != nil {
 		updates["icon"] = strings.TrimSpace(*req.Icon)
+	}
+	if req.Variables != nil {
+		updates["variables"] = sanitizeWorkspaceVariables(*req.Variables)
 	}
 	if len(updates) == 0 {
 		writeJSON(w, http.StatusOK, ws)

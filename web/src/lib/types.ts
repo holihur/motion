@@ -250,6 +250,7 @@ export interface Workspace {
   members?: Member[]
   skills?: WorkspaceSkill[]
   mcpServers?: WorkspaceMCP[]
+  variables?: Record<string, string>
   createdAt: string
   updatedAt: string
 }

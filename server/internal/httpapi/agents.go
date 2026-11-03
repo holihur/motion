@@ -423,7 +423,7 @@ func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting mod
 	if err := s.store.Workspaces.FindOne(ctx, bson.M{"_id": agent.WorkspaceID}).Decode(&ws); err == nil {
 		workspaceName = ws.Name
 	}
-	prompt = expandTemplateVars(prompt, pageTitle, workspaceName)
+	prompt = expandTemplateVars(prompt, pageTitle, workspaceName, ws.Variables)
 	key := ""
 	if setting.KeyCipher != "" {
 		var err error
@@ -567,7 +567,7 @@ func (s *Server) listAgentRuns(w http.ResponseWriter, r *http.Request) {
 // expandTemplateVars replaces {date} {time} {datetime} {weekday} {page}
 // {workspace} in task prompts. Stored prompts keep the raw variables so
 // retries and schedules re-expand at execution time.
-func expandTemplateVars(prompt, pageTitle, workspaceName string) string {
+func expandTemplateVars(prompt, pageTitle, workspaceName string, variables map[string]string) string {
 	now := time.Now()
 	weekdays := []string{"周日", "周一", "周二", "周三", "周四", "周五", "周六"}
 	r := strings.NewReplacer(
@@ -578,7 +578,16 @@ func expandTemplateVars(prompt, pageTitle, workspaceName string) string {
 		"{page}", pageTitle,
 		"{workspace}", workspaceName,
 	)
-	return r.Replace(prompt)
+	expanded := r.Replace(prompt)
+	builtins := map[string]bool{"date": true, "time": true, "datetime": true, "weekday": true, "page": true, "workspace": true}
+	for key, value := range variables {
+		key = strings.TrimSpace(strings.Trim(key, "{}"))
+		if key == "" || builtins[key] {
+			continue
+		}
+		expanded = strings.ReplaceAll(expanded, "{"+key+"}", value)
+	}
+	return expanded
 }
 
 // StartAgentScheduler periodically runs agents with an enabled schedule.

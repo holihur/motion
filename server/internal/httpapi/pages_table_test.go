@@ -181,3 +181,17 @@ func TestSanitizeLayout(t *testing.T) {
 		t.Fatalf("layout depth must be capped: %#v", deep)
 	}
 }
+
+func TestSanitizeTableKeepsFractionalWidths(t *testing.T) {
+	table := sanitizeTable(&model.TableData{
+		Columns: []string{"A", "B", "C"},
+		Rows:    [][]string{{"", "", ""}},
+		Widths:  []float64{50, 50, 33.333333333333336},
+	})
+	if len(table.Widths) != 3 || table.Widths[0] != 50 || table.Widths[1] != 50 {
+		t.Fatalf("unexpected widths: %#v", table.Widths)
+	}
+	if table.Widths[2] < 33 || table.Widths[2] > 34 {
+		t.Fatalf("fractional column width was not preserved: %#v", table.Widths)
+	}
+}

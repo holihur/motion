@@ -1603,5 +1603,15 @@
   "A key is saved. Leave this blank to keep it, or paste a new key to replace it.": "已保存密钥。留空将保留现有密钥，粘贴新密钥可替换。",
   "The AI document agent uses the active provider. OpenAI-compatible base URLs usually end with /v1.": "AI 文档助手使用当前启用的服务商。OpenAI 兼容接口的 Base URL 通常以 /v1 结尾。",
   "Ollama runs locally — no API key is required.": "Ollama 在本地运行，无需 API Key。",
-  "Stored with AES-256-GCM encryption. Only this server can decrypt it.": "使用 AES-256-GCM 加密存储，只有本服务器可以解密。"
+  "Stored with AES-256-GCM encryption. Only this server can decrypt it.": "使用 AES-256-GCM 加密存储，只有本服务器可以解密。",
+  "Could not load Agent": "无法加载 Agent",
+  "{n} AI change(s) waiting in Agent": "有 {n} 项 AI 修改等待在 Agent 中处理",
+  "Changes are staged for approval in Agent before they are applied.": "修改会先暂存到 Agent 等待批准后再应用。",
+  "Workspace variables": "工作区变量",
+  "Add variable": "添加变量",
+  "Variables are available in agent task prompts as {key}.": "变量可在 Agent 任务提示词中以 {key} 的形式使用。",
+  "No variables yet.": "暂无变量。",
+  "Variable name": "变量名",
+  "Variable value": "变量值",
+  "Remove variable": "删除变量"
 }

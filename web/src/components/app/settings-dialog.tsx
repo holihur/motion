@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { Bot, Building2, Check, Code2, Copy, ImagePlus, KeyRound, LogOut, Palette, Plug, Sparkles, TerminalSquare, Trash2, UserRound } from "lucide-react"
+import { Bot, Building2, Check, Code2, Copy, ImagePlus, KeyRound, LogOut, Palette, Plus, Plug, Sparkles, TerminalSquare, Trash2, UserRound } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { WorkspaceAgentSettings } from "@/components/app/workspace-agent-settings"
 import { WorkspaceIcon, isImageIcon } from "@/components/app/workspace-icon"
@@ -254,6 +254,7 @@ function WorkspaceSettings() {
   const workspace = workspaces.find((item) => item.id === activeId)
   const [name, setName] = useState(workspace?.name ?? "")
   const [icon, setIcon] = useState(workspace?.icon ?? "🧭")
+  const [variables, setVariables] = useState<{ key: string; value: string }[]>([])
   const [pending, setPending] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -262,7 +263,8 @@ function WorkspaceSettings() {
   useEffect(() => {
     setName(workspace?.name ?? "")
     setIcon(workspace?.icon ?? "🧭")
-  }, [workspace?.id, workspace?.name, workspace?.icon])
+    setVariables(Object.entries(workspace?.variables ?? {}).map(([key, value]) => ({ key, value })).sort((a, b) => a.key.localeCompare(b.key)))
+  }, [workspace?.id, workspace?.name, workspace?.icon, workspace?.variables])
 
   if (!workspace) return <p className="pt-4 text-sm text-muted-foreground">{tr("No workspace selected.")}</p>
 
@@ -286,7 +288,8 @@ function WorkspaceSettings() {
     if (!name.trim() || pending) return
     setPending(true)
     try {
-      await updateWorkspace(workspace!.id, { name: name.trim(), icon })
+      const nextVariables = Object.fromEntries(variables.map((variable) => [variable.key.trim(), variable.value.trim()]).filter(([key]) => key))
+      await updateWorkspace(workspace!.id, { name: name.trim(), icon, variables: nextVariables })
       toast.success(tr("Workspace updated"))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not update workspace"))
@@ -348,8 +351,49 @@ function WorkspaceSettings() {
             onChange={(event) => setName(event.target.value)}
           />
         </div>
+        <Separator />
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>{tr("Workspace variables")}</Label>
+            <Button type="button" variant="outline" size="sm" onClick={() => setVariables((current) => [...current, { key: "", value: "" }])}>
+              <Plus className="size-3.5" /> {tr("Add variable")}
+            </Button>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {tr("Variables are available in agent task prompts as {key}.")}
+          </p>
+          {variables.length === 0 ? (
+            <p className="text-[11px] text-muted-foreground">{tr("No variables yet.")}</p>
+          ) : (
+            <div className="space-y-2">
+              {variables.map((variable, index) => (
+                <div key={index} className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1 font-mono text-xs text-muted-foreground">
+                    <span>{"{"}</span>
+                    <Input
+                      value={variable.key}
+                      onChange={(event) => setVariables((current) => current.map((item, i) => i === index ? { ...item, key: event.target.value.replace(/[{}]/g, "") } : item))}
+                      placeholder={tr("Variable name")}
+                      className="h-8 w-32 font-mono text-xs"
+                    />
+                    <span>{"}"}</span>
+                  </div>
+                  <Input
+                    value={variable.value}
+                    onChange={(event) => setVariables((current) => current.map((item, i) => i === index ? { ...item, value: event.target.value } : item))}
+                    placeholder={tr("Variable value")}
+                    className="h-8 min-w-0 flex-1 text-xs"
+                  />
+                  <Button type="button" variant="ghost" size="icon-sm" aria-label={tr("Remove variable")} onClick={() => setVariables((current) => current.filter((_, i) => i !== index))} className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="flex justify-end">
-          <Button type="submit" disabled={!name.trim() || pending || (name.trim() === workspace.name && icon === workspace.icon)}>
+          <Button type="submit" disabled={!name.trim() || pending || (name.trim() === workspace.name && icon === workspace.icon && JSON.stringify(Object.fromEntries(variables.map((v) => [v.key.trim(), v.value.trim()]).filter(([key]) => key))) === JSON.stringify(workspace.variables ?? {}))}>
             {tr("Save workspace")}
           </Button>
         </div>
@@ -446,8 +490,8 @@ function AISettings() {
   const [loading, setLoading] = useState(true)
   const [providers, setProviders] = useState<AISettings["providers"]>([])
   const [provider, setProvider] = useState<AIProviderKey>("deepseek")
-  const [model, setModel] = useState(AI_PROVIDERS.deepseek.model)
-  const [baseUrl, setBaseUrl] = useState(AI_PROVIDERS.deepseek.base)
+  const [model, setModel] = useState<string>(AI_PROVIDERS.deepseek.model)
+  const [baseUrl, setBaseUrl] = useState<string>(AI_PROVIDERS.deepseek.base)
   const [apiKey, setApiKey] = useState("")
   const [pending, setPending] = useState(false)
   const [testing, setTesting] = useState(false)

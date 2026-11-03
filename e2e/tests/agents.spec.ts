@@ -98,7 +98,7 @@ test.describe("agent approval workflow", () => {
         .toBe("Approved by a human")
 
       await page.goto("/inbox")
-      await expect(page.getByRole("heading", { name: "Agent Inbox" })).toBeVisible()
+      await expect(page.getByRole("heading", { name: "Agent", exact: true })).toBeVisible()
       await page.getByRole("tab", { name: "Activity" }).click()
       await expect(page.getByText(/Approved changes to/)).toBeVisible()
       expect(calls).toBeGreaterThanOrEqual(2)

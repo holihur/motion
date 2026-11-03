@@ -22,7 +22,7 @@ interface WorkspaceState {
   fetchTrash: () => Promise<void>
   setActive: (id: string) => Promise<void>
   createWorkspace: (name: string, icon?: string) => Promise<Workspace>
-  updateWorkspace: (id: string, patch: { name?: string; icon?: string }) => Promise<void>
+  updateWorkspace: (id: string, patch: { name?: string; icon?: string; variables?: Record<string, string> }) => Promise<void>
   deleteWorkspace: (id: string) => Promise<void>
   createPage: (parentId?: string | null, options?: { deferRefresh?: boolean }) => Promise<Page>
   toggleFavorite: (id: string) => Promise<boolean>

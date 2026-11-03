@@ -232,7 +232,7 @@ export const api = {
       request<Page>(`/pages/${id}/move`, { method: "POST", body: body(input) }),
     lock: (id: string) => request<Page>(`/pages/${id}/lock`, { method: "POST" }),
     unlock: (id: string) => request<Page>(`/pages/${id}/unlock`, { method: "POST" }),
-    update: (id: string, patch: { name?: string; icon?: string }) =>
+    update: (id: string, patch: { name?: string; icon?: string; variables?: Record<string, string> }) =>
       request<Workspace>(`/workspaces/${id}`, { method: "PATCH", body: body(patch) }),
     remove: (id: string) => request<void>(`/workspaces/${id}`, { method: "DELETE" }),
     members: (id: string) => request<Member[]>(`/workspaces/${id}/members`),

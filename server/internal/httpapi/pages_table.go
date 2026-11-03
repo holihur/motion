@@ -104,11 +104,11 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 	if !hasOptions {
 		columnOptions = nil
 	}
-	widths := make([]int, len(columns))
+	widths := make([]float64, len(columns))
 	align := make([]string, len(columns))
 	for i := range columns {
-		width := 160
-		if i < len(table.Widths) && table.Widths[i] >= 60 && table.Widths[i] <= 600 {
+		width := 160.0
+		if i < len(table.Widths) && table.Widths[i] >= 5 && table.Widths[i] <= 2000 {
 			width = table.Widths[i]
 		}
 		widths[i] = width

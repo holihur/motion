@@ -192,7 +192,7 @@ export function AIPanel({
         if (navigator.onLine) {
           setReviewingProposal(response.proposals[0])
         } else {
-          toast.success(tr("{n} AI change(s) waiting in Agent Inbox", { n: response.proposals.length }))
+          toast.success(tr("{n} AI change(s) waiting in Agent", { n: response.proposals.length }))
         }
       }
     } catch (error) {
@@ -548,7 +548,7 @@ export function AIPanel({
         </div>
         <p className="mt-1.5 px-1 text-[9px] text-muted-foreground/70">
           {selectedAgent?.mode === "approval"
-            ? tr("Changes are staged for approval in Agent Inbox before they are applied.")
+            ? tr("Changes are staged for approval in Agent before they are applied.")
             : tr("Motion AI can make changes to your workspace. Review important edits.")}
         </p>
       </div>

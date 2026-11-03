@@ -62,6 +62,7 @@ type Workspace struct {
 	Skills        []WorkspaceSkill   `bson:"skills,omitempty" json:"skills,omitempty"`
 	MCPServers    []WorkspaceMCP     `bson:"mcpServers,omitempty" json:"mcpServers,omitempty"`
 	TaskTemplates []TaskTemplate     `bson:"taskTemplates,omitempty" json:"taskTemplates,omitempty"`
+	Variables     map[string]string  `bson:"variables,omitempty" json:"variables,omitempty"`
 	CreatedAt     time.Time          `bson:"createdAt" json:"createdAt"`
 	UpdatedAt     time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
@@ -109,7 +110,7 @@ type TableData struct {
 	FreezeFirst   bool              `bson:"freezeFirst,omitempty" json:"freezeFirst,omitempty"`
 	FrozenColumns []int             `bson:"frozenColumns,omitempty" json:"frozenColumns,omitempty"`
 	StickyHeader  *bool             `bson:"stickyHeader,omitempty" json:"stickyHeader,omitempty"`
-	Widths        []int             `bson:"widths,omitempty" json:"widths,omitempty"`
+	Widths        []float64         `bson:"widths,omitempty" json:"widths,omitempty"`
 	Align         []string          `bson:"align,omitempty" json:"align,omitempty"`
 	Formulas      map[string]string `bson:"formulas,omitempty" json:"formulas,omitempty"`
 	ColumnTypes   []string          `bson:"columnTypes,omitempty" json:"columnTypes,omitempty"`

@@ -213,7 +213,7 @@ function SidebarContent() {
           />
           <SidebarButton
             icon={<Inbox className="size-3.5" />}
-            label={tr("Agent Inbox")}
+            label={tr("Agent")}
             trailing={pendingProposals > 0 ? (
               <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
                 {pendingProposals}

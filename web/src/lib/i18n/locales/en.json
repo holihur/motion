@@ -585,5 +585,15 @@
   "A key is saved. Leave this blank to keep it, or paste a new key to replace it.": "A key is saved. Leave this blank to keep it, or paste a new key to replace it.",
   "The AI document agent uses the active provider. OpenAI-compatible base URLs usually end with /v1.": "The AI document agent uses the active provider. OpenAI-compatible base URLs usually end with /v1.",
   "Ollama runs locally — no API key is required.": "Ollama runs locally — no API key is required.",
-  "Stored with AES-256-GCM encryption. Only this server can decrypt it.": "Stored with AES-256-GCM encryption. Only this server can decrypt it."
+  "Stored with AES-256-GCM encryption. Only this server can decrypt it.": "Stored with AES-256-GCM encryption. Only this server can decrypt it.",
+  "Could not load Agent": "Could not load Agent",
+  "{n} AI change(s) waiting in Agent": "{n} AI change(s) waiting in Agent",
+  "Changes are staged for approval in Agent before they are applied.": "Changes are staged for approval in Agent before they are applied.",
+  "Workspace variables": "Workspace variables",
+  "Add variable": "Add variable",
+  "Variables are available in agent task prompts as {key}.": "Variables are available in agent task prompts as {key}.",
+  "No variables yet.": "No variables yet.",
+  "Variable name": "Variable name",
+  "Variable value": "Variable value",
+  "Remove variable": "Remove variable"
 }

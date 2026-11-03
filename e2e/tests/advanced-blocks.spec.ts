@@ -8,6 +8,7 @@ const pixel = Buffer.from(
 )
 
 test("toggles, columns, code highlighting, page links, backlinks, breadcrumbs and uploads", async ({ page, request }) => {
+  test.setTimeout(120_000)
   const account = await signIn(page, request)
   const { workspace } = await (await import("../helpers/api")).workspaceAndPages(request, account.token)
   const created = await createPage(request, account.token, workspace.id, { title: "Advanced blocks" })

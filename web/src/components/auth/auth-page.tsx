@@ -167,13 +167,7 @@ export function AuthPage() {
         </div>
 
         <div className="relative flex flex-col gap-2 text-xs text-muted-foreground">
-          <div className="flex items-center justify-between">
-            <span>© {new Date().getFullYear()} Motion · AGPL-3.0 · {tr("Self-hosted")}</span>
-            <span className="flex items-center gap-1.5">
-              <span className="size-1.5 rounded-full bg-emerald-500" />
-              {tr("All systems operational")}
-            </span>
-          </div>
+          <span>© {new Date().getFullYear()} Motion · AGPL-3.0 · {tr("Self-hosted")}</span>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground/80">
             <a href="https://github.com/holihur/motion" target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">GitHub</a>
             <span className="opacity-30">·</span>

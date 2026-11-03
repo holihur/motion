@@ -1,6 +1,6 @@
 # Motion
 
-一个安静、快速、可自托管的 Notion 风格工作区。前端 React + TailwindCSS + shadcn/ui，后端 Go + MongoDB，生产环境可编译为单个二进制文件（前端已内嵌）。
+一个安静、快速、可自托管的块式文档工作区。前端 React + TailwindCSS + shadcn/ui，后端 Go + MongoDB，生产环境可编译为单个二进制文件（前端已内嵌）。
 
 ![Motion 首页](docs/screenshots/home.png)
 

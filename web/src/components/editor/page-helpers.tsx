@@ -3,7 +3,7 @@ import { tr } from "@/lib/i18n"
 
 export type SaveState = "saved" | "saving" | "error"
 
-export function SaveIndicator({ state, onRetry }: { state: SaveState; onRetry: () => void }) {
+export function SaveIndicator({ state, onRetry, local = false }: { state: SaveState; onRetry: () => void; local?: boolean }) {
   if (state === "error") {
     return (
       <button
@@ -19,7 +19,7 @@ export function SaveIndicator({ state, onRetry }: { state: SaveState; onRetry: (
   return (
     <div className="hidden items-center gap-1.5 px-2 text-[11px] text-muted-foreground sm:flex">
       {state === "saving" ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3" />}
-      <span>{state === "saving" ? tr("Saving…") : tr("Saved")}</span>
+      <span>{state === "saving" ? tr("Saving…") : local ? tr("Saved locally") : tr("Saved")}</span>
     </div>
   )
 }

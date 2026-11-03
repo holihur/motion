@@ -45,7 +45,9 @@ import { buildTree, ancestorChain, pageTitle } from "@/lib/tree"
 import { Backlinks } from "@/components/editor/backlinks"
 import { hasMarkdownSyntax, parseMarkdownToBlocks } from "@/lib/markdown-import"
 import { useWorkspaceStore } from "@/stores/workspace"
+import { useAuthStore } from "@/stores/auth"
 import { useUIStore } from "@/stores/ui"
+import { clearDraft, flushOfflineDrafts, pageFromDraft, pageMeta, readCachedPage, readDraft, writeCachedPage, writeDraft, type PageDraft } from "@/lib/offline-drafts"
 import { SidebarToggle } from "@/components/app/sidebar-toggle"
 import { PageActionsMenu } from "@/components/app/page-actions"
 import { BlockEditor } from "@/components/editor/block-editor"
@@ -135,6 +137,8 @@ export function PageEditor() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<SaveState>("saved")
+  const [localDraft, setLocalDraft] = useState(false)
+  const [draftFailed, setDraftFailed] = useState(false)
   const [collaborators, setCollaborators] = useState<RealtimePresence[]>([])
   const [liveStatus, setLiveStatus] = useState<"connecting" | "connected" | "disconnected">("connecting")
   const [online, setOnline] = useState(() => navigator.onLine)
@@ -178,6 +182,7 @@ export function PageEditor() {
   }, [])
   const [tabCollision, setTabCollision] = useState(false)
   const clientId = useMemo(() => Math.random().toString(36).slice(2), [])
+  const userId = useAuthStore((state) => state.user?.id ?? "")
 
   // 块链接 hash：#blockId 直达定位。
   useEffect(() => {
@@ -255,7 +260,10 @@ export function PageEditor() {
   const timerRef = useRef<number | null>(null)
   const loadIdRef = useRef<string | undefined>(pageId)
   const clientIdRef = useRef(getClientId())
+  const pageRef = useRef<Page | null>(null)
+  const userIdRef = useRef("")
   const baseBlocksRef = useRef<Block[]>([])
+  const draftMergeRef = useRef(false)
   const blocksRevRef = useRef(0)
   const pendingRemoteRef = useRef<Block[] | null>(null)
   const pendingOpsRef = useRef<
@@ -276,6 +284,14 @@ export function PageEditor() {
   useEffect(() => {
     stateRef.current = { pageId: page?.id ?? "", title, icon, cover, blocks }
   }, [page?.id, title, icon, cover, blocks])
+
+  useEffect(() => {
+    pageRef.current = page
+  }, [page])
+
+  useEffect(() => {
+    userIdRef.current = userId
+  }, [userId])
 
   // Auto-grow title.
   useEffect(() => {
@@ -351,7 +367,68 @@ export function PageEditor() {
     }
   }
 
-  // Load page.
+  function saveDraftNow(notify = true) {
+    if (!dirtyRef.current) return false
+    const current = stateRef.current
+    const meta = pageRef.current
+    const uid = userIdRef.current
+    if (!current.pageId || !meta || !uid) return false
+    const role = meta.role
+    if (role === "viewer" || meta.locked) return false
+    const base = pageMeta(meta)
+    const ok = writeDraft({
+      version: 1,
+      userId: uid,
+      page: { ...base, title: current.title, icon: current.icon, cover: current.cover },
+      blocks: current.blocks,
+      baseBlocks: baseBlocksRef.current,
+      savedAt: Date.now(),
+    })
+    if (notify) {
+      setDraftFailed(!ok)
+      if (ok) setLocalDraft(true)
+    }
+    return ok
+  }
+
+  function applyLoadedPage(loaded: Page, draft?: PageDraft) {
+    const initialBlocks = loaded.blocks?.length ? loaded.blocks : [emptyBlock()]
+    const base = draft?.baseBlocks?.length ? draft.baseBlocks : initialBlocks
+    setPage(loaded)
+    setBlocks(initialBlocks)
+    baseBlocksRef.current = base
+    blocksRevRef.current = loaded.blocksRev ?? draft?.page.blocksRev ?? 0
+    setTitle(loaded.title)
+    setIcon(loaded.icon)
+    setCover(loaded.cover)
+    lastSavedRef.current = draft
+      ? ""
+      : signature({
+          title: loaded.title,
+          icon: loaded.icon,
+          cover: loaded.cover,
+          blocks: initialBlocks,
+        })
+    dirtyRef.current = !!draft
+    draftMergeRef.current = !!draft
+    setLocalDraft(!!draft)
+    setDraftFailed(false)
+    setSaveState(draft ? (navigator.onLine ? "saving" : "saved") : "saved")
+    patchSummary(loaded.id, {
+      title: loaded.title,
+      icon: loaded.icon,
+      cover: loaded.cover,
+      favorite: loaded.favorite,
+    })
+    setLoading(false)
+    if (draft && navigator.onLine) {
+      window.setTimeout(() => {
+        if (dirtyRef.current) void saveNow()
+      }, 500)
+    }
+  }
+
+  // Load page, preferring an unsynced local draft over the server copy.
   useEffect(() => {
     if (!pageId) return
     let alive = true
@@ -360,59 +437,60 @@ export function PageEditor() {
     setError(null)
     setPage(null)
 
+    const draft = readDraft(pageId)
+    const usableDraft = draft && draft.userId === userId ? draft : null
+    const cachedPage = usableDraft ? null : readCachedPage(pageId, userId)
     const cached = takeCreatedPage(pageId)
-    const request = cached ? Promise.resolve(cached) : api.pages.get(pageId)
-    request
-      .then(async (loaded) => {
-        if (!alive) return
-        if (loaded.workspaceId !== useWorkspaceStore.getState().activeId) {
-          await setActive(loaded.workspaceId)
-        }
-        if (!alive) return
-        const initialBlocks = loaded.blocks?.length ? loaded.blocks : [emptyBlock()]
-        setPage(loaded)
-        setBlocks(initialBlocks)
-        baseBlocksRef.current = initialBlocks
-        blocksRevRef.current = loaded.blocksRev ?? 0
-        setTitle(loaded.title)
-        setIcon(loaded.icon)
-        setCover(loaded.cover)
-        lastSavedRef.current = signature({
-          title: loaded.title,
-          icon: loaded.icon,
-          cover: loaded.cover,
-          blocks: initialBlocks,
-        })
-        dirtyRef.current = false
-        setSaveState("saved")
-        patchSummary(loaded.id, {
-          title: loaded.title,
-          icon: loaded.icon,
-          cover: loaded.cover,
-          favorite: loaded.favorite,
-        })
-        setLoading(false)
-      })
-      .catch((err) => {
-        if (!alive) return
-        setError(err instanceof Error ? err.message : tr("Could not load this page"))
-        setLoading(false)
-      })
-
-    return () => {
+    const cleanup = () => {
       alive = false
       if (timerRef.current) {
         window.clearTimeout(timerRef.current)
         timerRef.current = null
       }
       if (dirtyRef.current) {
+        saveDraftNow(false)
         const snapshot = stateRef.current
         dirtyRef.current = false
         void persist(snapshot, true)
       }
     }
+    if (!navigator.onLine && (usableDraft || cachedPage)) {
+      applyLoadedPage(usableDraft ? pageFromDraft(usableDraft) : cachedPage!, usableDraft ?? undefined)
+      return cleanup
+    }
+    const request = cached ? Promise.resolve(cached) : api.pages.get(pageId)
+    request
+      .then(async (loaded) => {
+        if (!alive) return
+        if (loaded.workspaceId !== useWorkspaceStore.getState().activeId) {
+          await setActive(loaded.workspaceId).catch(() => undefined)
+        }
+        if (!alive) return
+        applyLoadedPage(usableDraft ? pageFromDraft(usableDraft) : loaded, usableDraft ?? undefined)
+        if (!usableDraft) writeCachedPage(userId, loaded, loaded.blocks ?? [])
+      })
+      .catch((err) => {
+        if (!alive) return
+        if (usableDraft || cachedPage) {
+          applyLoadedPage(usableDraft ? pageFromDraft(usableDraft) : cachedPage!, usableDraft ?? undefined)
+          return
+        }
+        setError(err instanceof Error ? err.message : tr("Could not load this page"))
+        setLoading(false)
+      })
+
+    return cleanup
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageId])
+  }, [pageId, userId])
+
+  // Persist an unsynced local draft shortly after each edit. localStorage is
+  // synchronous so it also works when the tab is torn down.
+  useEffect(() => {
+    if (!page?.id || loading || readOnly || !dirtyRef.current || !userId) return
+    const timer = window.setTimeout(() => saveDraftNow(), 600)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocks, title, icon, cover, page?.id, loading, readOnly, userId])
 
   // Support deep links to a block: /page/<id>#block-<blockID>
   useEffect(() => {
@@ -760,9 +838,14 @@ export function PageEditor() {
   }, [pageId, page?.id])
 
   useEffect(() => {
-    function onOnline() {
+    async function onOnline() {
       setOnline(true)
-      if (dirtyRef.current) void saveNow()
+      if (dirtyRef.current) await saveNow()
+      if (userIdRef.current) {
+        void flushOfflineDrafts(userIdRef.current).then((result) => {
+          if (result.synced > 0) void refreshPages()
+        })
+      }
     }
     function onOffline() {
       setOnline(false)
@@ -779,11 +862,13 @@ export function PageEditor() {
   useEffect(() => {
     function onBeforeUnload(event: BeforeUnloadEvent) {
       if (!dirtyRef.current) return
+      saveDraftNow(false)
       event.preventDefault()
       event.returnValue = ""
     }
     function onPageHide() {
       if (!dirtyRef.current) return
+      saveDraftNow(false)
       const snapshot = stateRef.current
       if (!snapshot.pageId) return
       const init: RequestInit = { keepalive: true }
@@ -843,6 +928,11 @@ export function PageEditor() {
     const sig = signature(snapshot)
     if (sig === lastSavedRef.current) {
       dirtyRef.current = false
+      clearDraft(snapshot.pageId)
+      if (stateRef.current.pageId === snapshot.pageId) {
+        setLocalDraft(false)
+        setDraftFailed(false)
+      }
       if (!silent) setSaveState("saved")
       return
     }
@@ -852,36 +942,56 @@ export function PageEditor() {
     try {
       let merged = snapshot.blocks
       let rev = blocksRevRef.current
-      try {
+      if (draftMergeRef.current) {
+        // A restored offline draft may be based on a revision that advanced
+        // while this device was away. Merge it with the server snapshot first
+        // instead of sending stale ops and provoking a 409.
         const [, saved] = await Promise.all([
           api.pages.update(snapshot.pageId, {
             title: snapshot.title,
             icon: snapshot.icon,
             cover: snapshot.cover,
           }),
-          api.pages.applyOps(snapshot.pageId, {
-            baseRev: blocksRevRef.current,
-            ...diffBlocks(baseBlocksRef.current, snapshot.blocks),
-          }),
+          api.pages.saveBlocks(
+            snapshot.pageId,
+            snapshot.blocks,
+            baseBlocksRef.current,
+          ),
         ])
-        rev = saved.blocksRev
-        merged = applyBlockSync(snapshot.blocks, saved.order, saved.upserts, saved.deletes)
-        const known = new Set([...snapshot.blocks.map((block) => block.id), ...saved.upserts.map((block) => block.id)])
-        if (saved.order.some((id) => !known.has(id))) {
-          const fresh = await api.pages.get(snapshot.pageId)
-          merged = fresh.blocks
-          rev = fresh.blocksRev ?? rev
-        }
-      } catch (error) {
-        if (!(error instanceof ApiError) || error.status !== 409) throw error
-        // A collaborator saved first. Fall back to the three-way merge endpoint.
-        const saved = await api.pages.saveBlocks(
-          snapshot.pageId,
-          snapshot.blocks,
-          baseBlocksRef.current,
-        )
         merged = saved.blocks
         rev = saved.blocksRev ?? rev
+      } else {
+        try {
+          const [, saved] = await Promise.all([
+            api.pages.update(snapshot.pageId, {
+              title: snapshot.title,
+              icon: snapshot.icon,
+              cover: snapshot.cover,
+            }),
+            api.pages.applyOps(snapshot.pageId, {
+              baseRev: blocksRevRef.current,
+              ...diffBlocks(baseBlocksRef.current, snapshot.blocks),
+            }),
+          ])
+          rev = saved.blocksRev
+          merged = applyBlockSync(snapshot.blocks, saved.order, saved.upserts, saved.deletes)
+          const known = new Set([...snapshot.blocks.map((block) => block.id), ...saved.upserts.map((block) => block.id)])
+          if (saved.order.some((id) => !known.has(id))) {
+            const fresh = await api.pages.get(snapshot.pageId)
+            merged = fresh.blocks
+            rev = fresh.blocksRev ?? rev
+          }
+        } catch (error) {
+          if (!(error instanceof ApiError) || error.status !== 409) throw error
+          // A collaborator saved first. Fall back to the three-way merge endpoint.
+          const saved = await api.pages.saveBlocks(
+            snapshot.pageId,
+            snapshot.blocks,
+            baseBlocksRef.current,
+          )
+          merged = saved.blocks
+          rev = saved.blocksRev ?? rev
+        }
       }
       if (stateRef.current.pageId === snapshot.pageId) {
         const drained = drainPendingOps(merged, rev)
@@ -889,6 +999,7 @@ export function PageEditor() {
         rev = drained.rev
         blocksRevRef.current = rev
         baseBlocksRef.current = merged
+        draftMergeRef.current = false
         lastSavedRef.current = signature({
           title: snapshot.title,
           icon: snapshot.icon,
@@ -907,10 +1018,25 @@ export function PageEditor() {
         icon: snapshot.icon,
         cover: snapshot.cover,
       })
+      if (!dirtyRef.current) {
+        clearDraft(snapshot.pageId)
+        const meta = pageRef.current
+        if (meta?.id === snapshot.pageId) {
+          const mergedPage = { ...meta, title: snapshot.title, icon: snapshot.icon, cover: snapshot.cover, blocks: merged }
+          writeCachedPage(userIdRef.current, mergedPage, merged)
+        }
+        if (stateRef.current.pageId === snapshot.pageId) {
+          setLocalDraft(false)
+          setDraftFailed(false)
+        }
+      }
     } catch (err) {
       dirtyRef.current = true
-      if (!silent && stateRef.current.pageId === snapshot.pageId) {
-        setSaveState("error")
+      if (stateRef.current.pageId === snapshot.pageId) {
+        const stored = saveDraftNow(false)
+        setDraftFailed(!stored)
+        if (stored) setLocalDraft(true)
+        if (!silent) setSaveState(navigator.onLine || !stored ? "error" : "saved")
       }
     } finally {
       savingRef.current = false
@@ -1504,7 +1630,7 @@ export function PageEditor() {
             </TooltipTrigger>
             <TooltipContent>{tr("Share workspace")}</TooltipContent>
           </Tooltip>
-          {!readOnly && <SaveIndicator state={saveState} onRetry={() => void saveNow()} />}
+          {!readOnly && <SaveIndicator state={saveState} local={localDraft} onRetry={() => void saveNow()} />}
           {!readOnly && <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -1551,20 +1677,31 @@ export function PageEditor() {
           </button>
         </div>
       )}
-      {(liveStatus === "disconnected" || !online) && (
+      {draftFailed && (
+        <div className="flex items-center gap-2 border-b border-destructive/20 bg-destructive/10 px-4 py-1.5 text-[11px] text-destructive">
+          <AlertCircle className="size-3.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{tr("Offline draft could not be stored. This page may be too large.")}</span>
+        </div>
+      )}
+      {(liveStatus === "disconnected" || !online || localDraft) && (
         <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/15 px-4 py-1.5 text-[11px] text-amber-900 dark:text-amber-100">
           <AlertCircle className="size-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">
             {!online
               ? tr("You’re offline. Changes stay on this device until the connection returns.")
-              : tr("Live connection lost. Reconnecting automatically…")}
+              : localDraft
+                ? tr("Offline draft restored. Save to sync it.")
+                : tr("Live connection lost. Reconnecting automatically…")}
           </span>
           <button
             type="button"
-            onClick={() => realtimeRef.current?.retryNow()}
+            onClick={() => {
+              if (localDraft) void saveNow()
+              else realtimeRef.current?.retryNow()
+            }}
             className="shrink-0 rounded border border-amber-600/30 px-2 py-0.5 font-medium transition hover:bg-amber-500/15"
           >
-            {tr("Retry now")}
+            {localDraft ? tr("Save now") : tr("Retry now")}
           </button>
         </div>
       )}

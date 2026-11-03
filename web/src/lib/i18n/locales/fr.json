@@ -1622,5 +1622,11 @@
   "Lookup": "Lookup",
   "Select database": "Select database",
   "Relation column": "Relation column",
-  "Target field": "Target field"
+  "Target field": "Target field",
+  "Saved locally": "Saved locally",
+  "Offline draft restored. Save to sync it.": "Offline draft restored. Save to sync it.",
+  "Save now": "Save now",
+  "Offline draft could not be stored. This page may be too large.": "Offline draft could not be stored. This page may be too large.",
+  "Offline changes synced": "Offline changes synced",
+  "Some offline drafts could not be synced yet.": "Some offline drafts could not be synced yet."
 }

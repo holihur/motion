@@ -6,7 +6,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(CORE))
+      .then((cache) => Promise.allSettled(CORE.map((url) => cache.add(url))))
       .then(() => self.skipWaiting())
       .catch(() => undefined),
   )

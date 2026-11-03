@@ -1,10 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from "react"
+import { toast } from "sonner"
 import { Navigate, Outlet, useNavigate } from "react-router-dom"
 import { useAuthStore } from "@/stores/auth"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { useUIStore } from "@/stores/ui"
 import { tr } from "@/lib/i18n"
 import { preloadPageEditor } from "@/lib/route-preload"
+import { flushOfflineDrafts } from "@/lib/offline-drafts"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { Sidebar } from "@/components/app/sidebar"
 import { useWorkspaceRealtime } from "@/components/app/use-workspace-realtime"
@@ -37,6 +39,7 @@ export function AppShell() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const navigate = useNavigate()
   const activeId = useWorkspaceStore((state) => state.activeId)
+  const userId = useAuthStore((state) => state.user?.id ?? "")
   useWorkspaceRealtime(activeId)
 
   useEffect(() => {
@@ -63,6 +66,37 @@ export function AppShell() {
     const id = window.setTimeout(() => preloadPageEditor(), 250)
     return () => window.clearTimeout(id)
   }, [ready])
+
+  // Replay drafts written while offline, including pages that are not currently
+  // open. The open editor handles its own draft so this skips the current URL.
+  useEffect(() => {
+    if (status !== "authed" || !userId) return
+    let cancelled = false
+    async function flush() {
+      const result = await flushOfflineDrafts(userId)
+      if (cancelled) return
+      if (result.synced > 0) {
+        toast.success(tr("Offline changes synced"))
+        void useWorkspaceStore.getState().refreshPages()
+      }
+      if (result.failed > 0) toast.error(tr("Some offline drafts could not be synced yet."))
+    }
+    void flush()
+    function onOnline() {
+      const state = useWorkspaceStore.getState()
+      if (!state.ready) void state.boot()
+      else {
+        void state.refreshWorkspaces().catch(() => undefined)
+        void state.refreshPages().catch(() => undefined)
+      }
+      void flush()
+    }
+    window.addEventListener("online", onOnline)
+    return () => {
+      cancelled = true
+      window.removeEventListener("online", onOnline)
+    }
+  }, [status, userId])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

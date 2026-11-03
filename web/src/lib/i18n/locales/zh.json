@@ -1622,5 +1622,11 @@
   "Lookup": "查找",
   "Select database": "选择数据库",
   "Relation column": "关联列",
-  "Target field": "目标字段"
+  "Target field": "目标字段",
+  "Saved locally": "已保存到本地",
+  "Offline draft restored. Save to sync it.": "已恢复离线草稿，保存后将同步。",
+  "Save now": "立即保存",
+  "Offline draft could not be stored. This page may be too large.": "离线草稿无法写入本地，页面可能过大。",
+  "Offline changes synced": "离线修改已同步",
+  "Some offline drafts could not be synced yet.": "部分离线草稿尚未同步。"
 }

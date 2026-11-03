@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { api, getToken, setToken } from "@/lib/api"
+import { ApiError, api, getToken, setToken } from "@/lib/api"
 import type { User } from "@/lib/types"
 import { useWorkspaceStore } from "@/stores/workspace"
 
@@ -16,11 +16,31 @@ interface AuthState {
   setUser: (user: User) => void
 }
 
+const USER_KEY = "motion.user"
+
+function readCachedUser(): User | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem(USER_KEY)
+    return raw ? (JSON.parse(raw) as User) : null
+  } catch {
+    return null
+  }
+}
+
+function cacheUser(user: User | null) {
+  if (typeof window === "undefined") return
+  try {
+    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user))
+    else localStorage.removeItem(USER_KEY)
+  } catch { /* ignore */ }
+}
+
 let bootstrapPromise: Promise<void> | null = null
 
 export const useAuthStore = create<AuthState>((set) => ({
   status: getToken() ? "loading" : "guest",
-  user: null,
+  user: readCachedUser(),
 
   bootstrap: () => {
     if (bootstrapPromise) return bootstrapPromise
@@ -31,9 +51,24 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
       try {
         const user = await api.auth.me()
+        cacheUser(user)
         set({ status: "authed", user })
-      } catch {
+      } catch (error) {
+        const cached = readCachedUser()
+        // Keep a valid local session when the server is unreachable so offline
+        // drafts remain editable. A real 401/403 still signs the user out.
+        const keepSession =
+          !!cached &&
+          (typeof navigator === "undefined" ||
+            !navigator.onLine ||
+            !(error instanceof ApiError) ||
+            error.status >= 500)
+        if (keepSession) {
+          set({ status: "authed", user: cached })
+          return
+        }
         setToken(null)
+        cacheUser(null)
         set({ status: "guest", user: null })
       }
     })()
@@ -43,6 +78,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   login: async (email, password) => {
     const { token, user } = await api.auth.login(email, password)
     setToken(token)
+    cacheUser(user)
     bootstrapPromise = Promise.resolve()
     set({ status: "authed", user })
   },
@@ -50,6 +86,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (name, email, password) => {
     const { token, user } = await api.auth.register(name, email, password)
     setToken(token)
+    cacheUser(user)
     bootstrapPromise = Promise.resolve()
     set({ status: "authed", user })
   },
@@ -57,18 +94,23 @@ export const useAuthStore = create<AuthState>((set) => ({
   completeOIDC: async () => {
     const { token, user } = await api.auth.oidcExchange()
     setToken(token)
+    cacheUser(user)
     bootstrapPromise = Promise.resolve()
     set({ status: "authed", user })
   },
 
   logout: () => {
     setToken(null)
+    cacheUser(null)
     bootstrapPromise = Promise.resolve()
     useWorkspaceStore.getState().reset()
     set({ status: "guest", user: null })
   },
 
-  setUser: (user) => set({ user }),
+  setUser: (user) => {
+    cacheUser(user)
+    set({ user })
+  },
 }))
 
 if (typeof window !== "undefined") {

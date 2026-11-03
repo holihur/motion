@@ -5,6 +5,29 @@ import { tr } from "@/lib/i18n"
 import type { Page, PageSummary, Workspace } from "@/lib/types"
 
 const ACTIVE_KEY = "motion.workspace"
+const CACHE_KEY = "motion.workspace.cache"
+
+function readCache(): { workspaces: Workspace[]; activeId: string | null; pages: PageSummary[] } | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const cached = JSON.parse(raw) as { workspaces?: Workspace[]; activeId?: string | null; pages?: PageSummary[] }
+    if (!Array.isArray(cached.workspaces) || !Array.isArray(cached.pages)) return null
+    return { workspaces: cached.workspaces, activeId: cached.activeId ?? null, pages: cached.pages }
+  } catch {
+    return null
+  }
+}
+
+function writeCache(workspaces: Workspace[], activeId: string | null, pages: PageSummary[]) {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ workspaces, activeId, pages }))
+  } catch { /* ignore */ }
+}
+
+const cachedState = readCache()
 
 interface WorkspaceState {
   workspaces: Workspace[]
@@ -36,9 +59,9 @@ interface WorkspaceState {
 let bootPromise: Promise<void> | null = null
 
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
-  workspaces: [],
-  activeId: null,
-  pages: [],
+  workspaces: cachedState?.workspaces ?? [],
+  activeId: cachedState?.activeId ?? null,
+  pages: cachedState?.pages ?? [],
   trash: [],
   loading: false,
   pagesLoading: false,
@@ -57,14 +80,22 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           workspaces[0] ??
           null
         set({ workspaces, activeId: active?.id ?? null })
+        let pages: PageSummary[] = []
         if (active) {
           localStorage.setItem(ACTIVE_KEY, active.id)
-          const pages = await api.pages.list(active.id)
+          pages = await api.pages.list(active.id)
           set({ pages })
         }
+        writeCache(workspaces, active?.id ?? null, pages)
         set({ ready: true })
       } catch (error) {
-        set({ error: error instanceof Error ? error.message : tr("Could not load workspace"), ready: true })
+        const cached = readCache()
+        if (cached) {
+          set({ workspaces: cached.workspaces, activeId: cached.activeId, pages: cached.pages, ready: true, error: null })
+        } else {
+          set({ error: error instanceof Error ? error.message : tr("Could not load workspace"), ready: true })
+        }
+        bootPromise = null
       } finally {
         set({ loading: false })
       }
@@ -74,6 +105,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   reset: () => {
     bootPromise = null
+    try {
+      localStorage.removeItem(CACHE_KEY)
+    } catch { /* ignore */ }
     set({
       workspaces: [],
       activeId: null,
@@ -88,7 +122,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   refreshWorkspaces: async () => {
     const workspaces = await api.workspaces.list()
-    set({ workspaces })
+    set({ workspaces, error: null })
     const activeId = get().activeId
     if (!activeId && workspaces[0]) {
       await get().setActive(workspaces[0].id)
@@ -101,7 +135,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     set({ pagesLoading: true })
     try {
       const pages = await api.pages.list(id)
-      if (get().activeId === id) set({ pages })
+      if (get().activeId === id) {
+        set({ pages, error: null })
+        writeCache(get().workspaces, id, pages)
+      }
     } finally {
       set({ pagesLoading: false })
     }
@@ -121,7 +158,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       set({ pagesLoading: true })
       try {
         const pages = await api.pages.list(id)
-        if (get().activeId === id) set({ pages })
+        if (get().activeId === id) {
+          set({ pages })
+          writeCache(get().workspaces, id, pages)
+        }
       } finally {
         set({ pagesLoading: false })
       }

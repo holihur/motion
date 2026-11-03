@@ -717,17 +717,17 @@ export function BlockRow(props: BlockRowProps) {
         }
         return (
           <div className="my-2 overflow-hidden rounded-lg border border-border/80 bg-card" onFocus={() => onFocusBlock?.(block.id)}>
-            <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              <Table2 className="size-3" /> {tr("Table")}
-              <span className="normal-case tracking-normal text-muted-foreground/60">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b border-border/60 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <Table2 className="size-3 shrink-0" /> <span className="shrink-0 whitespace-nowrap">{tr("Table")}</span>
+              <span className="shrink-0 whitespace-nowrap normal-case tracking-normal text-muted-foreground/60">
                 {columnIndexes.length}{columnIndexes.length !== table.columns.length ? `/${table.columns.length}` : ""} × {visibleRows.length}{activeFilters.length > 0 ? ` / ${table.rows.length}` : ""}
               </span>
-              <div className="ml-auto flex items-center gap-0.5 normal-case tracking-normal">
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-0.5 gap-y-1 normal-case tracking-normal">
                 {!readOnly && <button
                   type="button"
                   onClick={() => updateTable({ ...table, header: table.header === false })}
                   aria-pressed={table.header !== false}
-                  className="rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"
+                  className="hidden shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground sm:flex"
                 >
                   {tr("Header row")}
                 </button>}
@@ -736,14 +736,14 @@ export function BlockRow(props: BlockRowProps) {
                   onClick={() => updateTable({ ...table, rowNumbers: !table.rowNumbers })}
                   aria-pressed={Boolean(table.rowNumbers)}
                   title={tr("Row numbers")}
-                  className={`rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground ${table.rowNumbers ? "bg-accent text-foreground" : ""}`}
+                  className={`hidden shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground sm:flex ${table.rowNumbers ? "bg-accent text-foreground" : ""}`}
                 >
                   # {tr("Row numbers")}
                 </button>}
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button type="button" className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground ${activeFilters.length ? "bg-accent text-foreground" : ""}`}>
-                      <Filter className="size-3" /> {tr("Filter")}{activeFilters.length ? ` ${activeFilters.length}` : ""}
+                    <button type="button" aria-label={tr("Filter")} title={tr("Filter")} className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground ${activeFilters.length ? "bg-accent text-foreground" : ""}`}>
+                      <Filter className="size-3" /> <span className="hidden sm:inline">{tr("Filter")}</span>{activeFilters.length ? ` ${activeFilters.length}` : ""}
                     </button>
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-[min(92vw,26rem)] p-3">
@@ -776,8 +776,8 @@ export function BlockRow(props: BlockRowProps) {
                 </Popover>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button type="button" className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground ${hiddenSet.size ? "bg-accent text-foreground" : ""}`}>
-                      <Columns2 className="size-3" /> {tr("Table columns")}{hiddenSet.size ? ` ${hiddenSet.size}` : ""}
+                    <button type="button" aria-label={tr("Table columns")} title={tr("Table columns")} className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground ${hiddenSet.size ? "bg-accent text-foreground" : ""}`}>
+                      <Columns2 className="size-3" /> <span className="hidden sm:inline">{tr("Table columns")}</span>{hiddenSet.size ? ` ${hiddenSet.size}` : ""}
                     </button>
                   </PopoverTrigger>
                   <PopoverContent align="end" className="w-64 p-2.5">
@@ -830,7 +830,7 @@ export function BlockRow(props: BlockRowProps) {
                 <button
                   type="button"
                   onClick={copyTable}
-                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"
+                  className="hidden shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground sm:flex"
                 >
                   <Copy className="size-3" /> {tr("Copy")}
                 </button>
@@ -840,7 +840,7 @@ export function BlockRow(props: BlockRowProps) {
                       type="button"
                       title={tr("Export")}
                       aria-label={tr("Export")}
-                      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"
+                      className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"
                     >
                       <MoreHorizontal className="size-3" />
                     </button>
@@ -855,6 +855,39 @@ export function BlockRow(props: BlockRowProps) {
                     <DropdownMenuItem onSelect={downloadExcel}>
                       <Download className="mr-2 size-3.5" /> Excel
                     </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={tr("More table actions")}
+                      title={tr("More table actions")}
+                      className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground transition hover:bg-accent hover:text-foreground sm:hidden"
+                    >
+                      <MoreVertical className="size-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    {!readOnly && <>
+                      <DropdownMenuItem onSelect={() => updateTable({ ...table, header: table.header === false })}>
+                        {table.header !== false ? <Check className="mr-2 size-3.5" /> : <span className="mr-2 size-3.5" />}
+                        {tr("Header row")}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => updateTable({ ...table, rowNumbers: !table.rowNumbers })}>
+                        {table.rowNumbers ? <Check className="mr-2 size-3.5" /> : <span className="mr-2 size-3.5" />}
+                        {tr("Row numbers")}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>}
+                    <DropdownMenuItem onSelect={copyTable}>
+                      <Copy className="mr-2 size-3.5" /> {tr("Copy")}
+                    </DropdownMenuItem>
+                    {!readOnly && (
+                      <DropdownMenuItem onSelect={() => tableImportRef.current?.click()}>
+                        <Upload className="mr-2 size-3.5" /> {tr("Import")}
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {!readOnly && <>
@@ -885,7 +918,7 @@ export function BlockRow(props: BlockRowProps) {
                       }).catch((error) => toast.error(error instanceof Error ? tr(error.message) : tr("Could not import file")))
                     }}
                   />
-                  <button type="button" onClick={() => tableImportRef.current?.click()} title={tr("Import CSV, JSONL or Excel")} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground"><Upload className="size-3" /> {tr("Import")}</button>
+                  <button type="button" onClick={() => tableImportRef.current?.click()} title={tr("Import CSV, JSONL or Excel")} className="hidden shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground sm:flex"><Upload className="size-3" /> {tr("Import")}</button>
                 </>}
               </div>
             </div>
@@ -1070,14 +1103,14 @@ export function BlockRow(props: BlockRowProps) {
               <button
                 type="button"
                 onClick={addRow}
-                className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
               >
                 <Plus className="size-3" /> Row
               </button>
               <button
                 type="button"
                 onClick={addColumn}
-                className="flex items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
               >
                 <Plus className="size-3" /> Column
               </button>
@@ -1086,7 +1119,7 @@ export function BlockRow(props: BlockRowProps) {
                   <button
                     type="button"
                     title={tr("Insert formula")}
-                    className="ml-auto flex items-center gap-1 rounded px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                    className="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-2 py-1 text-[11px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
                   >
                     <Sigma className="size-3" /> {tr("Formula")}
                   </button>

@@ -1772,5 +1772,21 @@
   "Configure GitHub / GitLab / Gitea authorization in Settings → Integrations → Git, including issue write permission.": "Configure GitHub / GitLab / Gitea authorization in Settings → Integrations → Git, including issue write permission.",
   "Submitting…": "Submitting…",
   "Submit feedback": "Submit feedback",
-  "This authorization is also used to create feedback issues. GitHub tokens need repo scope (classic) or Issues write permission (fine-grained).": "This authorization is also used to create feedback issues. GitHub tokens need repo scope (classic) or Issues write permission (fine-grained)."
+  "This authorization is also used to create feedback issues. GitHub tokens need repo scope (classic) or Issues write permission (fine-grained).": "This authorization is also used to create feedback issues. GitHub tokens need repo scope (classic) or Issues write permission (fine-grained).",
+  "Creates an issue in the Git repository configured in Settings → Integrations → Git Pages publishing. Your Git token stays on the server.": "Creates an issue in the Git repository configured in Settings → Integrations → Git Pages publishing. Your Git token stays on the server.",
+  "Configure GitHub / GitLab / Gitea authorization in Settings → Integrations → Git Pages publishing, including issue write permission.": "Configure GitHub / GitLab / Gitea authorization in Settings → Integrations → Git Pages publishing, including issue write permission.",
+  "Render pages as static HTML and commit them to GitHub, GitLab or Gitea. The same authorization creates feedback issues; the access token is encrypted at rest.": "Render pages as static HTML and commit them to GitHub, GitLab or Gitea. The same authorization creates feedback issues; the access token is encrypted at rest.",
+  "All integrations": "All integrations",
+  "Create and update Jira issues.": "Create and update Jira issues.",
+  "Not configured": "Not configured",
+  "Publish pages to Confluence.": "Publish pages to Confluence.",
+  "Publish static pages and create feedback issues.": "Publish static pages and create feedback issues.",
+  "Publish static pages over SFTP.": "Publish static pages over SFTP.",
+  "Publish to several targets with one click.": "Publish to several targets with one click.",
+  "Send workspace events to an HTTP endpoint.": "Send workspace events to an HTTP endpoint.",
+  "Store uploads in Alibaba Cloud OSS.": "Store uploads in Alibaba Cloud OSS.",
+  "Store uploads in Qiniu Kodo.": "Store uploads in Qiniu Kodo.",
+  "Store uploads in S3-compatible storage.": "Store uploads in S3-compatible storage.",
+  "Store uploads in Tencent Cloud COS.": "Store uploads in Tencent Cloud COS.",
+  "{n} group(s)": "{n} group(s)"
 }

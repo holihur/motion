@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { BookOpen, Bug, CheckCircle2, CloudUpload, Database, RefreshCw, Trash2, Webhook } from "lucide-react"
+import { ArrowLeft, BookOpen, Bug, CheckCircle2, ChevronRight, CloudUpload, Database, GitBranch, RefreshCw, Server, Trash2, Webhook } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import { tr } from "@/lib/i18n"
@@ -9,7 +9,6 @@ import type { Integration, PublishGroup, WebhookDelivery } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 
 const EVENTS = ["*", "comment.created", "proposal.created", "proposal.approved", "page.published"]
@@ -29,6 +28,7 @@ export function IntegrationsSettings() {
   const [saving, setSaving] = useState("")
   const [testing, setTesting] = useState(false)
   const [enabled, setEnabled] = useState<Record<string, boolean>>({})
+  const [active, setActive] = useState<string | null>(null)
 
   const webhook = integrations.find((item) => item.provider === "webhook")
   const ssh = integrations.find((item) => item.provider === "ssh")
@@ -39,6 +39,19 @@ export function IntegrationsSettings() {
   const aliyun = integrations.find((item) => item.provider === "aliyun_oss")
   const qiniu = integrations.find((item) => item.provider === "qiniu")
   const tencent = integrations.find((item) => item.provider === "tencent_cos")
+  const cards = [
+    { id: "webhook", title: tr("Outgoing webhook"), description: tr("Send workspace events to an HTTP endpoint."), icon: Webhook },
+    { id: "git", title: tr("Git Pages publishing"), description: tr("Publish static pages and create feedback issues."), icon: GitBranch },
+    { id: "jira", title: tr("Jira publishing"), description: tr("Create and update Jira issues."), icon: Bug },
+    { id: "confluence", title: tr("Confluence publishing"), description: tr("Publish pages to Confluence."), icon: BookOpen },
+    { id: "aliyun_oss", title: tr("Aliyun OSS"), description: tr("Store uploads in Alibaba Cloud OSS."), icon: Database },
+    { id: "qiniu", title: tr("Qiniu Kodo"), description: tr("Store uploads in Qiniu Kodo."), icon: Database },
+    { id: "tencent_cos", title: tr("Tencent Cloud COS"), description: tr("Store uploads in Tencent Cloud COS."), icon: Database },
+    { id: "s3", title: tr("S3-compatible storage"), description: tr("Store uploads in S3-compatible storage."), icon: Database },
+    { id: "ssh", title: tr("SSH static publishing"), description: tr("Publish static pages over SFTP."), icon: Server },
+    { id: "groups", title: tr("Action groups"), description: tr("Publish to several targets with one click."), icon: CloudUpload },
+  ] as const
+  const activeCard = cards.find((card) => card.id === active)
   const [webhookURL, setWebhookURL] = useState("")
   const [webhookSecret, setWebhookSecret] = useState("")
   const [webhookEvents, setWebhookEvents] = useState<string[]>(["*"])
@@ -266,13 +279,53 @@ export function IntegrationsSettings() {
 
   return (
     <div className="space-y-6 pt-2">
-      <div className="rounded-xl border border-brand/20 bg-brand-soft/25 p-3.5">
+      <div className={cn("rounded-xl border border-brand/20 bg-brand-soft/25 p-3.5", active && "hidden")}>
         <div className="flex items-center gap-2 text-sm font-medium"><CloudUpload className="size-4 text-brand" /> {tr("Workspace integrations")}</div>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">{tr("Publish pages and send workspace events to other tools. Secrets are encrypted on the server.")}</p>
         <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void testAll()} disabled={testing || integrations.length === 0}>{testing ? tr("Testing…") : tr("Test all integrations")}</Button>
       </div>
 
-      <section className="space-y-3 rounded-xl border p-4">
+      {!active && (
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {cards.map((card) => {
+            const Icon = card.icon
+            const configured = card.id === "groups" ? groups.length > 0 : integrations.some((item) => item.provider === card.id)
+            const isEnabled = card.id === "groups" || (enabled[card.id] ?? true)
+            return (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => setActive(card.id)}
+                className="group flex min-h-24 items-start gap-3 rounded-xl border bg-card p-3.5 text-left transition hover:border-brand/35 hover:bg-brand-soft/10"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><Icon className="size-4" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium">{card.title}</span>
+                    {configured && <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />}
+                  </span>
+                  <span className="mt-1 line-clamp-2 block text-[11px] leading-5 text-muted-foreground">{card.description}</span>
+                  <span className={cn("mt-2 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium", isEnabled ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-muted text-muted-foreground")}>
+                    {card.id === "groups" ? tr("{n} group(s)", { n: groups.length }) : configured ? (isEnabled ? tr("Enabled") : tr("Disabled")) : tr("Not configured")}
+                  </span>
+                </span>
+                <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {active && (
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="ghost" size="sm" className="gap-1.5" onClick={() => setActive(null)}>
+            <ArrowLeft className="size-3.5" /> {tr("All integrations")}
+          </Button>
+          <span className="text-xs font-medium">{activeCard?.title}</span>
+        </div>
+      )}
+
+      <section className={cn("space-y-3 rounded-xl border p-4", active === "groups" ? "" : "hidden")}>
         <div className="flex items-center gap-2 text-sm font-medium"><CloudUpload className="size-4 text-brand" /> {tr("Action groups")}</div>
         <p className="text-xs text-muted-foreground">{tr("Group several publish targets so one click publishes everywhere.")}</p>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -293,9 +346,7 @@ export function IntegrationsSettings() {
         </div>}
       </section>
 
-      <Separator />
-
-      <section className="space-y-3 rounded-xl border p-4">
+      <section className={cn("space-y-3 rounded-xl border p-4", active === "webhook" ? "" : "hidden")}>
         <div className="flex items-center gap-2 text-sm font-medium"><Webhook className="size-4 text-brand" /> {tr("Outgoing webhook")} {webhook && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="webhook" /></div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5"><Label>{tr("Endpoint URL")}</Label><Input value={webhookURL} disabled={!owner} onChange={(event) => setWebhookURL(event.target.value)} placeholder="https://hooks.example.com/motion" /></div>
@@ -328,11 +379,9 @@ export function IntegrationsSettings() {
         )}
       </section>
 
-      <Separator />
-
-      <section className="space-y-3 rounded-xl border p-4">
+      <section className={cn("space-y-3 rounded-xl border p-4", active === "git" ? "" : "hidden")}>
         <div className="flex items-center gap-2 text-sm font-medium"><CloudUpload className="size-4 text-brand" /> {tr("Git Pages publishing")} {git && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="git" /></div>
-        <p className="text-xs text-muted-foreground">{tr("Render pages as static HTML and commit them to GitHub, GitLab or Gitea. The access token is encrypted at rest.")}</p>
+        <p className="text-xs text-muted-foreground">{tr("Render pages as static HTML and commit them to GitHub, GitLab or Gitea. The same authorization creates feedback issues; the access token is encrypted at rest.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5"><Label>{tr("Provider")}</Label><select value={gitKind} disabled={!owner} onChange={(event) => setGitKind(event.target.value)} className="h-9 w-full rounded-md border bg-background px-2 text-sm"><option value="github">GitHub</option><option value="gitlab">GitLab</option><option value="gitea">Gitea</option></select></div>
           <div className="space-y-1.5"><Label>{tr("API base URL")}</Label><Input value={gitBaseUrl} disabled={!owner} onChange={(event) => setGitBaseUrl(event.target.value)} placeholder={gitKind === "gitlab" ? "https://gitlab.com" : gitKind === "gitea" ? "https://gitea.example.com" : "https://api.github.com"} /></div>
@@ -352,9 +401,7 @@ export function IntegrationsSettings() {
         </div>
       </section>
 
-      <Separator />
-
-      <section className="space-y-3 rounded-xl border p-4">
+      <section className={cn("space-y-3 rounded-xl border p-4", active === "jira" ? "" : "hidden")}>
         <div className="flex items-center gap-2 text-sm font-medium"><Bug className="size-4 text-brand" /> {tr("Jira publishing")} {jira && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="jira" /></div>
         <p className="text-xs text-muted-foreground">{tr("Convert the page to Atlassian Document Format and create or update a Jira issue.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -371,9 +418,7 @@ export function IntegrationsSettings() {
         </div>
       </section>
 
-      <Separator />
-
-      <section className="space-y-3 rounded-xl border p-4">
+      <section className={cn("space-y-3 rounded-xl border p-4", active === "confluence" ? "" : "hidden")}>
         <div className="flex items-center gap-2 text-sm font-medium"><BookOpen className="size-4 text-brand" /> {tr("Confluence publishing")} {confluence && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="confluence" /></div>
         <p className="text-xs text-muted-foreground">{tr("Convert the page to ADF and create or update a Confluence Cloud page.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -390,9 +435,7 @@ export function IntegrationsSettings() {
         </div>
       </section>
 
-      <Separator />
-
-      <section className="space-y-3 rounded-xl border p-4">
+      <section className={cn("space-y-3 rounded-xl border p-4", active === "aliyun_oss" ? "" : "hidden")}>
         <div className="flex items-center gap-2 text-sm font-medium"><Database className="size-4 text-brand" /> {tr("Aliyun OSS")} {aliyun && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="aliyun_oss" /></div>
         <p className="text-xs text-muted-foreground">{tr("Store uploads and published pages in Alibaba Cloud OSS. Use an OSS endpoint and bucket.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -410,9 +453,7 @@ ${aliSecret}`)}>{saving === "aliyun_oss" ? tr("Saving…") : tr("Save Aliyun OSS
         </div>
       </section>
 
-      <Separator />
-
-      <section className="space-y-3 rounded-xl border p-4">
+      <section className={cn("space-y-3 rounded-xl border p-4", active === "qiniu" ? "" : "hidden")}>
         <div className="flex items-center gap-2 text-sm font-medium"><Database className="size-4 text-brand" /> {tr("Qiniu Kodo")} {qiniu && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="qiniu" /></div>
         <p className="text-xs text-muted-foreground">{tr("Store uploads and published pages in Qiniu Kodo. Configure the bucket and its public CDN domain.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -430,9 +471,7 @@ ${qiniuSecret}`)}>{saving === "qiniu" ? tr("Saving…") : tr("Save Qiniu")}</But
         </div>
       </section>
 
-      <Separator />
-
-      <section className="space-y-3 rounded-xl border p-4">
+      <section className={cn("space-y-3 rounded-xl border p-4", active === "tencent_cos" ? "" : "hidden")}>
         <div className="flex items-center gap-2 text-sm font-medium"><Database className="size-4 text-brand" /> {tr("Tencent Cloud COS")} {tencent && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="tencent_cos" /></div>
         <p className="text-xs text-muted-foreground">{tr("Store uploads and published pages in Tencent Cloud COS using the native COS API.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -450,9 +489,7 @@ ${qiniuSecret}`)}>{saving === "qiniu" ? tr("Saving…") : tr("Save Qiniu")}</But
         </div>
       </section>
 
-      <Separator />
-
-      <section className="space-y-3 rounded-xl border p-4">
+      <section className={cn("space-y-3 rounded-xl border p-4", active === "s3" ? "" : "hidden")}>
         <div className="flex items-center gap-2 text-sm font-medium"><Database className="size-4 text-brand" /> {tr("S3-compatible storage")} {s3 && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="s3" /></div>
         <p className="text-xs text-muted-foreground">{tr("Store uploads in S3, MinIO or Cloudflare R2 instead of GridFS. The bucket should be publicly readable for inline images.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -479,9 +516,7 @@ ${s3Secret}`)}>{saving === "s3" ? tr("Saving…") : tr("Save S3")}</Button>
         </div>
       </section>
 
-      <Separator />
-
-      <section className="space-y-3 rounded-xl border p-4">
+      <section className={cn("space-y-3 rounded-xl border p-4", active === "ssh" ? "" : "hidden")}>
         <div className="flex items-center gap-2 text-sm font-medium"><CloudUpload className="size-4 text-brand" /> {tr("SSH static publishing")} {ssh && <CheckCircle2 className="size-3.5 text-emerald-500" />}<EnableToggle provider="ssh" /></div>
         <p className="text-xs text-muted-foreground">{tr("Render pages as static HTML and write them to a remote directory over SFTP. The private key is encrypted at rest.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">

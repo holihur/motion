@@ -1772,5 +1772,21 @@
   "Configure GitHub / GitLab / Gitea authorization in Settings → Integrations → Git, including issue write permission.": "请在 设置 → 集成 → Git 中配置 GitHub / GitLab / Gitea 授权，并确保有创建 Issue 的权限。",
   "Submitting…": "正在提交…",
   "Submit feedback": "提交反馈",
-  "This authorization is also used to create feedback issues. GitHub tokens need repo scope (classic) or Issues write permission (fine-grained).": "此授权也用于创建 Feedback Issue。GitHub Token 需要 repo 权限（经典 Token）或 Issues 写入权限（Fine-grained Token）。"
+  "This authorization is also used to create feedback issues. GitHub tokens need repo scope (classic) or Issues write permission (fine-grained).": "此授权也用于创建 Feedback Issue。GitHub Token 需要 repo 权限（经典 Token）或 Issues 写入权限（Fine-grained Token）。",
+  "Creates an issue in the Git repository configured in Settings → Integrations → Git Pages publishing. Your Git token stays on the server.": "会在 设置 → 集成 → Git Pages 发布 配置的仓库中创建 Issue。Git Token 只保存在服务端。",
+  "Configure GitHub / GitLab / Gitea authorization in Settings → Integrations → Git Pages publishing, including issue write permission.": "请在 设置 → 集成 → Git Pages 发布 中配置 GitHub / GitLab / Gitea 授权，并确保有创建 Issue 的权限。",
+  "Render pages as static HTML and commit them to GitHub, GitLab or Gitea. The same authorization creates feedback issues; the access token is encrypted at rest.": "将页面渲染为静态 HTML 并提交到 GitHub、GitLab 或 Gitea；同一授权也用于创建 Feedback Issue，Access Token 会加密保存。",
+  "All integrations": "全部集成",
+  "Create and update Jira issues.": "创建和更新 Jira Issue。",
+  "Not configured": "未配置",
+  "Publish pages to Confluence.": "发布页面到 Confluence。",
+  "Publish static pages and create feedback issues.": "发布静态页面并创建 Feedback Issue。",
+  "Publish static pages over SFTP.": "通过 SFTP 发布静态页面。",
+  "Publish to several targets with one click.": "一键发布到多个目标。",
+  "Send workspace events to an HTTP endpoint.": "将工作区事件发送到 HTTP 端点。",
+  "Store uploads in Alibaba Cloud OSS.": "将上传文件存储到阿里云 OSS。",
+  "Store uploads in Qiniu Kodo.": "将上传文件存储到七牛 Kodo。",
+  "Store uploads in S3-compatible storage.": "将上传文件存储到兼容 S3 的存储。",
+  "Store uploads in Tencent Cloud COS.": "将上传文件存储到腾讯云 COS。",
+  "{n} group(s)": "{n} 个分组"
 }

@@ -114,7 +114,7 @@ export function FeedbackButton() {
               <MessageSquarePlus className="size-4 text-brand" /> {tr("Send feedback")}
             </DialogTitle>
             <DialogDescription>
-              {tr("Creates an issue in the Git repository configured in Settings → Integrations → Git. Your Git token stays on the server.")}
+              {tr("Creates an issue in the Git repository configured in Settings → Integrations → Git Pages publishing. Your Git token stays on the server.")}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={submit} className="space-y-3">
@@ -160,7 +160,7 @@ export function FeedbackButton() {
               </p>
             )}
             <div className="text-[11px] leading-5 text-muted-foreground">
-              {tr("Configure GitHub / GitLab / Gitea authorization in Settings → Integrations → Git, including issue write permission.")}
+              {tr("Configure GitHub / GitLab / Gitea authorization in Settings → Integrations → Git Pages publishing, including issue write permission.")}
             </div>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setOpen(false)}>{tr("Cancel")}</Button>

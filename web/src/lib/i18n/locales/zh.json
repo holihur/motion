@@ -1754,5 +1754,7 @@
   "New event": "新建事件",
   "Event title": "事件标题",
   "Calendars": "日历",
-  "Redo": "重做"
+  "Redo": "重做",
+  "Resize split": "调整分栏宽度",
+  "Mermaid source": "Mermaid 源码"
 }

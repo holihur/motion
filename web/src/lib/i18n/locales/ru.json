@@ -1754,5 +1754,7 @@
   "New event": "New event",
   "Event title": "Event title",
   "Calendars": "Calendars",
-  "Redo": "Redo"
+  "Redo": "Redo",
+  "Resize split": "Resize split",
+  "Mermaid source": "Mermaid source"
 }

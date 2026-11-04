@@ -116,6 +116,7 @@ import { tr } from "@/lib/i18n"
 import { TRANSLATE_LANGS, translateText } from "@/lib/translate"
 import { ColorGrid } from "@/components/ui/color-grid"
 import { FormulaHelpDialog } from "@/components/editor/formula-help-dialog"
+import { MermaidSourceEditor } from "@/components/editor/mermaid-source-editor"
 
 const CodeBlock = lazy(() => import("@/components/editor/code-block").then((module) => ({ default: module.CodeBlock })))
 const EquationBlock = lazy(() => import("@/components/editor/equation-block").then((module) => ({ default: module.EquationBlock })))
@@ -299,6 +300,15 @@ export function BlockRow(props: BlockRowProps) {
   const editableRef = useRef<HTMLDivElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
   const [diagramMode, setDiagramMode] = useState<"preview" | "split" | "source">(block.text ? "split" : "source")
+  const [diagramSplit, setDiagramSplit] = useState(() => {
+    try {
+      const value = Number(localStorage.getItem("motion.mermaid.split"))
+      return Number.isFinite(value) && value >= 20 && value <= 80 ? value : 50
+    } catch {
+      return 50
+    }
+  })
+  const diagramSplitRef = useRef<{ rect: DOMRect } | null>(null)
   const [diagramZoom, setDiagramZoom] = useState(false)
   const [longFolded, setLongFolded] = useState(true)
   const [calloutFolded, setCalloutFolded] = useState(false)
@@ -1175,18 +1185,12 @@ export function BlockRow(props: BlockRowProps) {
         const zoom = Number(block.align ?? "100") || 100
         const mode = readOnly ? "preview" : diagramMode
         const sourceEditor = (
-          <textarea
+          <MermaidSourceEditor
             value={block.text}
             readOnly={readOnly}
-            onChange={(event) => onUpdate({ text: event.target.value })}
+            onChange={(value) => onUpdate({ text: value })}
             onFocus={() => onFocusBlock?.(block.id)}
-            spellCheck={false}
-            rows={mode === "split" ? 12 : Math.min(16, Math.max(5, block.text.split("\n").length + 1))}
-            placeholder={"flowchart LR\n  A[Start] --> B[Finish]"}
-            className={cn(
-              "block w-full resize-y bg-transparent p-3 font-mono text-[12px] leading-5 outline-none placeholder:text-muted-foreground/50",
-              mode === "split" && "min-h-[240px] border-r md:max-h-[70svh]",
-            )}
+            className={mode === "split" ? "h-[300px] md:max-h-[70svh]" : "h-[220px]"}
           />
         )
         const preview = (
@@ -1204,6 +1208,25 @@ export function BlockRow(props: BlockRowProps) {
             </span>
           </div>
         )
+        function startSplitResize(event: React.PointerEvent<HTMLDivElement>) {
+          if (event.button !== 0) return
+          const row = event.currentTarget.parentElement
+          if (!row) return
+          event.preventDefault()
+          diagramSplitRef.current = { rect: row.getBoundingClientRect() }
+          event.currentTarget.setPointerCapture(event.pointerId)
+        }
+        function moveSplitResize(event: React.PointerEvent<HTMLDivElement>) {
+          const current = diagramSplitRef.current
+          if (!current) return
+          const percent = Math.max(20, Math.min(80, ((event.clientX - current.rect.left) / current.rect.width) * 100))
+          setDiagramSplit(percent)
+          try { localStorage.setItem("motion.mermaid.split", String(Math.round(percent))) } catch { /* ignore */ }
+        }
+        function endSplitResize(event: React.PointerEvent<HTMLDivElement>) {
+          diagramSplitRef.current = null
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+        }
         return (
           <div className="my-2 overflow-hidden rounded-lg border border-border/80 bg-card">
             <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5">
@@ -1254,9 +1277,24 @@ export function BlockRow(props: BlockRowProps) {
               <DiagramLightbox source={block.text} title={tr("Diagram preview")} open={diagramZoom} onOpenChange={setDiagramZoom} />
             </div>
             {mode === "split" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2">
-                {sourceEditor}
-                {preview}
+              <div
+                className="grid grid-cols-1 md:[grid-template-columns:var(--mermaid-split)_6px_1fr]"
+                style={{ "--mermaid-split": `${diagramSplit}%` } as React.CSSProperties}
+              >
+                <div className="min-w-0">{sourceEditor}</div>
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label={tr("Resize split")}
+                  onPointerDown={startSplitResize}
+                  onPointerMove={moveSplitResize}
+                  onPointerUp={endSplitResize}
+                  onPointerCancel={endSplitResize}
+                  className="group/split hidden cursor-col-resize touch-none items-center justify-center bg-border/50 transition hover:bg-brand/40 md:flex"
+                >
+                  <span className="h-8 w-0.5 rounded-full bg-muted-foreground/30 transition group-hover/split:bg-brand" />
+                </div>
+                <div className="min-w-0">{preview}</div>
               </div>
             ) : mode === "source" ? sourceEditor : preview}
           </div>

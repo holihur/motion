@@ -12,12 +12,15 @@ test("exports pages as HTML, PDF and Word", async ({ page, request }) => {
       { id: "", type: "heading1", text: "Export title" },
       { id: "", type: "paragraph", text: "中文内容 and English content." },
       { id: "", type: "todo", text: "A task" },
+      { id: "export-diagram", type: "diagram", text: "flowchart LR\n  A[Start] --> B[Finish]" },
     ],
   })
   await page.goto(`/page/${created.id}`)
+  await page.locator("header").getByRole("button", { name: "Page options" }).click()
+  await page.getByRole("menuitem", { name: "Page settings" }).click()
 
   for (const [label, extension] of [["Export as HTML", ".html"], ["Export as PDF", ".pdf"], ["Export as Word", ".docx"]] as const) {
-    await page.locator("header").getByRole("button", { name: "Page options" }).click()
+    await page.getByRole("button", { name: "Export", exact: true }).click()
     const downloadPromise = page.waitForEvent("download")
     await page.getByRole("menuitem", { name: label }).click()
     const download = await downloadPromise

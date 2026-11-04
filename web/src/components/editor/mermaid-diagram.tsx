@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog"
 
 import { peekMermaidCache, renderMermaid } from "@/lib/mermaid-render"
+import { renderDiagramImage } from "@/lib/mermaid-export"
 
 export function MermaidDiagram({ source }: { source: string }) {
   const isDark = useThemeStore((state) => state.isDark)
@@ -109,68 +110,22 @@ export function MermaidDiagram({ source }: { source: string }) {
 
 /* ---------------- 放大预览 ---------------- */
 
-function downloadSVG(svgEl: SVGSVGElement, name: string) {
-  const clone = svgEl.cloneNode(true) as SVGSVGElement
-  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg")
-  const text = new XMLSerializer().serializeToString(clone)
-  const blob = new Blob([text], { type: "image/svg+xml;charset=utf-8" })
-  const href = URL.createObjectURL(blob)
+function saveBlob(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob)
   const link = document.createElement("a")
-  link.href = href
-  link.download = name + ".svg"
+  link.href = url
+  link.download = name
   document.body.appendChild(link)
   link.click()
   link.remove()
-  window.setTimeout(() => URL.revokeObjectURL(href), 2000)
+  window.setTimeout(() => URL.revokeObjectURL(url), 2000)
 }
 
-function downloadPNG(svgEl: SVGSVGElement, name: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const clone = svgEl.cloneNode(true) as SVGSVGElement
-    clone.setAttribute("xmlns", "http://www.w3.org/2000/svg")
-    const rect = svgEl.getBoundingClientRect()
-    const w = Math.max(800, Math.round(rect.width * 2))
-    const text = new XMLSerializer().serializeToString(clone)
-    const href = URL.createObjectURL(new Blob([text], { type: "image/svg+xml;charset=utf-8" }))
-    const img = new Image()
-    img.onload = () => {
-      try {
-        const scale = w / Math.max(1, img.width || rect.width || 800)
-        const canvas = document.createElement("canvas")
-        canvas.width = Math.round((img.width || rect.width || 800) * scale)
-        canvas.height = Math.round((img.height || rect.height || 600) * scale)
-        const ctx = canvas.getContext("2d")
-        if (!ctx) throw new Error("no canvas")
-        ctx.fillStyle = getComputedStyle(document.body).backgroundColor || "#ffffff"
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        URL.revokeObjectURL(href)
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error("rasterize failed"))
-            return
-          }
-          const url = URL.createObjectURL(blob)
-          const link = document.createElement("a")
-          link.href = url
-          link.download = name + ".png"
-          document.body.appendChild(link)
-          link.click()
-          link.remove()
-          window.setTimeout(() => URL.revokeObjectURL(url), 2000)
-          resolve()
-        }, "image/png")
-      } catch (err) {
-        URL.revokeObjectURL(href)
-        reject(err instanceof Error ? err : new Error("rasterize failed"))
-      }
-    }
-    img.onerror = () => {
-      URL.revokeObjectURL(href)
-      reject(new Error("could not load diagram image"))
-    }
-    img.src = href
-  })
+function base64Blob(value: string, type: string): Blob {
+  const binary = atob(value)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return new Blob([bytes], { type })
 }
 
 export function DiagramLightbox({ source, title, open, onOpenChange }: {
@@ -179,22 +134,18 @@ export function DiagramLightbox({ source, title, open, onOpenChange }: {
   open: boolean
   onOpenChange: (v: boolean) => void
 }) {
+  const isDark = useThemeStore((state) => state.isDark)
   const [zoom, setZoom] = useState(100)
   const [fullscreen, setFullscreen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [hand, setHand] = useState(false)
   const [panning, setPanning] = useState(false)
-  const frameRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const panRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
 
   useEffect(() => {
     if (open) setZoom(100)
   }, [open ])
-
-  function currentSVG(): SVGSVGElement | null {
-    return frameRef.current?.querySelector("svg") ?? null
-  }
 
   function startPan(event: React.PointerEvent<HTMLDivElement>) {
     if (!hand || event.button !== 0) return
@@ -223,16 +174,19 @@ export function DiagramLightbox({ source, title, open, onOpenChange }: {
   }
 
   async function onDownload(kind: "svg" | "png") {
-    const el = currentSVG()
-    if (!el) {
+    if (!source.trim()) {
       toast.error(tr("Diagram is still rendering"))
       return
     }
     const name = (title?.trim() || "diagram").replace(/[\\/:*?"<>|]+/g, "-").slice(0, 60) || "diagram"
     setBusy(true)
     try {
-      if (kind === "svg") downloadSVG(el, name)
-      else await downloadPNG(el, name)
+      const image = await renderDiagramImage(source, isDark ? "dark" : "default", isDark ? "#0b0b0f" : "#ffffff")
+      if (kind === "svg") {
+        saveBlob(new Blob([image.svg], { type: "image/svg+xml;charset=utf-8" }), name + ".svg")
+      } else {
+        saveBlob(base64Blob(image.png, "image/png"), name + ".png")
+      }
       toast.success(tr("Export ready"))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : tr("Could not export page"))
@@ -301,7 +255,7 @@ export function DiagramLightbox({ source, title, open, onOpenChange }: {
             hand && (panning ? "cursor-grabbing touch-none select-none" : "cursor-grab touch-none select-none"),
           )}
         >
-          <div ref={frameRef} style={{ width: zoom === 100 ? undefined : `${zoom}%`, minWidth: zoom > 100 ? `${zoom}%` : undefined }} className={cn("mx-auto [&_.mermaid-frame]:border-0 [&_.mermaid-frame]:bg-transparent [&_.mermaid-frame]:p-2 [&_svg]:h-auto [&_svg]:w-full", hand && "[&_*]:pointer-events-none")}>
+          <div style={{ width: zoom === 100 ? undefined : `${zoom}%`, minWidth: zoom > 100 ? `${zoom}%` : undefined }} className={cn("mx-auto [&_.mermaid-frame]:border-0 [&_.mermaid-frame]:bg-transparent [&_.mermaid-frame]:p-2 [&_svg]:h-auto [&_svg]:w-full", hand && "[&_*]:pointer-events-none")}>
             <MermaidDiagram source={source} />
           </div>
         </div>

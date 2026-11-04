@@ -219,8 +219,8 @@ function SidebarContent() {
                 {pendingProposals}
               </span>
             ) : undefined}
-            active={location.pathname === "/inbox"}
-            onClick={() => navigate("/inbox")}
+            active={location.pathname === "/ai"}
+            onClick={() => navigate("/ai")}
           />
           <RecentMenu pages={recent} />
           <div className="relative px-0.5 pt-1.5">

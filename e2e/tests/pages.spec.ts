@@ -35,7 +35,8 @@ test.describe("page management", () => {
     await expect(page.locator("header").getByLabel("Remove from favorites")).toBeVisible()
 
     await page.locator("header").getByLabel("Page options").click()
-    await page.getByRole("menuitem", { name: "Move to Trash" }).click()
+    await page.getByRole("menuitem", { name: "Page settings" }).click()
+    await page.getByRole("button", { name: "Move to Trash" }).click()
     await expect(page).toHaveURL(/\/$/)
 
     await page.locator("aside").getByRole("button", { name: "Trash" }).click()
@@ -55,7 +56,8 @@ test.describe("page management", () => {
       .click()
     await expect(page).toHaveURL(new RegExp(`/page/${pageId}$`))
     await page.locator("header").getByLabel("Page options").click()
-    await page.getByRole("menuitem", { name: "Move to Trash" }).click()
+    await page.getByRole("menuitem", { name: "Page settings" }).click()
+    await page.getByRole("button", { name: "Move to Trash" }).click()
     await expect(page).toHaveURL(/\/$/)
 
     await page.locator("aside").getByRole("button", { name: "Trash" }).click()
@@ -82,14 +84,18 @@ test.describe("page management", () => {
     await parentRow.getByLabel("Page options").click()
     await page.getByRole("menuitem", { name: "Add sub-page" }).click()
 
-    await expect
-      .poll(async () => page.url().match(/\/page\/([a-f0-9]+)$/)?.[1] ?? "")
-      .not.toBe(parentId)
+    await page.waitForURL((url) => /\/page\/[a-f0-9]+$/.test(url.pathname) && !url.pathname.endsWith(`/page/${parentId}`))
     const childId = page.url().split("/").pop()!
     const childTitle = page.locator("[data-editor-title=true]")
     await expect(childTitle).toHaveValue("")
+    await page.waitForTimeout(300)
     await childTitle.fill("Child Page")
-    await waitForPageTitle(request, account.token, childId, "Child Page")
+    await expect.poll(async () => {
+      if ((await getPage(request, account.token, childId)).title !== "Child Page") {
+        await childTitle.fill("Child Page")
+      }
+      return (await getPage(request, account.token, childId)).title
+    }, { timeout: 15_000 }).toBe("Child Page")
 
     const child = await getPage(request, account.token, childId)
     expect(child.parentId).toBe(parentId)

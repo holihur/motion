@@ -23,6 +23,85 @@ func defaultAgentScopes() []string {
 	return []string{"pages:read", "pages:write"}
 }
 
+const maxAgentSessionMessages = 500
+
+func (s *Server) createAgentSession(ctx context.Context, workspaceID primitive.ObjectID, user model.User, agent model.Agent, prompt, pageHex string) (model.AgentSession, error) {
+	now := time.Now().UTC()
+	session := model.AgentSession{
+		ID: primitive.NewObjectID(), WorkspaceID: workspaceID,
+		UserID: user.ID, AgentID: agent.ID, AgentName: agent.Name,
+		Title: truncateRunes(strings.TrimSpace(prompt), 120), PageID: pageHex,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if _, err := s.store.AgentSessions.InsertOne(ctx, session); err != nil {
+		return model.AgentSession{}, err
+	}
+	return session, nil
+}
+
+func agentSessionHistory(session model.AgentSession) []docagent.ChatMessage {
+	history := make([]docagent.ChatMessage, 0)
+	for _, message := range session.Messages {
+		if message.Role != "user" && message.Role != "assistant" {
+			continue
+		}
+		content := strings.TrimSpace(message.Content)
+		if content == "" {
+			continue
+		}
+		history = append(history, docagent.ChatMessage{Role: message.Role, Content: content})
+	}
+	if len(history) > 30 {
+		history = history[len(history)-30:]
+	}
+	return history
+}
+
+func (s *Server) appendAgentMessages(ctx context.Context, sessionID, runID primitive.ObjectID, messages ...model.AgentMessage) {
+	if sessionID.IsZero() || len(messages) == 0 {
+		return
+	}
+	now := time.Now().UTC()
+	for i := range messages {
+		if messages[i].ID == "" {
+			messages[i].ID = primitive.NewObjectID().Hex()
+		}
+		messages[i].RunID = runID
+		if messages[i].CreatedAt.IsZero() {
+			messages[i].CreatedAt = now
+		}
+	}
+	_, _ = s.store.AgentSessions.UpdateOne(ctx, bson.M{"_id": sessionID}, mongo.Pipeline{
+		{{Key: "$set", Value: bson.M{"messages": bson.M{"$slice": bson.A{
+			bson.M{"$concatArrays": bson.A{bson.M{"$ifNull": bson.A{"$messages", bson.A{}}}, messages}},
+			-maxAgentSessionMessages,
+		}}}}},
+		{{Key: "$set", Value: bson.M{"messageCount": bson.M{"$size": "$messages"}, "updatedAt": now}}},
+	})
+}
+
+func (s *Server) sessionForRun(ctx context.Context, workspaceID primitive.ObjectID, user model.User, agent model.Agent, prompt, pageHex, sessionHex string) (model.AgentSession, []docagent.ChatMessage, error) {
+	sessionHex = strings.TrimSpace(sessionHex)
+	if sessionHex == "" {
+		session, err := s.createAgentSession(ctx, workspaceID, user, agent, prompt, pageHex)
+		return session, nil, err
+	}
+	sessionID, err := primitive.ObjectIDFromHex(sessionHex)
+	if err != nil {
+		return model.AgentSession{}, nil, mongo.ErrNoDocuments
+	}
+	var session model.AgentSession
+	if err := s.store.AgentSessions.FindOne(ctx, bson.M{
+		"_id": sessionID, "workspaceId": workspaceID, "userId": user.ID,
+	}).Decode(&session); err != nil {
+		return model.AgentSession{}, nil, err
+	}
+	if session.AgentID != agent.ID {
+		return model.AgentSession{}, nil, fmt.Errorf("session belongs to another agent")
+	}
+	return session, agentSessionHistory(session), nil
+}
+
 func (s *Server) ensureDefaultAgent(ctx context.Context, workspaceID, ownerID primitive.ObjectID) (model.Agent, error) {
 	var agent model.Agent
 	err := s.store.Agents.FindOne(ctx, bson.M{"workspaceId": workspaceID, "isDefault": true}).Decode(&agent)
@@ -321,8 +400,9 @@ func (s *Server) runAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Prompt string `json:"prompt"`
-		PageID string `json:"pageId"`
+		Prompt    string `json:"prompt"`
+		PageID    string `json:"pageId"`
+		SessionID string `json:"sessionId"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid request body")
@@ -364,33 +444,51 @@ func (s *Server) runAgent(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusTooManyRequests, "daily AI token budget exceeded; try again tomorrow")
 		return
 	}
+	session, history, err := s.sessionForRun(r.Context(), wsID, user, agent, prompt, pageHex, req.SessionID)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			writeErr(w, http.StatusNotFound, "agent session not found")
+		} else if strings.Contains(err.Error(), "another agent") {
+			writeErr(w, http.StatusBadRequest, err.Error())
+		} else {
+			writeErr(w, http.StatusInternalServerError, "could not create agent session")
+		}
+		return
+	}
 	run := model.AgentRun{
 		ID: primitive.NewObjectID(), WorkspaceID: wsID,
 		AgentID: agent.ID, AgentName: agent.Name,
 		ActorID: user.ID, ActorName: user.Name,
-		Prompt: prompt, PageID: pageHex,
+		Prompt: prompt, PageID: pageHex, SessionID: session.ID.Hex(),
 		Status: "queued", CreatedAt: time.Now().UTC(),
 	}
 	if _, err := s.store.AgentRuns.InsertOne(r.Context(), run); err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not queue task")
 		return
 	}
+	_, _ = s.store.AgentSessions.UpdateOne(r.Context(), bson.M{"_id": session.ID}, bson.M{"$inc": bson.M{"runCount": 1}})
+	s.appendAgentMessages(r.Context(), session.ID, run.ID, model.AgentMessage{Role: "user", Content: prompt})
 	s.writeAudit(r.Context(), wsID, user.ID, user.Name, agent.ID, agent.Name,
 		"agent.run.queued", "agent", agent.ID.Hex(), "Queued task for "+agent.Name)
-	go s.executeAgentRun(agent, user, setting, prompt, pageHex, run.ID)
+	go s.executeAgentRun(agent, user, setting, prompt, pageHex, run.ID, session.ID, history)
 	writeJSON(w, http.StatusAccepted, map[string]any{
 		"runId": run.ID.Hex(), "agentId": agent.ID.Hex(), "status": "queued",
 	})
 }
 
-func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting model.AISetting, prompt, pageHex string, runID primitive.ObjectID) {
+func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting model.AISetting, prompt, pageHex string, runID, sessionID primitive.ObjectID, history []docagent.ChatMessage) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
+	var runner *docagent.Runner
 	fail := func(msg string) {
 		now := time.Now().UTC()
-		_, _ = s.store.AgentRuns.UpdateByID(ctx, runID, bson.M{"$set": bson.M{
-			"status": "failed", "error": msg, "finishedAt": now,
-		}})
+		updates := bson.M{"status": "failed", "error": msg, "finishedAt": now}
+		if runner != nil {
+			updates["actionLog"] = limitRunActions(runner.Actions)
+			updates["actions"] = len(runner.Actions)
+		}
+		_, _ = s.store.AgentRuns.UpdateByID(ctx, runID, bson.M{"$set": updates})
+		s.appendAgentMessages(ctx, sessionID, runID, model.AgentMessage{Role: "error", Content: msg})
 		s.writeAudit(ctx, agent.WorkspaceID, user.ID, user.Name, agent.ID, agent.Name,
 			"agent.run.failed", "agent", agent.ID.Hex(), "Task failed: "+msg)
 		s.notifyUser(ctx, model.Notification{
@@ -441,12 +539,12 @@ func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting mod
 	for _, scope := range agent.Scopes {
 		agentScopes[scope] = true
 	}
-	runner := &docagent.Runner{
+	runner = &docagent.Runner{
 		Store: s.store, Hub: s.hub, User: user, Key: key,
 		ModelName: modelName, Provider: setting.Provider, BaseURL: setting.BaseURL,
 		Scopes: agentScopes, TrackChanges: true,
 	}
-	reply, actions, err := runner.Run(ctx, nil, prompt, pageHex)
+	reply, actions, err := runner.Run(ctx, history, prompt, pageHex)
 	if err != nil {
 		fail(err.Error())
 		return
@@ -467,8 +565,17 @@ func (s *Server) executeAgentRun(agent model.Agent, user model.User, setting mod
 	_, _ = s.store.AgentRuns.UpdateByID(ctx, runID, bson.M{"$set": bson.M{
 		"status": "succeeded", "finishedAt": finished,
 		"proposalIds": proposalIDs, "actions": len(actions),
+		"actionLog": limitRunActions(actions), "reply": truncateRunes(reply, 20000),
 		"tokens": runner.LastUsage.TotalTokens,
 	}})
+	sessionMessages := make([]model.AgentMessage, 0, len(actions)+1)
+	for _, action := range actions {
+		sessionMessages = append(sessionMessages, model.AgentMessage{Role: "tool", Content: truncateRunes(strings.TrimSpace(action), 1000)})
+	}
+	if reply != "" {
+		sessionMessages = append(sessionMessages, model.AgentMessage{Role: "assistant", Content: truncateRunes(reply, 20000)})
+	}
+	s.appendAgentMessages(ctx, sessionID, runID, sessionMessages...)
 	{
 		body := truncateRunes(prompt, 80)
 		if agent.Mode == "approval" {
@@ -550,7 +657,10 @@ func (s *Server) listAgentRuns(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	cur, err := s.store.AgentRuns.Find(r.Context(), bson.M{"workspaceId": wsID},
-		options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}}).SetLimit(limit))
+		options.Find().
+			SetProjection(bson.M{"actionLog": 0, "reply": 0}).
+			SetSort(bson.D{{Key: "createdAt", Value: -1}}).
+			SetLimit(limit))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "could not load runs")
 		return
@@ -562,6 +672,104 @@ func (s *Server) listAgentRuns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, runs)
+}
+
+// GET /workspaces/{workspaceID}/agent-sessions?limit=
+func (s *Server) listAgentSessions(w http.ResponseWriter, r *http.Request) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	if _, _, err := s.accessibleWorkspace(r, wsID); err != nil {
+		writeErr(w, http.StatusNotFound, "workspace not found")
+		return
+	}
+	limit := int64(50)
+	if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
+		var parsed int64
+		if _, err := fmt.Sscanf(raw, "%d", &parsed); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+	cur, err := s.store.AgentSessions.Find(r.Context(), bson.M{
+		"workspaceId": wsID, "userId": currentUserID(r),
+	}, options.Find().
+		SetProjection(bson.M{"messages": 0}).
+		SetSort(bson.D{{Key: "updatedAt", Value: -1}}).
+		SetLimit(limit))
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load sessions")
+		return
+	}
+	defer cur.Close(r.Context())
+	sessions := make([]model.AgentSession, 0)
+	if err := cur.All(r.Context(), &sessions); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not load sessions")
+		return
+	}
+	writeJSON(w, http.StatusOK, sessions)
+}
+
+// GET /workspaces/{workspaceID}/agent-sessions/{sessionID}
+func (s *Server) getAgentSession(w http.ResponseWriter, r *http.Request) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	if _, _, err := s.accessibleWorkspace(r, wsID); err != nil {
+		writeErr(w, http.StatusNotFound, "workspace not found")
+		return
+	}
+	sessionID, err := primitive.ObjectIDFromHex(chiURLParam(r, "sessionID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid session id")
+		return
+	}
+	var session model.AgentSession
+	if err := s.store.AgentSessions.FindOne(r.Context(), bson.M{
+		"_id": sessionID, "workspaceId": wsID, "userId": currentUserID(r),
+	}).Decode(&session); err != nil {
+		writeErr(w, http.StatusNotFound, "agent session not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, session)
+}
+
+// GET /workspaces/{workspaceID}/agent-runs/{runID}
+func (s *Server) getAgentRun(w http.ResponseWriter, r *http.Request) {
+	wsID, err := primitive.ObjectIDFromHex(chiURLParam(r, "workspaceID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid workspace id")
+		return
+	}
+	if _, _, err := s.accessibleWorkspace(r, wsID); err != nil {
+		writeErr(w, http.StatusNotFound, "workspace not found")
+		return
+	}
+	runID, err := primitive.ObjectIDFromHex(chiURLParam(r, "runID"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid run id")
+		return
+	}
+	var run model.AgentRun
+	if err := s.store.AgentRuns.FindOne(r.Context(), bson.M{"_id": runID, "workspaceId": wsID}).Decode(&run); err != nil {
+		writeErr(w, http.StatusNotFound, "run not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, run)
+}
+
+func limitRunActions(actions []string) []string {
+	if len(actions) > 200 {
+		actions = actions[:200]
+	}
+	out := make([]string, 0, len(actions))
+	for _, action := range actions {
+		out = append(out, truncateRunes(strings.TrimSpace(action), 1000))
+	}
+	return out
 }
 
 // expandTemplateVars replaces {date} {time} {datetime} {weekday} {page}
@@ -681,17 +889,24 @@ func (s *Server) executeScheduledRun(agent model.Agent) {
 		}
 	}
 	_, _ = s.store.Agents.UpdateByID(ctx, agent.ID, bson.M{"$set": bson.M{"schedule.lastRunError": ""}})
+	session, err := s.createAgentSession(ctx, agent.WorkspaceID, owner, agent, prompt, pageHex)
+	if err != nil {
+		fail("could not create agent session")
+		return
+	}
 	run := model.AgentRun{
 		ID: primitive.NewObjectID(), WorkspaceID: agent.WorkspaceID,
 		AgentID: agent.ID, AgentName: agent.Name,
 		ActorID: owner.ID, ActorName: owner.Name,
-		Prompt: prompt, PageID: pageHex, Scheduled: true,
+		Prompt: prompt, PageID: pageHex, SessionID: session.ID.Hex(), Scheduled: true,
 		Status: "queued", CreatedAt: time.Now().UTC(),
 	}
 	if _, err := s.store.AgentRuns.InsertOne(ctx, run); err != nil {
 		return
 	}
-	s.executeAgentRun(agent, owner, setting, prompt, pageHex, run.ID)
+	_, _ = s.store.AgentSessions.UpdateOne(ctx, bson.M{"_id": session.ID}, bson.M{"$inc": bson.M{"runCount": 1}})
+	s.appendAgentMessages(ctx, session.ID, run.ID, model.AgentMessage{Role: "user", Content: prompt})
+	s.executeAgentRun(agent, owner, setting, prompt, pageHex, run.ID, session.ID, nil)
 }
 
 func (s *Server) currentUserName(r *http.Request) string {

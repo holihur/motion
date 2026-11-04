@@ -97,7 +97,7 @@ test.describe("agent approval workflow", () => {
         .poll(async () => (await getPage(request, account.token, created.id)).blocks[0].text)
         .toBe("Approved by a human")
 
-      await page.goto("/inbox")
+      await page.goto("/ai")
       await expect(page.getByRole("heading", { name: "Agent", exact: true })).toBeVisible()
       await page.getByRole("tab", { name: "Activity" }).click()
       await expect(page.getByText(/Approved changes to/)).toBeVisible()

@@ -481,6 +481,33 @@ type Agent struct {
 	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
+// AgentSession groups one or more agent runs into a persistent conversation.
+type AgentSession struct {
+	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	WorkspaceID  primitive.ObjectID `bson:"workspaceId" json:"workspaceId"`
+	UserID       primitive.ObjectID `bson:"userId" json:"userId"`
+	AgentID      primitive.ObjectID `bson:"agentId" json:"agentId"`
+	AgentName    string             `bson:"agentName" json:"agentName"`
+	Title        string             `bson:"title" json:"title"`
+	PageID       string             `bson:"pageId,omitempty" json:"pageId,omitempty"`
+	RunCount     int                `bson:"runCount" json:"runCount"`
+	MessageCount int                `bson:"messageCount" json:"messageCount"`
+	Messages     []AgentMessage     `bson:"messages,omitempty" json:"messages,omitempty"`
+	CreatedAt    time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt    time.Time          `bson:"updatedAt" json:"updatedAt"`
+}
+
+// AgentMessage is one persisted turn embedded in an agent session. Tool
+// entries store the human-readable action summary rather than raw provider
+// payloads. Messages are appended with a bounded $slice to keep documents small.
+type AgentMessage struct {
+	ID        string             `bson:"id" json:"id"`
+	RunID     primitive.ObjectID `bson:"runId" json:"runId"`
+	Role      string             `bson:"role" json:"role"` // user, tool, assistant, error
+	Content   string             `bson:"content" json:"content"`
+	CreatedAt time.Time          `bson:"createdAt" json:"createdAt"`
+}
+
 // AgentRun records one agent task execution (manual dispatch or scheduled).
 type AgentRun struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
@@ -491,10 +518,13 @@ type AgentRun struct {
 	ActorName   string             `bson:"actorName" json:"actorName"`
 	Prompt      string             `bson:"prompt" json:"prompt"`
 	PageID      string             `bson:"pageId,omitempty" json:"pageId,omitempty"`
+	SessionID   string             `bson:"sessionId,omitempty" json:"sessionId,omitempty"`
 	Scheduled   bool               `bson:"scheduled,omitempty" json:"scheduled,omitempty"`
 	Status      string             `bson:"status" json:"status"` // queued, running, succeeded, failed
 	ProposalIDs []string           `bson:"proposalIds,omitempty" json:"proposalIds,omitempty"`
 	Actions     int                `bson:"actions,omitempty" json:"actions,omitempty"`
+	ActionLog   []string           `bson:"actionLog,omitempty" json:"actionLog,omitempty"`
+	Reply       string             `bson:"reply,omitempty" json:"reply,omitempty"`
 	Tokens      int64              `bson:"tokens,omitempty" json:"tokens,omitempty"`
 	Error       string             `bson:"error,omitempty" json:"error,omitempty"`
 	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`

@@ -7,6 +7,7 @@ import type {
   WorkspaceDatabase,
   Agent,
   AgentRun,
+  AgentSession,
   AuditLog,
   Block,
   SystemInfo,
@@ -284,13 +285,19 @@ export const api = {
     update: (agentId: string, input: Partial<Pick<Agent, "name" | "icon" | "description" | "mode" | "scopes" | "enabled" | "schedule">>) =>
       request<Agent>(`/agents/${agentId}`, { method: "PATCH", body: body(input) }),
     remove: (agentId: string) => request<void>(`/agents/${agentId}`, { method: "DELETE" }),
-    run: (workspaceId: string, agentId: string, input: { prompt: string; pageId?: string }) =>
+    run: (workspaceId: string, agentId: string, input: { prompt: string; pageId?: string; sessionId?: string }) =>
       request<{ runId: string; agentId: string; status: string }>(`/workspaces/${workspaceId}/agents/${agentId}/run`, {
         method: "POST",
         body: body(input),
       }),
     runs: (workspaceId: string, limit = 50) =>
       request<AgentRun[]>(`/workspaces/${workspaceId}/agent-runs?limit=${limit}`),
+    runDetail: (workspaceId: string, runId: string) =>
+      request<AgentRun>(`/workspaces/${workspaceId}/agent-runs/${runId}`),
+    sessions: (workspaceId: string, limit = 50) =>
+      request<AgentSession[]>(`/workspaces/${workspaceId}/agent-sessions?limit=${limit}`),
+    session: (workspaceId: string, sessionId: string) =>
+      request<AgentSession>(`/workspaces/${workspaceId}/agent-sessions/${sessionId}`),
   },
   proposals: {
     list: (workspaceId: string, status?: string) =>

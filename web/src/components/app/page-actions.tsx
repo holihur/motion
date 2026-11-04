@@ -1,54 +1,27 @@
-import { useEffect, useRef, useState } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import {
-  Check,
-  CloudUpload,
-  Copy,
-  Download,
-  Droplets,
-  GitBranch,
-  Bug,
-  BookOpen,
-  FileCode2,
-  FileJson,
-  FilePlus2,
-  FileText,
-  FileType2,
-  FileUp,
   ArrowDown,
-  ArrowDownToLine,
   ArrowUp,
-  ArrowUpRight,
-  Globe,
-  GitMerge,
+  Copy,
+  FilePlus2,
   Link2,
-  LockKeyhole,
-  LockOpen,
-  MoveHorizontal,
   MoreHorizontal,
-  Palette,
   PencilLine,
-  Loader2,
-  Scissors,
+  Settings2,
   Star,
   StarOff,
-  Trash2,
 } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
-import { downloadMarkdown } from "@/lib/markdown"
-import { pageTitle } from "@/lib/tree"
 import { tr } from "@/lib/i18n"
-import type { PageSummary, PublishGroup } from "@/lib/types"
+import type { PageSummary } from "@/lib/types"
 import { useWorkspaceStore } from "@/stores/workspace"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -62,11 +35,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { MergePagesDialog, SplitPageDialog } from "@/components/app/page-structure-dialogs"
-import { ImportDialog } from "@/components/app/import-dialog"
-import { PageThemeDialog } from "@/components/app/page-theme-dialog"
-import { PageLayoutDialog } from "@/components/app/page-layout-dialog"
-import { renderDiagramImages } from "@/lib/mermaid-export"
 
 interface PageActionsProps {
   page: PageSummary
@@ -78,105 +46,10 @@ interface PageActionsProps {
   onMoveDown?: () => void
 }
 
-function safeFilename(name: string) {
-  return name.replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim() || "page"
-}
-
 export function PageActionsMenu({ page, align = "start", trigger, readOnly = false, onRenameRequest, onMoveUp, onMoveDown }: PageActionsProps) {
   const navigate = useNavigate()
-  const location = useLocation()
   const toggleFavorite = useWorkspaceStore((state) => state.toggleFavorite)
-  const archivePage = useWorkspaceStore((state) => state.archivePage)
-  const restorePage = useWorkspaceStore((state) => state.restorePage)
-  const duplicatePage = useWorkspaceStore((state) => state.duplicatePage)
-  const activeId = useWorkspaceStore((state) => state.activeId)
   const [renameOpen, setRenameOpen] = useState(false)
-  const [structure, setStructure] = useState<"split" | "merge" | null>(null)
-  const [themeOpen, setThemeOpen] = useState(false)
-  const [layoutOpen, setLayoutOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
-  const [publishOpen, setPublishOpen] = useState(false)
-  const [publicSlug, setPublicSlug] = useState<string | null>(page.publicSlug ?? null)
-  const [publishing, setPublishing] = useState(false)
-  const [withChildren, setWithChildren] = useState(true)
-  const [pubPassword, setPubPassword] = useState("")
-  const [pubExpires, setPubExpires] = useState("")
-  const [pubComments, setPubComments] = useState(false)
-  const [pubIndex, setPubIndex] = useState(false)
-  const [pubViews, setPubViews] = useState<number | null>(null)
-  const [pubLocked, setPubLocked] = useState(false)
-
-  useEffect(() => {
-    if (!publishOpen) return
-    setPubPassword("")
-    setPubExpires("")
-    setPubComments(false)
-    setPubIndex(false)
-    setPubViews(null)
-    api.pages
-      .publishStatus(page.id)
-      .then((st) => {
-        if (st.slug) setPublicSlug(st.slug)
-        setPubLocked(st.locked)
-        if (st.expiresAt) setPubExpires(st.expiresAt.slice(0, 16))
-        setPubViews(st.views ?? 0)
-        setPubComments(!!st.comments)
-        setPubIndex(!!st.index)
-      })
-      .catch(() => undefined)
-  }, [publishOpen, page.id])
-  const [enabledProviders, setEnabledProviders] = useState<Set<string>>(new Set())
-  const [groups, setGroups] = useState<PublishGroup[]>([])
-  const importRef = useRef<HTMLInputElement>(null)
-  const locked = Boolean(page.locked)
-  const actionLockRef = useRef(false)
-  const [unlockConfirm, setUnlockConfirm] = useState(false)
-
-  const isCurrent = location.pathname === `/page/${page.id}`
-  const hasStorage = ["s3", "aliyun_oss", "qiniu", "tencent_cos"].some((provider) => enabledProviders.has(provider))
-
-  async function refreshEnabledIntegrations() {
-    if (!activeId) return
-    try {
-      const [integrations, publishGroups] = await Promise.all([
-        api.integrations.list(activeId),
-        api.integrations.groups(activeId),
-      ])
-      setEnabledProviders(new Set(integrations.filter((item) => item.enabled).map((item) => item.provider)))
-      setGroups(publishGroups ?? [])
-    } catch {
-      setEnabledProviders(new Set())
-      setGroups([])
-    }
-  }
-
-  function runOnce(task: () => Promise<unknown>) {
-    if (actionLockRef.current) return
-    actionLockRef.current = true
-    void Promise.resolve(task()).catch(() => undefined).finally(() => {
-      actionLockRef.current = false
-    })
-  }
-
-  async function onAddSubpage() {
-    window.dispatchEvent(
-      new CustomEvent("motion:expand-page", { detail: { id: page.id } }),
-    )
-    navigate("/new-page", { state: { parentId: page.id } })
-  }
-
-  async function onDuplicate() {
-    try {
-      const copy = await duplicatePage(page.id)
-      window.dispatchEvent(
-        new CustomEvent("motion:expand-page", { detail: { id: copy.parentId ?? "" } }),
-      )
-      toast.success(tr("Page duplicated"))
-      navigate(`/page/${copy.id}`)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not duplicate page"))
-    }
-  }
 
   async function onCopyLink() {
     try {
@@ -187,209 +60,9 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     }
   }
 
-  async function onArchive() {
-    try {
-      await archivePage(page.id)
-      if (isCurrent) navigate("/")
-      toast(tr("Moved to Trash"), {
-        description: pageTitle(page.title),
-        action: {
-          label: tr("Undo"),
-          onClick: () => {
-            void restorePage(page.id).then(() => toast.success(tr("Page restored")))
-          },
-        },
-      })
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not move page to Trash"))
-    }
-  }
-
-  async function onToggleLock() {
-    if (locked) {
-      setUnlockConfirm(true)
-      return
-    }
-    try {
-      const updated = await api.pages.lock(page.id)
-      useWorkspaceStore.getState().patchSummary(page.id, { locked: updated.locked })
-      window.dispatchEvent(new CustomEvent("motion:page-lock", {
-        detail: { id: page.id, locked: updated.locked, lockedByName: updated.lockedByName },
-      }))
-      toast.success(tr("Page locked"))
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not change page lock"))
-    }
-  }
-  async function confirmUnlock() {
-    try {
-      const updated = await api.pages.unlock(page.id)
-      useWorkspaceStore.getState().patchSummary(page.id, { locked: updated.locked })
-      window.dispatchEvent(new CustomEvent("motion:page-lock", {
-        detail: { id: page.id, locked: updated.locked, lockedByName: updated.lockedByName },
-      }))
-      setUnlockConfirm(false)
-      toast.success(tr("Page unlocked"))
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not change page lock"))
-    }
-  }
-
-  async function onSetWidth(width: "standard" | "wide" | "full") {
-    try {
-      const updated = await api.pages.update(page.id, { width })
-      const next = updated.width ?? width
-      useWorkspaceStore.getState().patchSummary(page.id, { width: next })
-      window.dispatchEvent(new CustomEvent("motion:page-meta", { detail: { id: page.id, patch: { width: next } } }))
-      toast.success(tr("Page width updated"))
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not update page width"))
-    }
-  }
-
-  async function onToggleWatermark() {
-    try {
-      const next = !page.watermark
-      const updated = await api.pages.update(page.id, { watermark: next })
-      const enabled = updated.watermark ?? next
-      useWorkspaceStore.getState().patchSummary(page.id, { watermark: enabled })
-      window.dispatchEvent(new CustomEvent("motion:page-meta", {
-        detail: { id: page.id, patch: { watermark: enabled } },
-      }))
-      toast.success(enabled ? tr("Watermark enabled") : tr("Watermark disabled"))
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not change watermark"))
-    }
-  }
-
-  async function onImportFile(file: File) {
-    try {
-      const lower = file.name.toLowerCase()
-      if (lower.endsWith(".html") || lower.endsWith(".htm")) {
-        const { parseHTMLToBlocks } = await import("@/lib/html-import")
-        const blocks = parseHTMLToBlocks(await file.text())
-        window.dispatchEvent(new CustomEvent("motion:import-blocks", { detail: { pageId: page.id, blocks, filename: file.name } }))
-        return
-      }
-      const text = await file.text()
-      window.dispatchEvent(new CustomEvent("motion:import-markdown", { detail: { pageId: page.id, text, filename: file.name } }))
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not read file"))
-    }
-  }
-
-  async function exportFile(format: "html" | "pdf" | "docx" | "json") {
-    try {
-      let diagrams: Awaited<ReturnType<typeof renderDiagramImages>> | undefined
-      if (format === "pdf" || format === "docx") {
-        try {
-          const full = await api.pages.get(page.id)
-          diagrams = await renderDiagramImages(full.blocks ?? [])
-        } catch {
-          diagrams = undefined
-        }
-      }
-      const blob = await api.pages.exportFile(page.id, format, diagrams)
-      const href = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = href
-      link.download = `${safeFilename(pageTitle(page.title))}.${format === "json" ? "blocks.json" : format}`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      // Keep the object URL alive until the browser has started the download.
-      window.setTimeout(() => URL.revokeObjectURL(href), 1000)
-      toast.success(tr("Export ready"))
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not export page"), {
-        action: { label: tr("Retry"), onClick: () => void exportFile(format) },
-      })
-    }
-  }
-
-  async function onPublishAtlassian(provider: "jira" | "confluence") {
-    if (!activeId) return
-    try {
-      const result = provider === "jira"
-        ? await api.integrations.publishJira(activeId, page.id)
-        : await api.integrations.publishConfluence(activeId, page.id)
-      toast.success(provider === "jira" ? tr("Published to Jira") : tr("Published to Confluence"), {
-        action: result.url ? { label: tr("Open"), onClick: () => window.open(result.url, "_blank", "noopener") } : undefined,
-      })
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not publish page"))
-    }
-  }
-
-  async function publishGroup(group: PublishGroup) {
-    if (!activeId) return
-    const targets = group.targets.filter((target) => target === "storage" ? hasStorage : enabledProviders.has(target))
-    if (targets.length === 0) {
-      toast.error(tr("None of this group's targets are enabled"))
-      return
-    }
-    let ok = 0
-    const failures: string[] = []
-    for (const target of targets) {
-      try {
-        if (target === "ssh") await api.integrations.publishSSH(activeId, page.id, true)
-        else if (target === "git") await api.integrations.publishGit(activeId, page.id, true)
-        else if (target === "jira") await api.integrations.publishJira(activeId, page.id)
-        else if (target === "confluence") await api.integrations.publishConfluence(activeId, page.id)
-        else if (target === "storage") await api.integrations.publishS3(activeId, page.id, true)
-        ok += 1
-      } catch (error) {
-        failures.push(`${target}: ${error instanceof Error ? error.message : tr("failed")}`)
-      }
-    }
-    if (failures.length > 0) toast.error(`${tr("Published to {n} target(s)", { n: ok })} · ${failures.join(" · ")}`)
-    else toast.success(tr("Published to {n} target(s)", { n: ok }))
-  }
-
-  async function onPublishS3() {
-    if (!activeId) return
-    try {
-      const result = await api.integrations.publishS3(activeId, page.id, true)
-      toast.success(tr("Published {n} file(s) to object storage", { n: result.fileCount ?? 0 }), {
-        action: result.url ? { label: tr("Open"), onClick: () => window.open(result.url, "_blank", "noopener") } : undefined,
-      })
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not publish page"))
-    }
-  }
-
-  async function onPublishGit() {
-    if (!activeId) return
-    try {
-      const result = await api.integrations.publishGit(activeId, page.id, true)
-      toast.success(tr("Published {n} page(s) to Git", { n: result.fileCount ?? 0 }), {
-        action: result.url ? { label: tr("Open"), onClick: () => window.open(result.url, "_blank", "noopener") } : undefined,
-      })
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not publish page"))
-    }
-  }
-
-  async function onPublishSSH() {
-    if (!activeId) return
-    try {
-      const result = await api.integrations.publishSSH(activeId, page.id, true)
-      toast.success(tr("Published {n} page(s) via SSH", { n: result.fileCount ?? 0 }), {
-        action: result.url ? { label: tr("Open"), onClick: () => window.open(result.url, "_blank", "noopener") } : undefined,
-      })
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not publish page"))
-    }
-  }
-
-  async function onExport() {
-    try {
-      const full = await api.pages.get(page.id)
-      downloadMarkdown(full)
-      toast.success(tr("Markdown downloaded"))
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tr("Could not export page"))
-    }
+  function onAddSubpage() {
+    window.dispatchEvent(new CustomEvent("motion:expand-page", { detail: { id: page.id } }))
+    navigate("/new-page", { state: { parentId: page.id } })
   }
 
   function openRename() {
@@ -397,13 +70,9 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
     onRenameRequest?.()
   }
 
-  function refreshStructure() {
-    window.dispatchEvent(new CustomEvent("motion:refresh-page", { detail: { id: page.id } }))
-  }
-
   return (
     <>
-      <DropdownMenu onOpenChange={(open) => { if (open) void refreshEnabledIntegrations() }}>
+      <DropdownMenu>
         <DropdownMenuTrigger asChild>
           {trigger ?? (
             <button
@@ -416,349 +85,52 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align={align} className="w-56">
-          {!readOnly && <DropdownMenuItem onSelect={onToggleLock}>
-            {locked ? <LockOpen /> : <LockKeyhole />}
-            {locked ? tr("Unlock page") : tr("Lock page")}
-          </DropdownMenuItem>}
-          {!readOnly && <DropdownMenuItem onSelect={() => runOnce(onToggleWatermark)}>
-            <Droplets /> {page.watermark ? tr("Disable watermark") : tr("Enable watermark")}
-          </DropdownMenuItem>}
-          {!readOnly && <DropdownMenuSeparator />}
-          {!readOnly && !locked && <DropdownMenuItem onSelect={openRename}>
-            <PencilLine /> {tr("Rename")}
-          </DropdownMenuItem>}
-          {!readOnly && !locked && <DropdownMenuItem
-            onSelect={() => {
-              void toggleFavorite(page.id).then((favorite) =>
-                toast.success(favorite ? tr("Added to Favorites") : tr("Removed from Favorites")),
-              )
-            }}
-          >
-            {page.favorite ? <StarOff /> : <Star />}
-            {page.favorite ? tr("Remove from Favorites") : tr("Add to Favorites")}
-          </DropdownMenuItem>}
-          {!readOnly && !locked && <DropdownMenuItem onSelect={() => runOnce(onAddSubpage)}>
-            <FilePlus2 /> {tr("Add sub-page")}
-          </DropdownMenuItem>}
-          {!readOnly && !locked && <DropdownMenuItem onSelect={() => setStructure("split")}>
-            <Scissors /> {tr("Split into sub-pages")}
-          </DropdownMenuItem>}
-          {!readOnly && !locked && <DropdownMenuItem onSelect={() => setStructure("merge")}>
-            <GitMerge /> {tr("Merge sub-pages")}
-          </DropdownMenuItem>}
-          {!readOnly && !locked && <DropdownMenuItem onSelect={() => setThemeOpen(true)}>
-            <Palette /> {tr("Page color")}
-          </DropdownMenuItem>}
-          {!readOnly && !locked && onMoveUp && <DropdownMenuItem onSelect={onMoveUp}>
-            <ArrowUp /> {tr("Move up")}
-          </DropdownMenuItem>}
-          {!readOnly && !locked && onMoveDown && <DropdownMenuItem onSelect={onMoveDown}>
-            <ArrowDown /> {tr("Move down")}
-          </DropdownMenuItem>}
-          {!readOnly && !locked && <DropdownMenuItem onSelect={() => setLayoutOpen(true)}>
-            <FileText /> {tr("Page layout")}
-          </DropdownMenuItem>}
-          {!readOnly && !locked && <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <MoveHorizontal /> {tr("Page width")}
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-44">
-              {(["standard", "wide", "full"] as const).map((width) => (
-                <DropdownMenuItem key={width} onSelect={() => void onSetWidth(width)}>
-                  {tr(width === "standard" ? "Standard" : width === "wide" ? "Wide" : "Full width")}
-                  {(page.width ?? "standard") === width && <Check className="ml-auto size-3.5" />}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>}
-          {!readOnly && !locked && <DropdownMenuSeparator />}
-          {!readOnly && !locked && <DropdownMenuItem onSelect={() => importRef.current?.click()}>
-            <FileUp /> {tr("Import file (Markdown / HTML)")}
-          </DropdownMenuItem>}
-          {!readOnly && !locked && <DropdownMenuItem onSelect={() => setImportOpen(true)}>
-            <ArrowDownToLine /> {tr("Import from other notes…")}
-          </DropdownMenuItem>}
-          {!readOnly && !locked && <DropdownMenuItem onSelect={() => runOnce(onDuplicate)}>
-            <Copy /> {tr("Duplicate")}
-          </DropdownMenuItem>}
+          <DropdownMenuItem onSelect={() => navigate(`/page/${page.id}/settings`)}>
+            <Settings2 /> {tr("Page settings")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {!readOnly && (
+            <DropdownMenuItem onSelect={openRename}>
+              <PencilLine /> {tr("Rename")}
+            </DropdownMenuItem>
+          )}
+          {!readOnly && (
+            <DropdownMenuItem
+              onSelect={() => {
+                void toggleFavorite(page.id).then((favorite) =>
+                  toast.success(favorite ? tr("Added to Favorites") : tr("Removed from Favorites")),
+                )
+              }}
+            >
+              {page.favorite ? <StarOff /> : <Star />}
+              {page.favorite ? tr("Remove from Favorites") : tr("Add to Favorites")}
+            </DropdownMenuItem>
+          )}
+          {!readOnly && (
+            <DropdownMenuItem onSelect={onAddSubpage}>
+              <FilePlus2 /> {tr("Add sub-page")}
+            </DropdownMenuItem>
+          )}
+          {!readOnly && onMoveUp && (
+            <DropdownMenuItem onSelect={onMoveUp}>
+              <ArrowUp /> {tr("Move up")}
+            </DropdownMenuItem>
+          )}
+          {!readOnly && onMoveDown && (
+            <DropdownMenuItem onSelect={onMoveDown}>
+              <ArrowDown /> {tr("Move down")}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={() => void onCopyLink()}>
             <Link2 /> {tr("Copy link")}
           </DropdownMenuItem>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <Download /> {tr("Export")}
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-52">
-              <DropdownMenuItem onSelect={() => runOnce(onExport)}>
-                <Download /> {tr("Export as Markdown")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => runOnce(() => exportFile("html"))}>
-                <FileCode2 /> {tr("Export as HTML")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => runOnce(() => exportFile("pdf"))}>
-                <FileText /> {tr("Export as PDF")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => runOnce(() => exportFile("docx"))}>
-                <FileType2 /> {tr("Export as Word")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => runOnce(() => exportFile("json"))}>
-                <FileJson /> {tr("Export blocks as JSON")}
-              </DropdownMenuItem>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-          {!readOnly && !locked && <DropdownMenuItem onSelect={() => { setPublicSlug(page.publicSlug ?? null); setPublishOpen(true) }}>
-            <Globe /> {publicSlug || page.publicSlug ? tr("Published to web") : tr("Publish to web")}
-            {(publicSlug || page.publicSlug) && <span className="ml-auto size-1.5 rounded-full bg-emerald-500" />}
-          </DropdownMenuItem>}
-          {!readOnly && enabledProviders.has("git") && <DropdownMenuItem onSelect={() => runOnce(onPublishGit)}>
-            <GitBranch /> {tr("Publish to Git")}
-          </DropdownMenuItem>}
-          {!readOnly && enabledProviders.has("jira") && <DropdownMenuItem onSelect={() => runOnce(() => onPublishAtlassian("jira"))}>
-            <Bug /> {tr("Publish to Jira")}
-          </DropdownMenuItem>}
-          {!readOnly && enabledProviders.has("confluence") && <DropdownMenuItem onSelect={() => runOnce(() => onPublishAtlassian("confluence"))}>
-            <BookOpen /> {tr("Publish to Confluence")}
-          </DropdownMenuItem>}
-          {!readOnly && hasStorage && <DropdownMenuItem onSelect={() => runOnce(onPublishS3)}>
-            <CloudUpload /> {tr("Publish to object storage")}
-          </DropdownMenuItem>}
-          {!readOnly && enabledProviders.has("ssh") && <DropdownMenuItem onSelect={() => runOnce(onPublishSSH)}>
-            <CloudUpload /> {tr("Publish via SSH")}
-          </DropdownMenuItem>}
-          {!readOnly && groups.length > 0 && <DropdownMenuSeparator />}
-          {!readOnly && groups.map((group) => (
-            <DropdownMenuItem key={group.id} onSelect={() => runOnce(() => publishGroup(group))}>
-              <CloudUpload /> {group.name}
-            </DropdownMenuItem>
-          ))}
-          {!readOnly && !locked && <DropdownMenuSeparator />}
-          {!readOnly && !locked && <DropdownMenuItem variant="destructive" onSelect={() => runOnce(onArchive)}>
-            <Trash2 /> {tr("Move to Trash")}
-          </DropdownMenuItem>}
+          <DropdownMenuItem onSelect={() => navigate(`/page/${page.id}/settings`)}>
+            <Copy /> {tr("Import, export & publishing…")}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <input
-        ref={importRef}
-        type="file"
-        accept=".md,.markdown,.txt,.html,.htm,text/markdown,text/plain,text/html"
-        className="hidden"
-        onChange={(event) => {
-          const file = event.target.files?.[0]
-          if (file) void onImportFile(file)
-          event.target.value = ""
-        }}
-      />
-      <RenamePageDialog
-        page={page}
-        open={renameOpen}
-        onOpenChange={setRenameOpen}
-      />
-      <PageThemeDialog page={page} open={themeOpen} onOpenChange={setThemeOpen} />
-      <PageLayoutDialog page={page} open={layoutOpen} onOpenChange={setLayoutOpen} />
-      <Dialog open={publishOpen} onOpenChange={setPublishOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Globe className="size-4 text-brand" /> {tr("Publish to web")}
-            </DialogTitle>
-            <DialogDescription>
-              {tr("Anyone with the link can read this page. No login required.")}
-            </DialogDescription>
-            <label className="flex cursor-pointer items-center gap-2 rounded-lg border bg-muted/40 px-2.5 py-2 text-xs">
-              <input
-                type="checkbox"
-                checked={withChildren}
-                onChange={(e) => setWithChildren(e.target.checked)}
-                className="size-3.5 accent-[var(--brand)]"
-              />
-              <span>
-                {tr("Include sub-pages")}
-                <span className="block text-[11px] text-muted-foreground">{tr("Published sub-pages stay linked; others show as plain text.")}</span>
-              </span>
-            </label>
-          </DialogHeader>
-          {(publicSlug || page.publicSlug) && (
-            <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-2.5 py-2">
-              <span className="min-w-0 flex-1 truncate font-mono text-xs">{`${window.location.origin}/p/${publicSlug || page.publicSlug}`}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 shrink-0 gap-1 text-[11px]"
-                onClick={() => {
-                  void navigator.clipboard.writeText(`${window.location.origin}/p/${publicSlug || page.publicSlug}`).then(
-                    () => toast.success(tr("Copied")),
-                    () => toast.error(tr("Could not copy")),
-                  )
-                }}
-              >
-                <Copy className="size-3" /> {tr("Copy")}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 shrink-0 px-2 text-[11px]"
-                onClick={() => window.open(`/p/${publicSlug || page.publicSlug}`, "_blank", "noopener")}
-              >
-                <ArrowUpRight className="size-3" />
-              </Button>
-            </div>
-          )}
-          <div className="space-y-2 rounded-lg border p-2.5">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="pub-password">{tr("Password (optional)")}</Label>
-                <Input
-                  id="pub-password"
-                  type="password"
-                  value={pubPassword}
-                  onChange={(e) => setPubPassword(e.target.value)}
-                  placeholder={pubLocked ? tr("Saved — leave blank to keep") : tr("No password")}
-                  autoComplete="off"
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="pub-expires">{tr("Expires at (optional)")}</Label>
-                <div className="flex gap-1.5">
-                  <Input
-                    id="pub-expires"
-                    type="datetime-local"
-                    value={pubExpires}
-                    onChange={(e) => setPubExpires(e.target.value)}
-                    className="h-8 text-xs"
-                  />
-                  {pubExpires && (
-                    <Button variant="ghost" size="sm" className="h-8 shrink-0 px-2 text-[11px]" onClick={() => setPubExpires("")}>
-                      {tr("Clear")}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-            <label className="flex cursor-pointer items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={pubComments}
-                onChange={(e) => setPubComments(e.target.checked)}
-                className="size-3.5 accent-[var(--brand)]"
-              />
-              {tr("Allow public comments")}
-              {typeof pubViews === "number" && (
-                <span className="ml-auto tabular-nums text-muted-foreground">{tr("{n} view(s)", { n: pubViews })}</span>
-              )}
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={pubIndex}
-                onChange={(e) => setPubIndex(e.target.checked)}
-                className="size-3.5 accent-[var(--brand)]"
-              />
-              {tr("Allow search engines to index this page")}
-            </label>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 w-full text-[11px]"
-              disabled={publishing}
-              onClick={() => {
-                setPublishing(true)
-                api.pages
-                  .publish(page.id, {
-                    includeChildren: withChildren,
-                    password: pubPassword || undefined,
-                    expiresAt: pubExpires ? new Date(pubExpires).toISOString() : "",
-                    comments: pubComments,
-                    index: pubIndex,
-                  })
-                  .then((res) => {
-                    setPublicSlug(res.slug)
-                    setPubPassword("")
-                    useWorkspaceStore.getState().patchSummary(page.id, { publicSlug: res.slug })
-                    toast.success(tr("Settings saved"))
-                  })
-                  .catch((e) => toast.error(e instanceof Error ? e.message : tr("Could not save")))
-                  .finally(() => setPublishing(false))
-              }}
-            >
-              {tr("Save settings")}
-            </Button>
-          </div>
-          <DialogFooter className="gap-1.5">
-            {(publicSlug || page.publicSlug) ? (
-              <>
-                <Button
-                  variant="ghost"
-                  className="gap-1 text-destructive hover:text-destructive"
-                  disabled={publishing}
-                  onClick={() => {
-                    setPublishing(true)
-                    api.pages
-                      .unpublish(page.id, withChildren)
-                      .then(() => {
-                        setPublicSlug(null)
-                        useWorkspaceStore.getState().patchSummary(page.id, { publicSlug: undefined } as Partial<PageSummary>)
-                        toast.success(tr("Unpublished"))
-                      })
-                      .catch((e) => toast.error(e instanceof Error ? e.message : tr("Could not unpublish")))
-                      .finally(() => setPublishing(false))
-                  }}
-                >
-                  {tr("Unpublish")}
-                </Button>
-                <Button variant="outline" onClick={() => setPublishOpen(false)}>{tr("Done")}</Button>
-              </>
-            ) : (
-              <>
-                <Button variant="ghost" onClick={() => setPublishOpen(false)}>{tr("Cancel")}</Button>
-                <Button
-                  disabled={publishing}
-                  onClick={() => {
-                    setPublishing(true)
-                    api.pages
-                      .publish(page.id, { includeChildren: withChildren })
-                      .then((res) => {
-                        setPublicSlug(res.slug)
-                        useWorkspaceStore.getState().patchSummary(page.id, { publicSlug: res.slug })
-                        toast.success(tr("Published"))
-                      })
-                      .catch((e) => toast.error(e instanceof Error ? e.message : tr("Could not publish")))
-                      .finally(() => setPublishing(false))
-                  }}
-                >
-                  {publishing && <Loader2 className="size-3.5 animate-spin" />} {tr("Publish")}
-                </Button>
-              </>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
-      <SplitPageDialog
-        page={page}
-        open={structure === "split"}
-        onOpenChange={(open) => setStructure(open ? "split" : null)}
-        onDone={refreshStructure}
-      />
-      <MergePagesDialog
-        page={page}
-        open={structure === "merge"}
-        onOpenChange={(open) => setStructure(open ? "merge" : null)}
-        onDone={refreshStructure}
-      />
-      <Dialog open={unlockConfirm} onOpenChange={setUnlockConfirm}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{tr("Unlock page?")}</DialogTitle>
-            <DialogDescription>{tr("This page is locked to prevent accidents. Unlock it to edit.")}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setUnlockConfirm(false)}>{tr("Cancel")}</Button>
-            <Button onClick={() => runOnce(confirmUnlock)}>{tr("Unlock")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RenamePageDialog page={page} open={renameOpen} onOpenChange={setRenameOpen} />
     </>
   )
 }

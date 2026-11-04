@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   ArrowDownToLine, ArrowUpFromLine, CheckCircle2, FileUp, Link2, Loader2,
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api"
 import { tr } from "@/lib/i18n"
-import type { Block } from "@/lib/types"
+import type { Block, PageSummary } from "@/lib/types"
 import { useWorkspaceStore } from "@/stores/workspace"
 import { useTasksStore } from "@/stores/tasks"
 import { parseMarkdownToBlocks } from "@/lib/markdown-import"
@@ -49,16 +49,23 @@ async function createPageWithBlocks(workspaceId: string, title: string, blocks: 
   return page
 }
 
-export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+export function ImportDialog({ open, onOpenChange, page }: { open: boolean; onOpenChange: (v: boolean) => void; page?: PageSummary }) {
   const navigate = useNavigate()
   const activeId = useWorkspaceStore((s) => s.activeId)
   const pages = useWorkspaceStore((s) => s.pages)
   const refreshPages = useWorkspaceStore((s) => s.refreshPages)
   const [tab, setTab] = useState<Tab>("file")
+  const [fileTarget, setFileTarget] = useState<"page" | "new">(page ? "page" : "new")
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setTab("file")
+    setFileTarget(page ? "page" : "new")
+  }, [open, page?.id])
 
   // 直连表单
   const [notionURL, setNotionURL] = useState("")
@@ -87,6 +94,29 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     const taskId = useTasksStore.getState().start(tr("Importing {n} file(s)", { n: list.length }))
     const created: string[] = []
     try {
+      if (page && fileTarget === "page") {
+        const imported: Block[] = []
+        for (const file of list) {
+          const lower = file.name.toLowerCase()
+          const isHTML = lower.endsWith(".html") || lower.endsWith(".htm")
+          const raw = await file.text()
+          const blocks = isHTML ? parseHTMLToBlocks(raw) : parseMarkdownToBlocks(raw)
+          imported.push(...blocks)
+          setProgress((p) => p && { done: p.done + 1, total: p.total })
+        }
+        if (imported.length === 0) throw new Error(tr("No blocks found in this file"))
+        const full = await api.pages.get(page.id)
+        const saved = await api.pages.saveBlocks(page.id, [...(full.blocks ?? []), ...imported], full.blocks ?? [])
+        window.dispatchEvent(new CustomEvent("motion:page-blocks", {
+          detail: { id: page.id, blocks: saved.blocks, blocksRev: saved.blocksRev },
+        }))
+        await refreshPages(activeId)
+        useTasksStore.getState().finish(taskId, tr("Imported {n} block(s)", { n: imported.length }))
+        toast.success(tr("Imported {n} block(s)", { n: imported.length }))
+        onOpenChange(false)
+        navigate(`/page/${page.id}`)
+        return
+      }
       for (const file of list) {
         const lower = file.name.toLowerCase()
         const isHTML = lower.endsWith(".html") || lower.endsWith(".htm")
@@ -244,6 +274,24 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
         {tab === "file" && (
           <div className="space-y-3">
+            {page && (
+              <div className="flex gap-1 rounded-lg bg-muted/50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setFileTarget("page")}
+                  className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition ${fileTarget === "page" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {tr("Add to this page")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFileTarget("new")}
+                  className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition ${fileTarget === "new" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {tr("Create new pages")}
+                </button>
+              </div>
+            )}
             <div className="space-y-1.5">
               {GUIDES.map((g) => (
                 <div key={g.name} className="flex items-start gap-2 rounded-lg border border-border/60 px-2.5 py-2 text-xs">
@@ -268,7 +316,9 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               className="hidden"
               onChange={(e) => { void onPickFiles(e.target.files); e.target.value = "" }}
             />
-            <p className="text-center text-[11px] text-muted-foreground">{tr("Each file becomes a new page · up to 50 at a time")}</p>
+            <p className="text-center text-[11px] text-muted-foreground">
+              {page && fileTarget === "page" ? tr("Files are appended to the current page · up to 50 at a time") : tr("Each file becomes a new page · up to 50 at a time")}
+            </p>
           </div>
         )}
 

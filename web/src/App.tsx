@@ -23,6 +23,9 @@ const PageEditor = lazy(() =>
 const TrashView = lazy(() =>
   import("@/components/app/trash-view").then((module) => ({ default: module.TrashView })),
 )
+const PageSettingsPage = lazy(() =>
+  import("@/components/app/page-settings-page").then((module) => ({ default: module.PageSettingsPage })),
+)
 const AgentInboxView = lazy(() =>
   import("@/components/agents/agent-inbox-view").then((module) => ({
     default: module.AgentInboxView,
@@ -49,6 +52,14 @@ export default function App() {
             <Route index element={<HomeView />} />
             <Route path="new-page" element={<NewPageRoute />} />
             <Route
+              path="page/:pageId/settings"
+              element={
+                <Suspense fallback={<EditorSkeleton />}>
+                  <PageSettingsRoute />
+                </Suspense>
+              }
+            />
+            <Route
               path="page/:pageId"
               element={
                 <Suspense fallback={<EditorSkeleton />}>
@@ -56,7 +67,8 @@ export default function App() {
                 </Suspense>
               }
             />
-            <Route path="inbox" element={<AgentInboxView />} />
+            <Route path="ai" element={<AgentInboxView />} />
+            <Route path="inbox" element={<Navigate to="/ai" replace />} />
             <Route path="trash" element={<TrashView />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -69,6 +81,11 @@ export default function App() {
 function PageRoute() {
   const { pageId } = useParams<{ pageId: string }>()
   return <PageEditor key={pageId} />
+}
+
+function PageSettingsRoute() {
+  const { pageId } = useParams<{ pageId: string }>()
+  return <PageSettingsPage key={pageId} />
 }
 
 function EditorSkeleton() {

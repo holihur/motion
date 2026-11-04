@@ -35,10 +35,12 @@ test("a layout page shares its header and footer with another page", async ({ pa
 
   await page.goto(`/page/${target.id}`)
   await page.locator("header").getByLabel("Page options").click()
-  await page.getByRole("menuitem", { name: "Page layout" }).click()
+  await page.getByRole("menuitem", { name: "Page settings" }).click()
+  await page.getByRole("button", { name: /Choose layout|Change layout/ }).click()
   await expect(page.getByRole("button", { name: /Shared Layout/ })).toBeVisible()
   await page.getByRole("button", { name: /Shared Layout/ }).click()
   await page.getByRole("button", { name: "Apply layout" }).click()
+  await page.getByRole("button", { name: "Back to page" }).click()
 
   await expect
     .poll(async () => (await getPage(request, account.token, target.id)).layoutId)

@@ -25,8 +25,11 @@ test("imports Markdown files into blocks", async ({ page, request }) => {
   await page.goto(`/page/${created.id}`)
 
   await page.locator("header").getByRole("button", { name: "Page options" }).click()
-  await page.getByRole("menuitem", { name: "Import file (Markdown / HTML)" }).click()
-  await page.locator('header input[type="file"][accept*=".md"]').setInputFiles({
+  await page.getByRole("menuitem", { name: "Import, export & publishing…" }).click()
+  await expect(page).toHaveURL(new RegExp(`/page/${created.id}/settings$`))
+  await page.getByRole("button", { name: "Import files or other notes…" }).click()
+  await expect(page.getByRole("dialog")).toBeVisible()
+  await page.getByRole("dialog").locator('input[type="file"]').setInputFiles({
     name: "notes.md",
     mimeType: "text/markdown",
     buffer: Buffer.from(markdown),

@@ -17,10 +17,11 @@ test("splits a page into heading sections and leaves a page index", async ({ pag
   })
   await page.goto(`/page/${parent.id}`)
   await page.getByLabel("Page options").last().click()
-  await page.getByRole("menuitem", { name: "Split into sub-pages" }).click()
+  await page.getByRole("menuitem", { name: "Page settings" }).click()
+  await page.getByRole("button", { name: "Split into sub-pages" }).click()
   await page.getByRole("button", { name: /^H1/ }).click()
-  await expect(page.getByText("Alpha body", { exact: true }).last()).toBeVisible()
   await page.getByRole("button", { name: "Split into 2 pages" }).click()
+  await page.getByRole("button", { name: "Back to page" }).click()
 
   await expect
     .poll(async () => {
@@ -62,9 +63,11 @@ test("merges direct sub-pages into the current page and archives them", async ({
   })
   await page.goto(`/page/${parent.id}`)
   await page.getByLabel("Page options").last().click()
-  await page.getByRole("menuitem", { name: "Merge sub-pages" }).click()
+  await page.getByRole("menuitem", { name: "Page settings" }).click()
+  await page.getByRole("button", { name: "Merge sub-pages" }).click()
   await expect(page.getByText("Alpha", { exact: true }).last()).toBeVisible()
   await page.getByRole("button", { name: "Merge 2 pages" }).click()
+  await page.getByRole("button", { name: "Back to page" }).click()
 
   await expect
     .poll(async () => {

@@ -95,7 +95,7 @@ export function NotificationBell() {
     if (!n.read) void markRead(n.id)
     setOpen(false)
     if (n.type.startsWith("agent_") && !n.pageId) {
-      navigate("/inbox")
+      navigate("/ai")
       return
     }
     if (n.pageId) {

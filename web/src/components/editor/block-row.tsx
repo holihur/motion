@@ -7,6 +7,7 @@ import {
   ArrowRight,
   ArrowUp,
   Bold,
+  BookOpen,
   Check,
   ClipboardCopy,
   Columns2,
@@ -113,6 +114,7 @@ import {
 import { tr } from "@/lib/i18n"
 import { TRANSLATE_LANGS, translateText } from "@/lib/translate"
 import { ColorGrid } from "@/components/ui/color-grid"
+import { FormulaHelpDialog } from "@/components/editor/formula-help-dialog"
 
 const CodeBlock = lazy(() => import("@/components/editor/code-block").then((module) => ({ default: module.CodeBlock })))
 const EquationBlock = lazy(() => import("@/components/editor/equation-block").then((module) => ({ default: module.EquationBlock })))
@@ -278,6 +280,7 @@ export function BlockRow(props: BlockRowProps) {
   const locked = Boolean(block.locked)
   const tableImportRef = useRef<HTMLInputElement>(null)
   const [dragColumn, setDragColumn] = useState<number | null>(null)
+  const [formulaHelpOpen, setFormulaHelpOpen] = useState(false)
   const [statusColumn, setStatusColumn] = useState<number | null>(null)
   const [statusDraft, setStatusDraft] = useState("")
   const readOnly = pageReadOnly || locked
@@ -1131,6 +1134,9 @@ export function BlockRow(props: BlockRowProps) {
                     <DropdownMenuItem key={name} onSelect={() => insertFormula(name)} className="font-mono text-[11px] uppercase">{name}</DropdownMenuItem>
                   ))}
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setFormulaHelpOpen(true)}>
+                    <BookOpen className="mr-2 size-3.5" /> {tr("Formula help")}
+                  </DropdownMenuItem>
                   <DropdownMenuItem disabled={!formulaTarget || !table.formulas?.[formulaCellKey(formulaTarget.row, formulaTarget.column)]} onSelect={clearFormula}>
                     <X className="mr-2 size-3.5" /> {tr("Clear formula")}
                   </DropdownMenuItem>
@@ -1160,6 +1166,7 @@ export function BlockRow(props: BlockRowProps) {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            <FormulaHelpDialog open={formulaHelpOpen} onOpenChange={setFormulaHelpOpen} />
           </div>
         )
       }

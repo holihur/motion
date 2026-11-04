@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
+  AlertCircle,
   Bot,
   Check,
+  ChevronRight,
   Clock3,
   History,
   Inbox,
+  ListChecks,
   Loader2,
+  MessageSquareText,
   Pencil,
   Play,
   Plus,
@@ -21,8 +25,8 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
-import type { Agent, AgentMode, AgentRun, AIProposal, AuditLog, TaskTemplate } from "@/lib/types"
-import { formatRelative } from "@/lib/utils"
+import type { Agent, AgentMode, AgentRun, AgentSession, AIProposal, AuditLog, TaskTemplate } from "@/lib/types"
+import { cn, formatRelative } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { WorkspaceIcon } from "@/components/app/workspace-icon"
@@ -45,7 +49,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-type Tab = "pending" | "runs" | "all" | "agents" | "activity"
+type Tab = "pending" | "runs" | "sessions" | "all" | "agents" | "activity"
 
 export function AgentInboxView() {
   const activeId = useWorkspaceStore((state) => state.activeId)
@@ -56,6 +60,8 @@ export function AgentInboxView() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [runs, setRuns] = useState<AgentRun[]>([])
+  const [sessions, setSessions] = useState<AgentSession[]>([])
+  const [sessionDetail, setSessionDetail] = useState<AgentSession | null>(null)
   const [templates, setTemplates] = useState<TaskTemplate[]>([])
   const [templateOpen, setTemplateOpen] = useState(false)
   const [detailAgent, setDetailAgent] = useState<Agent | null>(null)
@@ -65,6 +71,7 @@ export function AgentInboxView() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<AIProposal | null>(null)
+  const [runDetail, setRunDetail] = useState<AgentRun | null>(null)
   const [reviewing, setReviewing] = useState(false)
   const [agentDialog, setAgentDialog] = useState<{ open: boolean; agent?: Agent }>({ open: false })
   const [dispatchAgent, setDispatchAgent] = useState("")
@@ -75,14 +82,16 @@ export function AgentInboxView() {
     if (!activeId) return
     setLoading(true)
     try {
-      const [nextProposals, nextAgents, nextAudit, nextRuns, nextTemplates] = await Promise.all([
+      const [nextProposals, nextAgents, nextAudit, nextRuns, nextSessions, nextTemplates] = await Promise.all([
         api.proposals.list(activeId),
         api.agents.list(activeId),
         api.audit.list(activeId, 1, 50),
         api.agents.runs(activeId, 50).catch(() => [] as AgentRun[]),
+        api.agents.sessions(activeId, 50).catch(() => [] as AgentSession[]),
         api.workspaces.taskTemplates(activeId).catch(() => ({ templates: [] as TaskTemplate[] })),
       ])
       setRuns(nextRuns)
+      setSessions(nextSessions)
       setTemplates(nextTemplates.templates ?? [])
       setProposals(nextProposals)
       setAgents(nextAgents)
@@ -284,6 +293,7 @@ export function AgentInboxView() {
                 {tr("Pending")} {pending.length > 0 && <span className="ml-1 rounded-full bg-amber-500/15 px-1.5 text-[10px] text-amber-700 dark:text-amber-300">{pending.length}</span>}
               </TabsTrigger>
               <TabsTrigger value="runs" className="data-[state=active]:bg-muted">{tr("Runs")}</TabsTrigger>
+              <TabsTrigger value="sessions" className="data-[state=active]:bg-muted">{tr("Sessions")}</TabsTrigger>
               <TabsTrigger value="all" className="data-[state=active]:bg-muted">{tr("All proposals")}</TabsTrigger>
               <TabsTrigger value="agents" className="data-[state=active]:bg-muted">{tr("Agents")}</TabsTrigger>
               <TabsTrigger value="activity" className="data-[state=active]:bg-muted">{tr("Activity")}</TabsTrigger>
@@ -310,7 +320,18 @@ export function AgentInboxView() {
               />
             </TabsContent>
             <TabsContent value="runs" className="pt-4">
-              <RunsList runs={runs} loading={loading} reviewing={reviewing} onRetry={(run) => void retryRun(run)} />
+              <RunsList
+                runs={runs}
+                proposals={proposals}
+                loading={loading}
+                reviewing={reviewing}
+                onRetry={(run) => void retryRun(run)}
+                onOpen={setRunDetail}
+                onOpenProposal={setSelected}
+              />
+            </TabsContent>
+            <TabsContent value="sessions" className="pt-4">
+              <SessionsList sessions={sessions} loading={loading} onOpen={setSessionDetail} />
             </TabsContent>
             <TabsContent value="all" className="pt-4">
               <ProposalList
@@ -464,6 +485,20 @@ export function AgentInboxView() {
         agents={agents}
         templates={templates}
         onSaved={setTemplates}
+      />
+      <SessionDetailDialog
+        sessionId={sessionDetail?.id ?? null}
+        title={sessionDetail?.title}
+        workspaceId={activeId ?? ""}
+        onClose={() => setSessionDetail(null)}
+      />
+      <RunDetailDialog
+        run={runDetail}
+        workspaceId={activeId ?? ""}
+        proposals={proposals}
+        onClose={() => setRunDetail(null)}
+        onOpenProposal={(p) => { setRunDetail(null); setSelected(p) }}
+        onRetry={(run) => { setRunDetail(null); void retryRun(run) }}
       />
       <AgentDetailDialog
         agent={detailAgent}
@@ -839,6 +874,151 @@ function AgentDetailDialog({ agent, runs, proposals, reviewing, onClose, onOpenP
   )
 }
 
+/* ---------------- 持久会话 ---------------- */
+
+function SessionsList({ sessions, loading, onOpen }: {
+  sessions: AgentSession[]
+  loading: boolean
+  onOpen: (session: AgentSession) => void
+}) {
+  if (loading && sessions.length === 0) {
+    return (
+      <div className="space-y-2">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="rounded-xl border bg-card px-3 py-3">
+            <Skeleton className="h-3.5 w-1/3" />
+            <Skeleton className="mt-2 h-3 w-2/3" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+  if (sessions.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed px-6 py-14 text-center">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-muted">
+          <MessageSquareText className="size-5 text-muted-foreground" />
+        </div>
+        <h3 className="mt-4 text-sm font-medium">{tr("No sessions yet")}</h3>
+        <p className="mt-1 text-xs text-muted-foreground">{tr("Every dispatch starts a conversation and stores it in MongoDB.")}</p>
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-2">
+      {sessions.map((session) => (
+        <button
+          key={session.id}
+          type="button"
+          onClick={() => onOpen(session)}
+          className="flex w-full items-start gap-3 rounded-xl border bg-card px-3 py-3 text-left transition hover:border-brand/35 hover:bg-brand-soft/10"
+        >
+          <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><Bot className="size-4" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-semibold">{session.agentName}</span>
+              <span className="text-[11px] text-muted-foreground">{formatRelative(session.updatedAt)}</span>
+            </span>
+            <span className="mt-0.5 line-clamp-1 block text-xs text-muted-foreground">“{session.title}”</span>
+            <span className="mt-1 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+              <span>{tr("{n} message(s)", { n: session.messageCount })}</span>
+              <span>· {tr("{n} run(s)", { n: session.runCount })}</span>
+              {session.pageId && <span>· {tr("Page attached")}</span>}
+            </span>
+          </span>
+          <ChevronRight className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function SessionDetailDialog({ sessionId, title, workspaceId, onClose }: {
+  sessionId: string | null
+  title?: string
+  workspaceId: string
+  onClose: () => void
+}) {
+  const [session, setSession] = useState<AgentSession | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    if (!sessionId || !workspaceId) {
+      setSession(null)
+      return
+    }
+    let alive = true
+    setLoading(true)
+    setFailed(false)
+    void api.agents.session(workspaceId, sessionId)
+      .then((value) => {
+        if (alive) setSession(value)
+      })
+      .catch(() => {
+        if (alive) setFailed(true)
+      })
+      .finally(() => {
+        if (alive) setLoading(false)
+      })
+    return () => { alive = false }
+  }, [sessionId, workspaceId])
+
+  if (!sessionId) return null
+  const messages = session?.messages ?? []
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="max-h-[90svh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-brand-soft text-brand"><MessageSquareText className="size-4" /></span>
+            {session?.agentName ?? tr("Agent session")}
+          </DialogTitle>
+          <DialogDescription>
+            {session?.title || title || tr("Stored conversation")}
+            {session && <span className="ml-2">· {tr("{n} message(s)", { n: session.messageCount })} · {tr("{n} run(s)", { n: session.runCount })}</span>}
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading && !session ? (
+          <div className="flex items-center gap-2 rounded-xl border px-3 py-6 text-xs text-muted-foreground"><Loader2 className="size-3.5 animate-spin" /> {tr("Loading conversation…")}</div>
+        ) : failed ? (
+          <div className="rounded-xl border border-dashed px-3 py-6 text-xs text-muted-foreground">{tr("Could not load this conversation.")}</div>
+        ) : messages.length === 0 ? (
+          <div className="rounded-xl border border-dashed px-3 py-6 text-xs text-muted-foreground">{tr("No messages have been stored for this session yet.")}</div>
+        ) : (
+          <div className="space-y-2">
+            {messages.map((message) => {
+              const isUser = message.role === "user"
+              const isTool = message.role === "tool"
+              const isError = message.role === "error"
+              return (
+                <div key={message.id} className={cn("flex gap-2", isUser && "justify-end")}>
+                  <div className={cn(
+                    "max-w-[85%] rounded-xl border px-3 py-2 text-xs leading-5",
+                    isUser ? "bg-brand-soft/45" : isError ? "border-destructive/25 bg-destructive/5 text-destructive" : isTool ? "bg-muted/30" : "bg-card",
+                  )}>
+                    <div className="mb-0.5 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      {isUser ? tr("You") : isTool ? tr("Action") : isError ? tr("Error") : tr("Agent")}
+                      <span className="font-normal normal-case tracking-normal">{formatRelative(message.createdAt)}</span>
+                    </div>
+                    <div className="whitespace-pre-wrap">{message.content}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>{tr("Close")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 /* ---------------- 运行记录 ---------------- */
 
 function runDuration(run: AgentRun): string {
@@ -849,11 +1029,14 @@ function runDuration(run: AgentRun): string {
   return `${Math.floor(secs / 60)}m${secs % 60}s`
 }
 
-function RunsList({ runs, loading, reviewing, onRetry }: {
+function RunsList({ runs, proposals, loading, reviewing, onRetry, onOpen, onOpenProposal }: {
   runs: AgentRun[]
+  proposals: AIProposal[]
   loading: boolean
   reviewing: boolean
   onRetry: (run: AgentRun) => void
+  onOpen: (run: AgentRun) => void
+  onOpenProposal: (proposal: AIProposal) => void
 }) {
   if (loading && runs.length === 0) {
     return (
@@ -880,40 +1063,244 @@ function RunsList({ runs, loading, reviewing, onRetry }: {
   }
   return (
     <div className="space-y-2">
-      {runs.map((run) => (
-        <div key={run.id} className="flex items-start gap-3 rounded-xl border bg-card px-3 py-2.5">
-          <span title={run.status} className="mt-1.5 size-2 shrink-0 rounded-full" style={{
-            background: run.status === "succeeded" ? "#10b981" : run.status === "failed" ? "#ef4444" : run.status === "running" ? "#3b82f6" : "#a1a1aa",
-          }} />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="font-semibold">{run.agentName}</span>
-              {run.scheduled && <span className="rounded bg-muted px-1 py-0.5 text-[9px] text-muted-foreground">{tr("Scheduled")}</span>}
-              <span className="text-muted-foreground">· {run.actorName} · {formatRelative(run.createdAt)}</span>
-              {runDuration(run) && <span className="tabular-nums text-muted-foreground">· {runDuration(run)}</span>}
-              {typeof run.tokens === "number" && run.tokens > 0 && <span className="tabular-nums text-muted-foreground">· {run.tokens} tokens</span>}
-            </div>
-            <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">“{run.prompt}”</div>
-            {run.status === "failed" && run.error && (
-              <div className="mt-1 line-clamp-2 rounded-md bg-red-500/5 px-2 py-1 text-[11px] text-red-700 dark:text-red-300">{run.error}</div>
-            )}
-            {run.status === "succeeded" && (
-              <div className="mt-0.5 text-[11px] text-muted-foreground">
-                {typeof run.actions === "number" && run.actions > 0 ? `${run.actions} actions · ` : ""}{tr("{n} proposal(s)", { n: run.proposalIds?.length ?? 0 })}
+      {runs.map((run) => {
+        const linked = (run.proposalIds ?? []).map((id) => proposals.find((item) => item.id === id)).filter(Boolean) as AIProposal[]
+        const pendingCount = linked.filter((item) => item.status === "pending").length
+        return (
+          <div
+            key={run.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpen(run)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault()
+                onOpen(run)
+              }
+            }}
+            className="flex cursor-pointer items-start gap-3 rounded-xl border bg-card px-3 py-2.5 text-left transition hover:border-brand/35 hover:bg-brand-soft/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
+          >
+            <span title={run.status} className="mt-1.5 size-2 shrink-0 rounded-full" style={{
+              background: run.status === "succeeded" ? "#10b981" : run.status === "failed" ? "#ef4444" : run.status === "running" ? "#3b82f6" : "#a1a1aa",
+            }} />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="font-semibold">{run.agentName}</span>
+                {run.scheduled && <span className="rounded bg-muted px-1 py-0.5 text-[9px] text-muted-foreground">{tr("Scheduled")}</span>}
+                <span className="text-muted-foreground">· {run.actorName} · {formatRelative(run.createdAt)}</span>
+                {runDuration(run) && <span className="tabular-nums text-muted-foreground">· {runDuration(run)}</span>}
+                {typeof run.tokens === "number" && run.tokens > 0 && <span className="tabular-nums text-muted-foreground">· {run.tokens} tokens</span>}
               </div>
-            )}
-            {(run.status === "queued" || run.status === "running") && (
-              <div className="mt-0.5 text-[11px] text-blue-600 dark:text-blue-400">{run.status === "queued" ? tr("Queued…") : tr("Running…")}</div>
-            )}
+              <div className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">“{run.prompt}”</div>
+              {run.status === "failed" && run.error && (
+                <div className="mt-1 line-clamp-2 rounded-md bg-red-500/5 px-2 py-1 text-[11px] text-red-700 dark:text-red-300">{run.error}</div>
+              )}
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                {run.status === "succeeded" && (
+                  <span>{typeof run.actions === "number" && run.actions > 0 ? `${run.actions} ${tr("actions")} · ` : ""}{tr("{n} proposal(s)", { n: run.proposalIds?.length ?? 0 })}</span>
+                )}
+                {pendingCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      const first = linked.find((item) => item.status === "pending")
+                      if (first) onOpenProposal(first)
+                    }}
+                    className="rounded-full bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-700 hover:bg-amber-500/25 dark:text-amber-300"
+                  >
+                    {tr("{n} need review", { n: pendingCount })}
+                  </button>
+                )}
+                {(run.status === "queued" || run.status === "running") && (
+                  <span className="text-blue-600 dark:text-blue-400">{run.status === "queued" ? tr("Queued…") : tr("Running…")}</span>
+                )}
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              {run.status === "failed" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-[11px]"
+                  disabled={reviewing}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    onRetry(run)
+                  }}
+                >
+                  <RotateCcw className="size-3" /> {tr("Retry")}
+                </Button>
+              )}
+              <ChevronRight className="size-3.5 text-muted-foreground" />
+            </div>
           </div>
-          {run.status === "failed" && (
-            <Button size="sm" variant="outline" className="h-7 shrink-0 gap-1 text-[11px]" disabled={reviewing} onClick={() => onRetry(run)}>
-              <RotateCcw className="size-3" /> {tr("Retry")}
-            </Button>
+        )
+      })}
+    </div>
+  )
+}
+
+function RunDetailDialog({ run, workspaceId, proposals, onClose, onOpenProposal, onRetry }: {
+  run: AgentRun | null
+  workspaceId: string
+  proposals: AIProposal[]
+  onClose: () => void
+  onOpenProposal: (proposal: AIProposal) => void
+  onRetry: (run: AgentRun) => void
+}) {
+  const navigate = useNavigate()
+  const [detail, setDetail] = useState<AgentRun | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [traceError, setTraceError] = useState(false)
+  const [sessionOpen, setSessionOpen] = useState(false)
+
+  useEffect(() => {
+    if (!run || !workspaceId) {
+      setDetail(null)
+      return
+    }
+    let alive = true
+    setDetail(run)
+    setTraceError(false)
+    setLoading(true)
+    void api.agents
+      .runDetail(workspaceId, run.id)
+      .then((value) => {
+        if (alive) setDetail(value)
+      })
+      .catch(() => {
+        if (alive) setTraceError(true)
+      })
+      .finally(() => {
+        if (alive) setLoading(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [run?.id, workspaceId])
+
+  if (!run) return null
+  const current = detail ?? run
+  const linked = (current.proposalIds ?? []).map((id) => proposals.find((item) => item.id === id)).filter(Boolean) as AIProposal[]
+  const pending = linked.filter((item) => item.status === "pending")
+  const steps = current.actionLog ?? []
+  const statusColor = current.status === "succeeded" ? "text-emerald-600 dark:text-emerald-400" : current.status === "failed" ? "text-destructive" : "text-blue-600 dark:text-blue-400"
+
+  return (
+    <>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent className="max-h-[90svh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex flex-wrap items-center gap-2">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-brand-soft text-brand"><Bot className="size-4" /></span>
+            {current.agentName}
+            <span className={cn("rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium", statusColor)}>{tr(current.status)}</span>
+          </DialogTitle>
+          <DialogDescription>
+            {current.actorName} · {formatRelative(current.createdAt)}
+            {runDuration(current) ? ` · ${runDuration(current)}` : ""}
+            {current.tokens && current.tokens > 0 ? ` · ${current.tokens} tokens` : ""}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="rounded-xl border bg-muted/25 px-3 py-2.5">
+          <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{tr("Task")}</div>
+          <div className="mt-1 whitespace-pre-wrap text-xs leading-5">{current.prompt}</div>
+          {current.pageId && (
+            <button type="button" onClick={() => navigate(`/page/${current.pageId}`)} className="mt-2 flex items-center gap-1 text-[11px] text-brand hover:underline">
+              <ChevronRight className="size-3" /> {tr("Open target page")}
+            </button>
           )}
         </div>
-      ))}
-    </div>
+
+        {current.status === "failed" && current.error && (
+          <div className="flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive/5 px-3 py-2.5 text-xs text-destructive">
+            <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+            <span className="whitespace-pre-wrap">{current.error}</span>
+          </div>
+        )}
+
+        <div>
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold"><ListChecks className="size-3.5 text-brand" /> {tr("What the agent did")}</div>
+          {loading && steps.length === 0 ? (
+            <div className="flex items-center gap-2 rounded-xl border px-3 py-4 text-xs text-muted-foreground"><Loader2 className="size-3.5 animate-spin" /> {tr("Loading execution details…")}</div>
+          ) : steps.length > 0 ? (
+            <ol className="space-y-1.5">
+              {steps.map((step, index) => (
+                <li key={`${index}-${step}`} className="flex items-start gap-2 rounded-lg border bg-card px-2.5 py-1.5 text-xs">
+                  <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[9px] font-semibold text-brand">{index + 1}</span>
+                  <span className="min-w-0 flex-1 whitespace-pre-wrap leading-5">{step}</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="rounded-xl border border-dashed px-3 py-4 text-xs text-muted-foreground">
+              {traceError ? tr("Could not load execution details.") : tr("No execution steps were recorded for this run. Older runs may not include a trace.")}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold"><MessageSquareText className="size-3.5 text-brand" /> {tr("Result")}</div>
+          {loading && !current.reply ? (
+            <div className="h-16 animate-pulse rounded-xl bg-muted/50" />
+          ) : current.reply ? (
+            <div className="whitespace-pre-wrap rounded-xl border bg-card px-3 py-2.5 text-xs leading-5">{current.reply}</div>
+          ) : (
+            <div className="rounded-xl border border-dashed px-3 py-4 text-xs text-muted-foreground">
+              {current.status === "succeeded" ? tr("No final message was recorded for this run.") : tr("The run did not produce a final message.")}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold">
+            <Sparkles className="size-3.5 text-brand" /> {tr("Changes")}
+            {pending.length > 0 && <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">{tr("{n} need review", { n: pending.length })}</span>}
+          </div>
+          {linked.length > 0 ? (
+            <div className="space-y-1.5">
+              {linked.map((proposal) => (
+                <button
+                  key={proposal.id}
+                  type="button"
+                  onClick={() => onOpenProposal(proposal)}
+                  className="flex w-full items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left text-xs transition hover:border-brand/30 hover:bg-brand-soft/10"
+                >
+                  <span className={statusClass(proposal.status)}>{tr(proposal.status)}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{proposal.pageTitle || tr("Untitled")}</span>
+                  {proposal.created && <span className="text-[10px] text-sky-600 dark:text-sky-300">{tr("New page")}</span>}
+                  <ChevronRight className="size-3 shrink-0 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed px-3 py-4 text-xs text-muted-foreground">{tr("No page changes were proposed by this run.")}</div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-1.5">
+          {current.status === "failed" && (
+            <Button variant="outline" className="mr-auto gap-1.5" onClick={() => onRetry(current)}>
+              <RotateCcw className="size-3.5" /> {tr("Retry")}
+            </Button>
+          )}
+          {current.sessionId && (
+            <Button variant="outline" className="gap-1.5" onClick={() => setSessionOpen(true)}>
+              <MessageSquareText className="size-3.5" /> {tr("View conversation")}
+            </Button>
+          )}
+          <Button variant="ghost" onClick={onClose}>{tr("Close")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    <SessionDetailDialog
+      sessionId={sessionOpen ? current.sessionId ?? null : null}
+      workspaceId={workspaceId}
+      onClose={() => setSessionOpen(false)}
+    />
+    </>
   )
 }
 

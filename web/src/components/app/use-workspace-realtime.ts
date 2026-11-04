@@ -50,11 +50,11 @@ export function useWorkspaceRealtime(workspaceId: string | null) {
           window.dispatchEvent(new CustomEvent("motion:proposals-changed"))
           if ((event.type === "proposals" && event.action === "created") ||
             (event.type === "agent-run" && event.action === "finished")) {
-            if (!pathRef.current.startsWith("/inbox")) {
+            if (!pathRef.current.startsWith("/ai")) {
               toast.success(tr("AI changes are waiting for review"), {
                 action: {
                   label: tr("Review"),
-                  onClick: () => navigateRef.current("/inbox"),
+                  onClick: () => navigateRef.current("/ai"),
                 },
               })
             }

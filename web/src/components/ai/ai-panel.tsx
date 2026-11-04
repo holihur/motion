@@ -65,6 +65,7 @@ export function AIPanel({
   const [pending, setPending] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [messages, setMessages] = useState<AIChatMessage[]>(() => readChat(pageId))
+  const [sessionId, setSessionId] = useState(() => readChatSession(pageId))
   const scrollRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -97,6 +98,7 @@ export function AIPanel({
 
   useEffect(() => {
     setMessages(readChat(pageId))
+    setSessionId(readChatSession(pageId))
     setProposals([])
     setReviewCount(0)
   }, [pageId])
@@ -143,6 +145,7 @@ export function AIPanel({
     message: string,
     history: { role: string; content: string }[],
     base: AIChatMessage[],
+    options: { newSession?: boolean } = {},
   ) {
     const controller = new AbortController()
     abortRef.current = controller
@@ -156,6 +159,7 @@ export function AIPanel({
           message,
           pageId,
           agentId: selectedAgent?.id,
+          sessionId: options.newSession ? "" : sessionId,
           history,
           signal: controller.signal,
         },
@@ -171,6 +175,12 @@ export function AIPanel({
         },
       )
       markOnboardingStep("ai")
+      if (response.sessionId) {
+        setSessionId(response.sessionId)
+        try {
+          localStorage.setItem(`motion.ai.session.${pageId}`, response.sessionId)
+        } catch { /* ignore */ }
+      }
       setMessages((current) =>
         current.map((item, index) =>
           index === assistantIndex
@@ -252,7 +262,11 @@ export function AIPanel({
       .slice(0, lastUserIndex)
       .map((item) => ({ role: item.role, content: item.content }))
     setMessages(base)
-    await runChat(lastUser.content, history, base)
+    setSessionId("")
+    try {
+      localStorage.removeItem(`motion.ai.session.${pageId}`)
+    } catch { /* ignore */ }
+    await runChat(lastUser.content, history, base, { newSession: true })
   }
 
   async function undo(revisionId: string, index: number) {
@@ -565,6 +579,14 @@ export function AIPanel({
   )
 }
 
+
+function readChatSession(pageId: string): string {
+  try {
+    return localStorage.getItem(`motion.ai.session.${pageId}`) ?? ""
+  } catch {
+    return ""
+  }
+}
 
 function readChat(pageId: string): AIChatMessage[] {
   try {

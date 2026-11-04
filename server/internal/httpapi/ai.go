@@ -530,10 +530,11 @@ func (s *Server) testAISettings(w http.ResponseWriter, r *http.Request) {
 }
 
 type aiChatRequest struct {
-	Message string                 `json:"message"`
-	PageID  string                 `json:"pageId,omitempty"`
-	AgentID string                 `json:"agentId,omitempty"`
-	History []docagent.ChatMessage `json:"history,omitempty"`
+	Message   string                 `json:"message"`
+	PageID    string                 `json:"pageId,omitempty"`
+	AgentID   string                 `json:"agentId,omitempty"`
+	SessionID string                 `json:"sessionId,omitempty"`
+	History   []docagent.ChatMessage `json:"history,omitempty"`
 }
 
 type aiChatResponse struct {
@@ -546,7 +547,34 @@ type aiChatResponse struct {
 	AgentID    string             `json:"agentId,omitempty"`
 	AgentName  string             `json:"agentName,omitempty"`
 	Mode       string             `json:"mode,omitempty"`
+	SessionID  string             `json:"sessionId,omitempty"`
 	Proposals  []model.AIProposal `json:"proposals,omitempty"`
+}
+
+// prepareChatSession loads a persisted AI-panel conversation, or creates one
+// and seeds it with the browser-local history on first use.
+func (s *Server) prepareChatSession(ctx context.Context, workspaceID primitive.ObjectID, user model.User, agentConfig model.Agent, prompt, pageHex, sessionHex string, clientHistory []docagent.ChatMessage) (model.AgentSession, []docagent.ChatMessage, error) {
+	if strings.TrimSpace(sessionHex) != "" {
+		return s.sessionForRun(ctx, workspaceID, user, agentConfig, prompt, pageHex, sessionHex)
+	}
+	session, err := s.createAgentSession(ctx, workspaceID, user, agentConfig, prompt, pageHex)
+	if err != nil {
+		return model.AgentSession{}, nil, err
+	}
+	seed := make([]model.AgentMessage, 0, len(clientHistory))
+	for _, message := range clientHistory {
+		role := strings.ToLower(message.Role)
+		if role != "assistant" {
+			role = "user"
+		}
+		content := truncateRunes(strings.TrimSpace(message.Content), 4000)
+		if content == "" {
+			continue
+		}
+		seed = append(seed, model.AgentMessage{Role: role, Content: content})
+	}
+	s.appendAgentMessages(ctx, session.ID, primitive.NilObjectID, seed...)
+	return session, clientHistory, nil
 }
 
 func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
@@ -620,6 +648,13 @@ func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "agent not found or disabled")
 		return
 	}
+	session, history, err := s.prepareChatSession(r.Context(), workspaceID, user, agentConfig, req.Message, strings.TrimSpace(req.PageID), req.SessionID, req.History)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "agent session not found")
+		return
+	}
+	_, _ = s.store.AgentSessions.UpdateOne(r.Context(), bson.M{"_id": session.ID}, bson.M{"$inc": bson.M{"runCount": 1}})
+	s.appendAgentMessages(r.Context(), session.ID, primitive.NilObjectID, model.AgentMessage{Role: "user", Content: req.Message})
 	agentScopes := make(map[string]bool, len(agentConfig.Scopes))
 	for _, scope := range agentConfig.Scopes {
 		agentScopes[scope] = true
@@ -629,8 +664,9 @@ func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
 		ModelName: modelName, Provider: setting.Provider, BaseURL: setting.BaseURL,
 		Scopes: agentScopes, TrackChanges: agentConfig.Mode == "approval",
 	}
-	reply, actions, err := agent.Run(timeout, req.History, req.Message, strings.TrimSpace(req.PageID))
+	reply, actions, err := agent.Run(timeout, history, req.Message, strings.TrimSpace(req.PageID))
 	if err != nil {
+		s.appendAgentMessages(r.Context(), session.ID, primitive.NilObjectID, model.AgentMessage{Role: "error", Content: truncateRunes(err.Error(), 4000)})
 		writeErr(w, http.StatusBadGateway, "AI request failed: "+err.Error())
 		return
 	}
@@ -642,13 +678,25 @@ func (s *Server) aiChat(w http.ResponseWriter, r *http.Request) {
 	if len(proposals) > 0 {
 		reply = strings.TrimSpace(reply) + fmt.Sprintf("\n\nPrepared %d change(s) for review in Agent Inbox.", len(proposals))
 	}
+	s.appendChatResult(r.Context(), session.ID, reply, actions)
 	s.writeAudit(r.Context(), workspaceID, user.ID, user.Name, agentConfig.ID, agentConfig.Name,
 		"agent.run", "agent", agentConfig.ID.Hex(), "Ran "+agentConfig.Name+" with "+fmt.Sprint(len(actions))+" action(s)")
 	writeJSON(w, http.StatusOK, aiChatResponse{
 		Reply: reply, Usage: agent.LastUsage, Actions: actions, Model: modelName, Provider: setting.Provider,
 		RevisionID: revisionID, AgentID: agentConfig.ID.Hex(), AgentName: agentConfig.Name,
-		Mode: agentConfig.Mode, Proposals: proposals,
+		Mode: agentConfig.Mode, SessionID: session.ID.Hex(), Proposals: proposals,
 	})
+}
+
+func (s *Server) appendChatResult(ctx context.Context, sessionID primitive.ObjectID, reply string, actions []string) {
+	messages := make([]model.AgentMessage, 0, len(actions)+1)
+	for _, action := range actions {
+		messages = append(messages, model.AgentMessage{Role: "tool", Content: truncateRunes(strings.TrimSpace(action), 1000)})
+	}
+	if strings.TrimSpace(reply) != "" {
+		messages = append(messages, model.AgentMessage{Role: "assistant", Content: truncateRunes(reply, 20000)})
+	}
+	s.appendAgentMessages(ctx, sessionID, primitive.NilObjectID, messages...)
 }
 
 func (s *Server) aiChatStream(w http.ResponseWriter, r *http.Request) {
@@ -751,6 +799,13 @@ func (s *Server) aiChatStream(w http.ResponseWriter, r *http.Request) {
 		writeEvent("error", map[string]string{"error": "agent not found or disabled"})
 		return
 	}
+	session, history, err := s.prepareChatSession(r.Context(), workspaceID, user, agentConfig, req.Message, strings.TrimSpace(req.PageID), req.SessionID, req.History)
+	if err != nil {
+		writeEvent("error", map[string]string{"error": "agent session not found"})
+		return
+	}
+	_, _ = s.store.AgentSessions.UpdateOne(r.Context(), bson.M{"_id": session.ID}, bson.M{"$inc": bson.M{"runCount": 1}})
+	s.appendAgentMessages(r.Context(), session.ID, primitive.NilObjectID, model.AgentMessage{Role: "user", Content: req.Message})
 	agentScopes := make(map[string]bool, len(agentConfig.Scopes))
 	for _, scope := range agentConfig.Scopes {
 		agentScopes[scope] = true
@@ -760,11 +815,12 @@ func (s *Server) aiChatStream(w http.ResponseWriter, r *http.Request) {
 		ModelName: modelName, Provider: setting.Provider, BaseURL: setting.BaseURL,
 		Scopes: agentScopes, TrackChanges: agentConfig.Mode == "approval",
 	}
-	reply, actions, err := agent.RunStream(timeout, req.History, req.Message, strings.TrimSpace(req.PageID),
+	reply, actions, err := agent.RunStream(timeout, history, req.Message, strings.TrimSpace(req.PageID),
 		func(text string) bool {
 			return writeEvent("token", map[string]string{"text": text})
 		})
 	if err != nil {
+		s.appendAgentMessages(r.Context(), session.ID, primitive.NilObjectID, model.AgentMessage{Role: "error", Content: truncateRunes(err.Error(), 4000)})
 		if timeout.Err() != nil {
 			writeEvent("error", map[string]string{"error": "AI request timed out"})
 		} else {
@@ -780,12 +836,13 @@ func (s *Server) aiChatStream(w http.ResponseWriter, r *http.Request) {
 	if len(proposals) > 0 {
 		reply = strings.TrimSpace(reply) + fmt.Sprintf("\n\nPrepared %d change(s) for review in Agent Inbox.", len(proposals))
 	}
+	s.appendChatResult(r.Context(), session.ID, reply, actions)
 	s.writeAudit(r.Context(), workspaceID, user.ID, user.Name, agentConfig.ID, agentConfig.Name,
 		"agent.run", "agent", agentConfig.ID.Hex(), "Ran "+agentConfig.Name+" with "+fmt.Sprint(len(actions))+" action(s)")
 	writeEvent("done", aiChatResponse{
 		Reply: reply, Usage: agent.LastUsage, Actions: actions, Model: modelName, Provider: setting.Provider,
 		RevisionID: revisionID, AgentID: agentConfig.ID.Hex(), AgentName: agentConfig.Name,
-		Mode: agentConfig.Mode, Proposals: proposals,
+		Mode: agentConfig.Mode, SessionID: session.ID.Hex(), Proposals: proposals,
 	})
 }
 

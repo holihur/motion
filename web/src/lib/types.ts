@@ -442,6 +442,7 @@ export interface AIChatResponse {
   agentId?: string
   agentName?: string
   mode?: AgentMode
+  sessionId?: string
   proposals?: AIProposal[]
 }
 

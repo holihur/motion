@@ -123,6 +123,7 @@ async function streamChat(
     message: string
     pageId?: string
     agentId?: string
+    sessionId?: string
     history?: { role: string; content: string }[]
     signal?: AbortSignal
   },
@@ -141,6 +142,7 @@ async function streamChat(
         message: input.message,
         pageId: input.pageId,
         agentId: input.agentId,
+        sessionId: input.sessionId,
         history: input.history,
       }),
       signal: input.signal,
@@ -375,6 +377,7 @@ export const api = {
       message: string
       pageId?: string
       agentId?: string
+      sessionId?: string
       history?: { role: string; content: string }[]
       signal?: AbortSignal
     }) =>
@@ -384,6 +387,7 @@ export const api = {
           message: input.message,
           pageId: input.pageId,
           agentId: input.agentId,
+          sessionId: input.sessionId,
           history: input.history,
         }),
         signal: input.signal,
@@ -393,6 +397,7 @@ export const api = {
         message: string
         pageId?: string
         agentId?: string
+        sessionId?: string
         history?: { role: string; content: string }[]
         signal?: AbortSignal
       },

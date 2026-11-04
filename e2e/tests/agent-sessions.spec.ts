@@ -146,3 +146,86 @@ test.describe("agent sessions", () => {
     }
   })
 })
+
+test("persists AI panel chat turns in the same agent_sessions collection", async ({ page, request }) => {
+  let calls = 0
+  let sawPriorAnswer = false
+  const mock = http.createServer((req, res) => {
+    let raw = ""
+    req.on("data", (chunk) => (raw += chunk))
+    req.on("end", () => {
+      calls += 1
+      const body = JSON.parse(raw || "{}") as { messages?: Array<{ role?: string; content?: string }> }
+      if (calls === 2) {
+        sawPriorAnswer = (body.messages ?? []).some((message) => (message.content ?? "").includes("First AI panel answer"))
+      }
+      res.writeHead(200, { "content-type": "application/json" })
+      res.end(JSON.stringify({
+        choices: [{
+          message: {
+            role: "assistant",
+            content: calls === 1 ? "First AI panel answer" : "Second AI panel answer",
+          },
+          finish_reason: "stop",
+        }],
+      }))
+    })
+  })
+  await new Promise<void>((resolve) => mock.listen(0, "127.0.0.1", resolve))
+  const port = (mock.address() as AddressInfo).port
+
+  try {
+    const account = await signIn(page, request)
+    const [workspace] = await listWorkspaces(request, account.token)
+    const created = await createPage(request, account.token, workspace.id, {
+      title: "AI session lab",
+      blocks: [textBlock("AI session body")],
+    })
+    const saved = await request.put("/api/ai/settings", {
+      headers: authHeaders(account.token),
+      data: {
+        provider: "custom",
+        apiKey: "sk-ai-session",
+        model: "ai-session-model",
+        baseUrl: `http://127.0.0.1:${port}/v1`,
+      },
+    })
+    expect(saved.ok()).toBeTruthy()
+
+    const firstResponse = await request.post("/api/ai/chat", {
+      headers: authHeaders(account.token),
+      data: { message: "First AI panel prompt", pageId: created.id },
+    })
+    expect(firstResponse.ok()).toBeTruthy()
+    const first = (await firstResponse.json()) as { reply: string; sessionId?: string }
+    expect(first.reply).toContain("First AI panel answer")
+    expect(first.sessionId).toBeTruthy()
+
+    const secondResponse = await request.post("/api/ai/chat", {
+      headers: authHeaders(account.token),
+      data: { message: "Second AI panel prompt", pageId: created.id, sessionId: first.sessionId },
+    })
+    expect(secondResponse.ok()).toBeTruthy()
+    const second = (await secondResponse.json()) as { reply: string; sessionId?: string }
+    expect(second.reply).toContain("Second AI panel answer")
+    expect(second.sessionId).toBe(first.sessionId)
+    expect(sawPriorAnswer).toBe(true)
+
+    const sessionResponse = await request.get(`/api/workspaces/${workspace.id}/agent-sessions/${first.sessionId}`, {
+      headers: authHeaders(account.token),
+    })
+    expect(sessionResponse.ok()).toBeTruthy()
+    const session = (await sessionResponse.json()) as {
+      runCount: number
+      messages: Array<{ role: string; content: string }>
+    }
+    expect(session.runCount).toBe(2)
+    expect(session.messages.filter((message) => message.role === "user")).toHaveLength(2)
+    expect(session.messages.filter((message) => message.role === "assistant").map((message) => message.content)).toEqual([
+      "First AI panel answer",
+      "Second AI panel answer",
+    ])
+  } finally {
+    await new Promise<void>((resolve) => mock.close(() => resolve()))
+  }
+})

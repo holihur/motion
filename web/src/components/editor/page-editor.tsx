@@ -16,12 +16,14 @@ import {
   MessageSquarePlus,
   MoreHorizontal,
   Plus,
+  Redo2,
   RotateCcw,
   SmilePlus,
   Sparkles,
   SquarePen,
   Square,
   Star,
+  Undo2,
   Users,
   Volume2,
 } from "lucide-react"
@@ -137,6 +139,7 @@ export function PageEditor() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<SaveState>("saved")
+  const [, setHistoryVersion] = useState(0)
   const [localDraft, setLocalDraft] = useState(false)
   const [draftFailed, setDraftFailed] = useState(false)
   const [collaborators, setCollaborators] = useState<RealtimePresence[]>([])
@@ -263,6 +266,9 @@ export function PageEditor() {
   const pageRef = useRef<Page | null>(null)
   const userIdRef = useRef("")
   const baseBlocksRef = useRef<Block[]>([])
+  const undoStackRef = useRef<Block[][]>([])
+  const redoStackRef = useRef<Block[][]>([])
+  const lastBlockChangeRef = useRef(0)
   const draftMergeRef = useRef(false)
   const blocksRevRef = useRef(0)
   const pendingRemoteRef = useRef<Block[] | null>(null)
@@ -367,6 +373,53 @@ export function PageEditor() {
     }
   }
 
+  function resetBlockHistory() {
+    undoStackRef.current = []
+    redoStackRef.current = []
+    lastBlockChangeRef.current = 0
+    setHistoryVersion((value) => value + 1)
+  }
+
+  function recordBlockChange(previous: Block[]) {
+    if (readOnly) return
+    const now = Date.now()
+    const top = undoStackRef.current[undoStackRef.current.length - 1]
+    if (now - lastBlockChangeRef.current > 450 && (!top || !sameBlocks(top, previous))) {
+      undoStackRef.current.push(previous)
+      if (undoStackRef.current.length > 60) undoStackRef.current.shift()
+    }
+    lastBlockChangeRef.current = now
+    redoStackRef.current = []
+    setHistoryVersion((value) => value + 1)
+  }
+
+  function applyBlockHistory(snapshot: Block[]) {
+    setBlocks(snapshot)
+    setSaveState("saving")
+    scheduleSave()
+  }
+
+  function undoBlocks() {
+    if (readOnly) return
+    const previous = undoStackRef.current.pop()
+    if (!previous) return
+    redoStackRef.current.push(stateRef.current.blocks)
+    lastBlockChangeRef.current = 0
+    applyBlockHistory(previous)
+    setHistoryVersion((value) => value + 1)
+  }
+
+  function redoBlocks() {
+    if (readOnly) return
+    const next = redoStackRef.current.pop()
+    if (!next) return
+    undoStackRef.current.push(stateRef.current.blocks)
+    if (undoStackRef.current.length > 60) undoStackRef.current.shift()
+    lastBlockChangeRef.current = 0
+    applyBlockHistory(next)
+    setHistoryVersion((value) => value + 1)
+  }
+
   function saveDraftNow(notify = true) {
     if (!dirtyRef.current) return false
     const current = stateRef.current
@@ -436,6 +489,7 @@ export function PageEditor() {
     setLoading(true)
     setError(null)
     setPage(null)
+    resetBlockHistory()
 
     const draft = readDraft(pageId)
     const usableDraft = draft && draft.userId === userId ? draft : null
@@ -858,6 +912,24 @@ export function PageEditor() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (readOnly) return
+    function onUndoKey(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return
+      const key = event.key.toLowerCase()
+      if (key !== "z" && key !== "y") return
+      const target = event.target as HTMLElement | null
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return
+      if (document.querySelector('[role="dialog"]')) return
+      event.preventDefault()
+      if (key === "y" || event.shiftKey) redoBlocks()
+      else undoBlocks()
+    }
+    window.addEventListener("keydown", onUndoKey)
+    return () => window.removeEventListener("keydown", onUndoKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, page?.id])
 
   useEffect(() => {
     function onBeforeUnload(event: BeforeUnloadEvent) {
@@ -1630,6 +1702,36 @@ export function PageEditor() {
             </TooltipTrigger>
             <TooltipContent>{tr("Share workspace")}</TooltipContent>
           </Tooltip>
+          {!readOnly && <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={undoBlocks}
+                disabled={undoStackRef.current.length === 0}
+                aria-label={tr("Undo")}
+                className="text-muted-foreground"
+              >
+                <Undo2 className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{tr("Undo")} · ⌘Z</TooltipContent>
+          </Tooltip>}
+          {!readOnly && <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={redoBlocks}
+                disabled={redoStackRef.current.length === 0}
+                aria-label={tr("Redo")}
+                className="text-muted-foreground"
+              >
+                <Redo2 className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{tr("Redo")} · ⇧⌘Z</TooltipContent>
+          </Tooltip>}
           {!readOnly && <SaveIndicator state={saveState} local={localDraft} onRetry={() => void saveNow()} />}
           {!readOnly && <Tooltip>
             <TooltipTrigger asChild>
@@ -1860,6 +1962,7 @@ export function PageEditor() {
               onChange={(next) => {
                 // Viewers may still expand/collapse sections locally, but must
                 // never persist those view-only interactions.
+                recordBlockChange(stateRef.current.blocks)
                 setBlocks(next)
                 if (!readOnly) scheduleSave()
               }}

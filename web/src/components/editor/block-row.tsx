@@ -298,7 +298,7 @@ export function BlockRow(props: BlockRowProps) {
 
   const editableRef = useRef<HTMLDivElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
-  const [diagramEditing, setDiagramEditing] = useState(!block.text)
+  const [diagramMode, setDiagramMode] = useState<"preview" | "split" | "source">(block.text ? "split" : "source")
   const [diagramZoom, setDiagramZoom] = useState(false)
   const [longFolded, setLongFolded] = useState(true)
   const [calloutFolded, setCalloutFolded] = useState(false)
@@ -1173,75 +1173,92 @@ export function BlockRow(props: BlockRowProps) {
       }
       case "diagram": {
         const zoom = Number(block.align ?? "100") || 100
+        const mode = readOnly ? "preview" : diagramMode
+        const sourceEditor = (
+          <textarea
+            value={block.text}
+            readOnly={readOnly}
+            onChange={(event) => onUpdate({ text: event.target.value })}
+            onFocus={() => onFocusBlock?.(block.id)}
+            spellCheck={false}
+            rows={mode === "split" ? 12 : Math.min(16, Math.max(5, block.text.split("\n").length + 1))}
+            placeholder={"flowchart LR\n  A[Start] --> B[Finish]"}
+            className={cn(
+              "block w-full resize-y bg-transparent p-3 font-mono text-[12px] leading-5 outline-none placeholder:text-muted-foreground/50",
+              mode === "split" && "min-h-[240px] border-r md:max-h-[70svh]",
+            )}
+          />
+        )
+        const preview = (
+          <div
+            role="button"
+            tabIndex={0}
+            onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setDiagramZoom(true) } }}
+            className="group/diagram relative min-w-0 cursor-zoom-in overflow-auto rounded-lg p-2 outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            onClick={() => setDiagramZoom(true)}
+            title={tr("Click to zoom")}
+          >
+            <MermaidDiagram source={block.text} />
+            <span className="pointer-events-none absolute right-2 top-2 hidden items-center gap-1 rounded-md border bg-background/85 px-2 py-1 text-[10px] text-muted-foreground shadow-sm backdrop-blur group-hover/diagram:flex">
+              <Maximize2 className="size-3" /> {tr("Click to zoom")}
+            </span>
+          </div>
+        )
         return (
           <div className="my-2 overflow-hidden rounded-lg border border-border/80 bg-card">
-            <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5">
               <Network className="size-3 text-muted-foreground" />
               <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 {tr("Mermaid diagram")}
               </span>
-              {!diagramEditing && (
-                <div className="ml-auto flex items-center gap-1">
-                  <button type="button" onClick={() => onUpdate({ align: String(Math.max(50, zoom - 10)) })} className="rounded px-1.5 py-0.5 text-[10px] hover:bg-accent">−</button>
-                  <span className="text-[10px] text-muted-foreground">{zoom}%</span>
-                  <button type="button" onClick={() => onUpdate({ align: String(Math.min(200, zoom + 10)) })} className="rounded px-1.5 py-0.5 text-[10px] hover:bg-accent">+</button>
+              {!readOnly && (
+                <div className="ml-2 flex rounded-md border bg-background p-0.5">
+                  {(["preview", "split", "source"] as const).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={diagramMode === value}
+                      onClick={() => setDiagramMode(value)}
+                      className={cn("rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition hover:text-foreground", diagramMode === value && "bg-accent font-medium text-foreground")}
+                    >
+                      {tr(value === "preview" ? "Preview" : value === "split" ? "Split" : "Source")}
+                    </button>
+                  ))}
                 </div>
               )}
-              {!diagramEditing && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => { void navigator.clipboard.writeText(block.text).then(() => toast.success(tr("Copied")), () => toast.error(tr("Could not copy"))) }}
-                    title={tr("Copy source")}
-                    className="rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
-                  >
-                    <Copy className="size-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDiagramZoom(true)}
-                    title={tr("Zoom preview")}
-                    className="rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
-                  >
-                    <Maximize2 className="size-3" />
-                  </button>
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => setDiagramEditing((value) => !value)}
-                className="rounded px-2 py-0.5 text-[10px] text-muted-foreground transition hover:bg-accent hover:text-foreground"
-              >
-                {diagramEditing ? tr("Preview") : tr("Edit source")}
-              </button>
+              <div className="ml-auto flex items-center gap-1">
+                {mode !== "source" && (
+                  <>
+                    <button type="button" onClick={() => onUpdate({ align: String(Math.max(50, zoom - 10)) })} className="rounded px-1.5 py-0.5 text-[10px] hover:bg-accent">−</button>
+                    <span className="text-[10px] text-muted-foreground">{zoom}%</span>
+                    <button type="button" onClick={() => onUpdate({ align: String(Math.min(200, zoom + 10)) })} className="rounded px-1.5 py-0.5 text-[10px] hover:bg-accent">+</button>
+                    <button
+                      type="button"
+                      onClick={() => { void navigator.clipboard.writeText(block.text).then(() => toast.success(tr("Copied")), () => toast.error(tr("Could not copy"))) }}
+                      title={tr("Copy source")}
+                      className="rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                    >
+                      <Copy className="size-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDiagramZoom(true)}
+                      title={tr("Zoom preview")}
+                      className="rounded p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                    >
+                      <Maximize2 className="size-3" />
+                    </button>
+                  </>
+                )}
+              </div>
               <DiagramLightbox source={block.text} title={tr("Diagram preview")} open={diagramZoom} onOpenChange={setDiagramZoom} />
             </div>
-            {diagramEditing ? (
-              <textarea
-                value={block.text}
-                readOnly={readOnly}
-                onChange={(event) => onUpdate({ text: event.target.value })}
-                onFocus={() => onFocusBlock?.(block.id)}
-                spellCheck={false}
-                rows={Math.min(16, Math.max(5, block.text.split("\n").length + 1))}
-                placeholder={"flowchart LR\n  A[Start] --> B[Finish]"}
-                className="block w-full resize-y bg-transparent p-3 font-mono text-[12px] leading-5 outline-none placeholder:text-muted-foreground/50"
-              />
-            ) : (
-              <div
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDiagramZoom(true) } }}
-                className="group/diagram relative cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-brand/40 rounded-lg"
-                onClick={() => setDiagramZoom(true)}
-                title={tr("Click to zoom")}
-              >
-                <MermaidDiagram source={block.text} />
-                <span className="pointer-events-none absolute right-2 top-2 hidden items-center gap-1 rounded-md border bg-background/85 px-2 py-1 text-[10px] text-muted-foreground shadow-sm backdrop-blur group-hover/diagram:flex">
-                  <Maximize2 className="size-3" /> {tr("Click to zoom")}
-                </span>
+            {mode === "split" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2">
+                {sourceEditor}
+                {preview}
               </div>
-            )}
+            ) : mode === "source" ? sourceEditor : preview}
           </div>
         )
       }

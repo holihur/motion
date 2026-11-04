@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react"
 import {
   Bookmark,
+  CalendarDays,
   ChartColumn,
   ChartGantt,
   CheckSquare,
@@ -80,6 +81,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { type: "toc", title: "Table of contents", description: "Link to every heading on the page", icon: ListTree, keywords: "toc contents outline headings index" },
   { type: "gantt", title: "Gantt", description: "Plan tasks on a timeline", icon: ChartGantt, keywords: "gantt timeline project schedule tasks plan" },
   { type: "chart", title: "Chart", description: "Visualize data as bar, line or pie", icon: ChartColumn, keywords: "chart graph bar line pie data visualize" },
+  { type: "calendar", title: "Calendar", description: "Plan events on a month calendar", icon: CalendarDays, keywords: "calendar schedule events dates month 日历 日程 事件 日期" },
   { type: "toggle", title: "Toggle", description: "Collapsible text section", icon: ListCollapse, keywords: "toggle collapse fold details" },
   { type: "toggleHeading1", title: "Toggle heading 1", description: "Collapsible large heading", icon: Heading1, keywords: "toggle heading h1 fold" },
   { type: "toggleHeading2", title: "Toggle heading 2", description: "Collapsible medium heading", icon: Heading2, keywords: "toggle heading h2 fold" },
@@ -127,6 +129,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   toc: "Table of contents",
   gantt: "Gantt",
   chart: "Chart",
+  calendar: "Calendar",
   toggle: "Toggle",
   toggleHeading1: "Toggle heading 1",
   toggleHeading2: "Toggle heading 2",

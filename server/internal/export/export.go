@@ -183,7 +183,7 @@ func (r *pdfRenderer) block(block model.Block) {
 		r.y += 8
 	case "image":
 		r.text("[Image] "+(block.Caption+" "+block.URL), 9.5, 15, 10)
-	case "table", "gantt", "chart", "columns":
+	case "table", "gantt", "chart", "calendar", "columns":
 		if block.Table != nil {
 			var rows []string
 			rows = append(rows, strings.Join(block.Table.Columns, "  |  "))

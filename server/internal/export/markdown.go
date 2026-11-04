@@ -118,7 +118,7 @@ func Markdown(page model.Page) []byte {
 				t = b.URL
 			}
 			sb.WriteString(fmt.Sprintf("[%s](%s)\n\n", t, b.URL))
-		case "table":
+		case "table", "gantt", "chart", "calendar", "columns":
 			numbered = 0
 			sb.WriteString(renderMDTable(b) + "\n")
 		case "layout":
@@ -198,7 +198,7 @@ func renderLayoutMarkdown(blocks []model.Block) string {
 			sb.WriteString("- [" + box + "] " + block.Text + "\n")
 		case "code", "curl":
 			sb.WriteString("```" + block.Language + "\n" + block.Text + "\n```\n\n")
-		case "table", "gantt", "chart", "columns":
+		case "table", "gantt", "chart", "calendar", "columns":
 			sb.WriteString(renderMDTable(block) + "\n")
 		case "layout":
 			if block.Layout != nil {

@@ -1740,5 +1740,18 @@
   "Error": "错误",
   "View conversation": "查看会话",
   "Import, export & publishing…": "导入、导出与发布…",
-  "Import files, split or merge pages, duplicate this page or export its content.": "导入文件、拆分或合并页面、复制此页面或导出内容。"
+  "Import files, split or merge pages, duplicate this page or export its content.": "导入文件、拆分或合并页面、复制此页面或导出内容。",
+  "Event title is required": "请填写事件标题",
+  "End date cannot be before start date": "结束日期不能早于开始日期",
+  "Calendar": "日历",
+  "{n} event(s)": "{n} 个事件",
+  "Previous month": "上个月",
+  "Next month": "下个月",
+  "Month": "月",
+  "Event": "事件",
+  "No events yet. Add one to get started.": "暂无事件，添加一个开始使用。",
+  "Edit event": "编辑事件",
+  "New event": "新建事件",
+  "Event title": "事件标题",
+  "Calendars": "日历"
 }

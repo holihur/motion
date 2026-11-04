@@ -24,6 +24,7 @@ export type BlockType =
   | "toc"
   | "gantt"
   | "chart"
+  | "calendar"
   | "qrcode"
   | "barcode"
   | "form"

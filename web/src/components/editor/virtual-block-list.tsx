@@ -42,6 +42,8 @@ function estimatedHeight(block: Block): number {
       return 360
     case "chart":
       return 380
+    case "calendar":
+      return 420
     case "toggleHeading1":
       return 58
     case "toggleHeading2":

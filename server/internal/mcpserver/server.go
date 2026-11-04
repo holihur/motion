@@ -405,7 +405,7 @@ func (s *Server) appendBlocks(ctx context.Context, _ *mcp.CallToolRequest, args 
 		"callout": true, "code": true, "divider": true, "image": true,
 		"table": true, "diagram": true, "bookmark": true, "video": true,
 		"embed": true, "file": true, "equation": true, "toc": true,
-		"gantt": true, "chart": true, "qrcode": true, "barcode": true, "toggle": true,
+		"gantt": true, "chart": true, "calendar": true, "qrcode": true, "barcode": true, "toggle": true,
 		"toggleHeading1": true, "toggleHeading2": true, "toggleHeading3": true,
 		"pageLink": true, "breadcrumb": true, "columns": true, "form": true,
 	}

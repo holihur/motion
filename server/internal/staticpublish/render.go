@@ -406,7 +406,7 @@ func renderBlock(block model.Block, files map[string]string, base string) string
 		return `<pre class="diagram">` + html.EscapeString(block.Text) + `</pre>`
 	case "equation":
 		return `<pre class="equation">` + html.EscapeString(block.Text) + `</pre>`
-	case "gantt", "chart", "columns":
+	case "gantt", "chart", "calendar", "columns":
 		return renderTable(block.Table, base)
 	case "layout":
 		if block.Layout == nil || len(block.Layout.Columns) == 0 {

@@ -68,7 +68,7 @@ func DOCX(page model.Page, diagrams ...map[string]Diagram) ([]byte, error) {
 			body.WriteString(docxParagraph("────────────────", 0, false, ""))
 		case "image":
 			body.WriteString(docxParagraph("[Image] "+block.Caption+" "+block.URL, 0, false, ""))
-		case "table", "gantt", "chart", "columns":
+		case "table", "gantt", "chart", "calendar", "columns":
 			if block.Table != nil {
 				body.WriteString(docxTable(block))
 			}
@@ -369,7 +369,7 @@ func docxFlatBlocks(blocks []model.Block) string {
 			out.WriteString(docxParagraph(mark+" "+block.Text, 0, false, ""))
 		case "code", "curl":
 			out.WriteString(docxParagraph(block.Text, 18, false, "F3F4F6", "Courier New"))
-		case "table", "gantt", "chart", "columns":
+		case "table", "gantt", "chart", "calendar", "columns":
 			if block.Table != nil {
 				out.WriteString(docxTable(block))
 			}

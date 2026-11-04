@@ -1740,5 +1740,18 @@
   "Error": "Error",
   "View conversation": "View conversation",
   "Import, export & publishing…": "Import, export & publishing…",
-  "Import files, split or merge pages, duplicate this page or export its content.": "Import files, split or merge pages, duplicate this page or export its content."
+  "Import files, split or merge pages, duplicate this page or export its content.": "Import files, split or merge pages, duplicate this page or export its content.",
+  "Event title is required": "Event title is required",
+  "End date cannot be before start date": "End date cannot be before start date",
+  "Calendar": "Calendar",
+  "{n} event(s)": "{n} event(s)",
+  "Previous month": "Previous month",
+  "Next month": "Next month",
+  "Month": "Month",
+  "Event": "Event",
+  "No events yet. Add one to get started.": "No events yet. Add one to get started.",
+  "Edit event": "Edit event",
+  "New event": "New event",
+  "Event title": "Event title",
+  "Calendars": "Calendars"
 }

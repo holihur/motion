@@ -37,7 +37,11 @@ function blockToMarkdown(block: Block, number: number): string {
       return "---"
     case "image":
       return block.url ? `![${block.caption ?? ""}](${block.url})` : ""
-    case "table": {
+    case "table":
+    case "gantt":
+    case "chart":
+    case "calendar":
+    case "columns": {
       const table = block.table
       if (!table) return ""
       const header = `| ${table.columns.join(" | ")} |`

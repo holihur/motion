@@ -2,6 +2,7 @@ import type { Block, BlockType, LayoutData, TableData } from "@/lib/types"
 import { tr } from "@/lib/i18n"
 import { uid } from "@/lib/utils"
 import { defaultChartTable, defaultGanttTable } from "@/components/editor/data-blocks"
+import { defaultCalendarTable } from "@/components/editor/calendar-block"
 import { defaultColumnsTable } from "@/components/editor/link-blocks"
 import { defaultForm } from "@/components/editor/form-block"
 
@@ -72,6 +73,7 @@ export function createBlock(type: BlockType = "paragraph"): Block {
       : {}),
     ...(type === "gantt" ? { table: defaultGanttTable() } : {}),
     ...(type === "chart" ? { table: defaultChartTable(), language: "bar" } : {}),
+    ...(type === "calendar" ? { table: defaultCalendarTable(), language: "month" } : {}),
     ...(type === "columns" ? { table: defaultColumnsTable() } : {}),
     ...(type === "qrcode" ? { language: "280" } : {}),
     ...(type === "barcode" ? { language: "CODE128" } : {}),

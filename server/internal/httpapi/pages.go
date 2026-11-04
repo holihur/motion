@@ -50,6 +50,7 @@ var blockTypes = map[string]bool{
 	"toc":            true,
 	"gantt":          true,
 	"chart":          true,
+	"calendar":       true,
 	"toggle":         true,
 	"toggleHeading1": true,
 	"toggleHeading2": true,
@@ -611,7 +612,7 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		}
 		b.Icon = truncateRunes(strings.TrimSpace(b.Icon), 8)
 		b.Translations = sanitizeTranslations(b.Translations)
-		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" || b.Type == "columns" {
+		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" || b.Type == "calendar" || b.Type == "columns" {
 			b.Table = sanitizeTable(b.Table)
 		}
 		if b.Type == "database" {
@@ -754,7 +755,7 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 		}
 		b.Icon = truncateRunes(strings.TrimSpace(b.Icon), 8)
 		b.Translations = sanitizeTranslations(b.Translations)
-		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" || b.Type == "columns" {
+		if b.Type == "table" || b.Type == "gantt" || b.Type == "chart" || b.Type == "calendar" || b.Type == "columns" {
 			b.Table = sanitizeTable(b.Table)
 		}
 		if b.Type == "database" {

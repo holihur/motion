@@ -19,6 +19,7 @@ import { SlashMenu, flattenSlashCommands, type SlashState } from "@/components/e
 import { VirtualBlockList } from "@/components/editor/virtual-block-list"
 import type { HeadingItem } from "@/components/editor/rich-blocks"
 import { defaultChartTable, defaultGanttTable } from "@/components/editor/data-blocks"
+import { defaultCalendarTable } from "@/components/editor/calendar-block"
 import { defaultColumnsTable } from "@/components/editor/link-blocks"
 import { defaultForm } from "@/components/editor/form-block"
 import { hasMarkdownSyntax, parseMarkdownToBlocks } from "@/lib/markdown-import"
@@ -348,6 +349,12 @@ export function BlockEditor({
         ? {
             table: block.type === "chart" && block.table ? block.table : defaultChartTable(),
             language: "bar",
+          }
+        : {}),
+      ...(type === "calendar"
+        ? {
+            table: block.type === "calendar" && block.table ? block.table : defaultCalendarTable(),
+            language: "month",
           }
         : {}),
       ...(type === "columns" ? { table: block.type === "columns" && block.table ? block.table : defaultColumnsTable() } : {}),

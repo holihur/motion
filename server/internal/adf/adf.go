@@ -98,7 +98,7 @@ func blockNode(block model.Block) []any {
 		return []any{map[string]any{"type": "mediaSingle", "attrs": map[string]any{"layout": "center"}, "content": []any{
 			map[string]any{"type": "media", "attrs": map[string]any{"type": "external", "url": block.URL}},
 		}}}
-	case "table", "gantt", "chart", "columns":
+	case "table", "gantt", "chart", "calendar", "columns":
 		if block.Table == nil || len(block.Table.Columns) == 0 {
 			return nil
 		}

@@ -97,6 +97,7 @@ import { tableColumnOrder, tableFrozenColumnIndexes, tableFrozenOffsets, tableVi
 import { DatabaseBlock } from "@/components/editor/database-block"
 import { JsonVisualBlock } from "@/components/editor/json-visual-block"
 import { ChartBlock, GanttBlock } from "@/components/editor/data-blocks"
+import { CalendarBlock } from "@/components/editor/calendar-block"
 import { FormBlock } from "@/components/editor/form-block"
 import { RadioGroupBlock } from "@/components/editor/input-blocks"
 import { PollBlock } from "@/components/editor/poll-block"
@@ -1298,6 +1299,8 @@ export function BlockRow(props: BlockRowProps) {
         return <GanttBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
       case "chart":
         return <ChartBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} />
+      case "calendar":
+        return <CalendarBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
       case "pageLink":
         return <PageLinkBlock block={block} readOnly={readOnly} onUpdate={onUpdate} />
       case "breadcrumb":

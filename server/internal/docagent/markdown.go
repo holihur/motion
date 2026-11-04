@@ -137,7 +137,7 @@ func markdownFor(page model.Page) string {
 			builder.WriteString("$$\n" + block.Text + "\n$$\n\n")
 		case "toc":
 			builder.WriteString("**Table of contents**\n\n")
-		case "gantt", "chart":
+		case "gantt", "chart", "calendar":
 			if block.Text != "" {
 				builder.WriteString("**" + block.Text + "**\n\n")
 			}

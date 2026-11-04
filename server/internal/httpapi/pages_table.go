@@ -528,7 +528,7 @@ func sanitizeLayout(layout *model.LayoutData, depth int) *model.LayoutData {
 			b.Icon = truncateRunes(strings.TrimSpace(b.Icon), 8)
 			b.Translations = sanitizeTranslations(b.Translations)
 			switch b.Type {
-			case "table", "gantt", "chart", "columns":
+			case "table", "gantt", "chart", "calendar", "columns":
 				b.Table = sanitizeTable(b.Table)
 			case "database":
 				b.Database = sanitizeDatabase(b.Database)

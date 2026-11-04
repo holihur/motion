@@ -173,6 +173,7 @@ export function SearchDialog() {
           <option value="">{tr("All types")}</option>
           <option value="database">{tr("Databases")}</option>
           <option value="table">{tr("Tables")}</option>
+          <option value="calendar">{tr("Calendars")}</option>
           <option value="diagram">{tr("Diagrams")}</option>
           <option value="form">{tr("Forms")}</option>
           <option value="code">{tr("Code blocks")}</option>

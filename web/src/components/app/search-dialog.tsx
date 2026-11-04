@@ -14,7 +14,7 @@ import { api } from "@/lib/api"
 import { tr } from "@/lib/i18n"
 import { formatRelative } from "@/lib/utils"
 import { pageTitle } from "@/lib/tree"
-import type { PageSummary } from "@/lib/types"
+import type { Member, PageSummary } from "@/lib/types"
 import { useUIStore } from "@/stores/ui"
 import { useThemeStore } from "@/stores/theme"
 import { useWorkspaceStore } from "@/stores/workspace"
@@ -42,6 +42,11 @@ export function SearchDialog() {
   const [loading, setLoading] = useState(false)
   const [active, setActive] = useState("")
   const [history, setHistory] = useState<string[]>(() => readSearchHistory())
+  const [typeFilter, setTypeFilter] = useState("")
+  const [authorFilter, setAuthorFilter] = useState("")
+  const [timeFilter, setTimeFilter] = useState("any")
+  const [sort, setSort] = useState("relevance")
+  const [members, setMembers] = useState<Member[]>([])
   const sequence = useRef(0)
 
   const recent = useMemo(
@@ -57,9 +62,35 @@ export function SearchDialog() {
       setQuery("")
       setResults([])
       setLoading(false)
+      setTypeFilter("")
+      setAuthorFilter("")
+      setTimeFilter("any")
+      setSort("relevance")
       setActive("action-new-page")
     }
   }, [open])
+
+  useEffect(() => {
+    if (!open || !activeId) return
+    let alive = true
+    void api.workspaces
+      .members(activeId)
+      .then((list) => {
+        if (alive) setMembers(list)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [open, activeId])
+
+  const from = useMemo(() => {
+    const days = timeFilter === "7" ? 7 : timeFilter === "30" ? 30 : timeFilter === "90" ? 90 : 0
+    if (!days) return undefined
+    const date = new Date()
+    date.setDate(date.getDate() - days)
+    return date.toISOString()
+  }, [timeFilter])
 
   // Keep keyboard focus on the most useful item as async results arrive.
   useEffect(() => {
@@ -87,7 +118,12 @@ export function SearchDialog() {
     setLoading(true)
     const timer = window.setTimeout(() => {
       api.pages
-        .search(activeId, trimmed)
+        .search(activeId, trimmed, {
+          type: typeFilter || undefined,
+          author: authorFilter || undefined,
+          from,
+          sort,
+        })
         .then((found) => {
           if (sequence.current === id) setResults(found)
         })
@@ -99,7 +135,7 @@ export function SearchDialog() {
         })
     }, 160)
     return () => window.clearTimeout(timer)
-  }, [query, open, activeId])
+  }, [query, open, activeId, typeFilter, authorFilter, from, sort])
 
   function remember(query: string) {
     const value = query.trim()
@@ -127,6 +163,54 @@ export function SearchDialog() {
         onValueChange={setQuery}
         placeholder={tr("Search pages, or type a command…")}
       />
+      <div className="flex flex-wrap items-center gap-1.5 border-b px-2 py-1.5 text-[11px]">
+        <select
+          aria-label={tr("Filter by type")}
+          value={typeFilter}
+          onChange={(event) => setTypeFilter(event.target.value)}
+          className="h-7 rounded border border-border bg-background px-1.5 text-[11px] text-muted-foreground outline-none"
+        >
+          <option value="">{tr("All types")}</option>
+          <option value="database">{tr("Databases")}</option>
+          <option value="table">{tr("Tables")}</option>
+          <option value="diagram">{tr("Diagrams")}</option>
+          <option value="form">{tr("Forms")}</option>
+          <option value="code">{tr("Code blocks")}</option>
+        </select>
+        <select
+          aria-label={tr("Filter by author")}
+          value={authorFilter}
+          onChange={(event) => setAuthorFilter(event.target.value)}
+          className="h-7 max-w-36 rounded border border-border bg-background px-1.5 text-[11px] text-muted-foreground outline-none"
+        >
+          <option value="">{tr("Anyone")}</option>
+          {members.map((member) => (
+            <option key={member.userId} value={member.userId}>{member.name || member.email}</option>
+          ))}
+        </select>
+        <select
+          aria-label={tr("Filter by date")}
+          value={timeFilter}
+          onChange={(event) => setTimeFilter(event.target.value)}
+          className="h-7 rounded border border-border bg-background px-1.5 text-[11px] text-muted-foreground outline-none"
+        >
+          <option value="any">{tr("Any time")}</option>
+          <option value="7">{tr("Last 7 days")}</option>
+          <option value="30">{tr("Last 30 days")}</option>
+          <option value="90">{tr("Last 90 days")}</option>
+        </select>
+        <select
+          aria-label={tr("Sort results")}
+          value={sort}
+          onChange={(event) => setSort(event.target.value)}
+          className="ml-auto h-7 rounded border border-border bg-background px-1.5 text-[11px] text-muted-foreground outline-none"
+        >
+          <option value="relevance">{tr("Best match")}</option>
+          <option value="updated">{tr("Recently updated")}</option>
+          <option value="created">{tr("Recently created")}</option>
+          <option value="title">{tr("Title A–Z")}</option>
+        </select>
+      </div>
       <CommandList>
         {query.trim() ? (
           <>

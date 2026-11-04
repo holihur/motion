@@ -533,10 +533,20 @@ export const api = {
       request<PageSummary[]>(`/workspaces/${workspaceId}/pages`),
     trash: (workspaceId: string) =>
       request<PageSummary[]>(`/workspaces/${workspaceId}/trash`),
-    search: (workspaceId: string, query: string) =>
-      request<PageSummary[]>(
-        `/workspaces/${workspaceId}/search?q=${encodeURIComponent(query)}`,
-      ),
+    search: (
+      workspaceId: string,
+      query: string,
+      options: { type?: string; author?: string; from?: string; to?: string; sort?: string; limit?: number } = {},
+    ) => {
+      const params = new URLSearchParams({ q: query })
+      if (options.type) params.set("type", options.type)
+      if (options.author) params.set("author", options.author)
+      if (options.from) params.set("from", options.from)
+      if (options.to) params.set("to", options.to)
+      if (options.sort) params.set("sort", options.sort)
+      if (options.limit) params.set("limit", String(options.limit))
+      return request<PageSummary[]>(`/workspaces/${workspaceId}/search?${params.toString()}`)
+    },
     get: (id: string) => request<Page>(`/pages/${id}`),
     backlinks: (id: string) => request<Backlink[]>(`/pages/${id}/backlinks`),
     submitForm: (pageId: string, blockId: string, values: Record<string, string>) =>

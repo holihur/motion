@@ -66,7 +66,7 @@ export function MermaidSourceEditor({
   }
 
   return (
-    <div className={cn("relative overflow-hidden bg-transparent font-mono text-[12px] leading-5", className)}>
+    <div className={cn("relative w-full overflow-hidden bg-transparent font-mono text-[12px] leading-5", className)}>
       <pre
         ref={highlightRef}
         aria-hidden="true"

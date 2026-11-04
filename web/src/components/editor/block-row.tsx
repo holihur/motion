@@ -1190,7 +1190,7 @@ export function BlockRow(props: BlockRowProps) {
             readOnly={readOnly}
             onChange={(value) => onUpdate({ text: value })}
             onFocus={() => onFocusBlock?.(block.id)}
-            className={mode === "split" ? "h-[300px] md:max-h-[70svh]" : "h-[220px]"}
+            className={mode === "split" ? "h-[300px] md:h-full md:min-h-[300px]" : "h-[220px]"}
           />
         )
         const preview = (
@@ -1198,7 +1198,7 @@ export function BlockRow(props: BlockRowProps) {
             role="button"
             tabIndex={0}
             onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setDiagramZoom(true) } }}
-            className="group/diagram relative min-w-0 cursor-zoom-in overflow-auto rounded-lg p-2 outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            className="group/diagram relative w-full min-w-0 cursor-zoom-in overflow-auto rounded-lg p-2 outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
             onClick={() => setDiagramZoom(true)}
             title={tr("Click to zoom")}
           >
@@ -1278,10 +1278,10 @@ export function BlockRow(props: BlockRowProps) {
             </div>
             {mode === "split" ? (
               <div
-                className="grid grid-cols-1 md:[grid-template-columns:var(--mermaid-split)_6px_1fr]"
+                className="grid grid-cols-1 md:items-stretch md:[grid-template-columns:var(--mermaid-split)_6px_1fr]"
                 style={{ "--mermaid-split": `${diagramSplit}%` } as React.CSSProperties}
               >
-                <div className="min-w-0">{sourceEditor}</div>
+                <div className="flex min-w-0">{sourceEditor}</div>
                 <div
                   role="separator"
                   aria-orientation="vertical"
@@ -1294,7 +1294,7 @@ export function BlockRow(props: BlockRowProps) {
                 >
                   <span className="h-8 w-0.5 rounded-full bg-muted-foreground/30 transition group-hover/split:bg-brand" />
                 </div>
-                <div className="min-w-0">{preview}</div>
+                <div className="flex min-w-0">{preview}</div>
               </div>
             ) : mode === "source" ? sourceEditor : preview}
           </div>

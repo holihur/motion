@@ -11,7 +11,7 @@ test("shows Mermaid source and preview side by side", async ({ page, request }) 
     blocks: [{
       id: "mermaid-split-block",
       type: "diagram",
-      text: "flowchart LR\n  A[Start] --> B[Finish]",
+      text: "flowchart TB\n  A[Start] --> B[One]\n  B --> C[Two]\n  C --> D[Three]\n  D --> E[Four]\n  E --> F[Five]\n  F --> G[Six]\n  G --> H[Seven]\n  H --> I[Finish]",
     }],
   })
 
@@ -21,6 +21,11 @@ test("shows Mermaid source and preview side by side", async ({ page, request }) 
   await expect(page.locator(".mermaid-frame svg")).toBeVisible({ timeout: 15_000 })
   await expect(page.locator("[data-mermaid-highlight] .mermaid-token-keyword").first()).toHaveText("flowchart")
   await expect(page.locator("[data-mermaid-highlight] .mermaid-token-edge").first()).toContainText("-->")
+  await expect.poll(async () => {
+    const editor = await source.boundingBox()
+    const preview = await page.locator(".mermaid-frame").boundingBox()
+    return editor && preview ? editor.height >= preview.height - 8 : false
+  }).toBe(true)
 
   const before = await source.boundingBox()
   const gutter = await page.getByRole("separator", { name: "Resize split" }).boundingBox()

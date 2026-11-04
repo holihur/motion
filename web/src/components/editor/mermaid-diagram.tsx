@@ -101,7 +101,7 @@ export function MermaidDiagram({ source }: { source: string }) {
   return (
     <div ref={wrapperRef}>
       <div
-        className="mermaid-frame overflow-x-auto rounded-lg border bg-muted/15 p-4 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-full"
+        className="mermaid-frame overflow-x-auto rounded-lg bg-muted/15 p-4 [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-full"
         dangerouslySetInnerHTML={{ __html: svg }}
       />
     </div>

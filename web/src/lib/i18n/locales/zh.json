@@ -1756,5 +1756,21 @@
   "Calendars": "日历",
   "Redo": "重做",
   "Resize split": "调整分栏宽度",
-  "Mermaid source": "Mermaid 源码"
+  "Mermaid source": "Mermaid 源码",
+  "Please fill in a title and description": "请填写标题和描述",
+  "Feedback issue created": "Feedback 问题已创建",
+  "Open issue": "打开 Issue",
+  "Could not create feedback issue": "无法创建 Feedback Issue",
+  "Send feedback": "发送反馈",
+  "Feedback": "反馈",
+  "Creates an issue in the Git repository configured in Settings → Integrations → Git. Your Git token stays on the server.": "会在 设置 → 集成 → Git 配置的仓库中创建 Issue。Git Token 只保存在服务端。",
+  "Bug": "问题",
+  "Idea": "建议",
+  "What should we improve?": "有什么可以改进？",
+  "What happened, and what did you expect?": "发生了什么？你期望的结果是什么？",
+  "Page context will be included: {page}": "将附带页面信息：{page}",
+  "Configure GitHub / GitLab / Gitea authorization in Settings → Integrations → Git, including issue write permission.": "请在 设置 → 集成 → Git 中配置 GitHub / GitLab / Gitea 授权，并确保有创建 Issue 的权限。",
+  "Submitting…": "正在提交…",
+  "Submit feedback": "提交反馈",
+  "This authorization is also used to create feedback issues. GitHub tokens need repo scope (classic) or Issues write permission (fine-grained).": "此授权也用于创建 Feedback Issue。GitHub Token 需要 repo 权限（经典 Token）或 Issues 写入权限（Fine-grained Token）。"
 }

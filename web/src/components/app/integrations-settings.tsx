@@ -342,6 +342,9 @@ export function IntegrationsSettings() {
           <div className="space-y-1.5"><Label>{tr("Subdirectory")}</Label><Input value={gitPath} disabled={!owner} onChange={(event) => setGitPath(event.target.value)} placeholder="docs" /></div>
           <div className="space-y-1.5"><Label>{tr("Public base URL")}</Label><Input value={gitPublicBase} disabled={!owner} onChange={(event) => setGitPublicBase(event.target.value)} placeholder="https://acme.github.io/docs/" /></div>
           <div className="space-y-1.5"><Label>{tr("Access token")}</Label><Input type="password" value={gitToken} disabled={!owner} onChange={(event) => setGitToken(event.target.value)} placeholder={git?.hasSecret ? tr("Saved — leave blank to keep") : tr("GitHub / GitLab / Gitea token")} /></div>
+          <p className="text-[11px] leading-5 text-muted-foreground">
+            {tr("This authorization is also used to create feedback issues. GitHub tokens need repo scope (classic) or Issues write permission (fine-grained).")}
+          </p>
         </div>
         <div className="flex justify-end gap-2">
           {git && <Button type="button" variant="ghost" size="sm" onClick={() => void remove("git")} disabled={!owner} className="gap-1 text-destructive"><Trash2 className="size-3.5" /> {tr("Remove")}</Button>}

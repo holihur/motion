@@ -1756,5 +1756,21 @@
   "Calendars": "Calendars",
   "Redo": "Redo",
   "Resize split": "Resize split",
-  "Mermaid source": "Mermaid source"
+  "Mermaid source": "Mermaid source",
+  "Please fill in a title and description": "Please fill in a title and description",
+  "Feedback issue created": "Feedback issue created",
+  "Open issue": "Open issue",
+  "Could not create feedback issue": "Could not create feedback issue",
+  "Send feedback": "Send feedback",
+  "Feedback": "Feedback",
+  "Creates an issue in the Git repository configured in Settings → Integrations → Git. Your Git token stays on the server.": "Creates an issue in the Git repository configured in Settings → Integrations → Git. Your Git token stays on the server.",
+  "Bug": "Bug",
+  "Idea": "Idea",
+  "What should we improve?": "What should we improve?",
+  "What happened, and what did you expect?": "What happened, and what did you expect?",
+  "Page context will be included: {page}": "Page context will be included: {page}",
+  "Configure GitHub / GitLab / Gitea authorization in Settings → Integrations → Git, including issue write permission.": "Configure GitHub / GitLab / Gitea authorization in Settings → Integrations → Git, including issue write permission.",
+  "Submitting…": "Submitting…",
+  "Submit feedback": "Submit feedback",
+  "This authorization is also used to create feedback issues. GitHub tokens need repo scope (classic) or Issues write permission (fine-grained).": "This authorization is also used to create feedback issues. GitHub tokens need repo scope (classic) or Issues write permission (fine-grained)."
 }

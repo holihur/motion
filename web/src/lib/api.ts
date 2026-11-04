@@ -228,6 +228,13 @@ export const api = {
     updateMe: (input: { name?: string; avatar?: string }) =>
       request<User>("/me", { method: "PATCH", body: body(input) }),
   },
+  feedback: {
+    create: (workspaceId: string, input: { title: string; description: string; category?: string; pageId?: string; url?: string; os?: string; browser?: string; language?: string; viewport?: string }) =>
+      request<{ url: string }>(`/workspaces/${workspaceId}/feedback`, {
+        method: "POST",
+        body: body(input),
+      }),
+  },
   databases: {
     list: (workspaceId: string) => request<WorkspaceDatabase[]>(`/workspaces/${workspaceId}/databases`),
   },

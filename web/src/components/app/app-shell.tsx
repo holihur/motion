@@ -7,6 +7,7 @@ import { useUIStore } from "@/stores/ui"
 import { tr } from "@/lib/i18n"
 import { preloadPageEditor } from "@/lib/route-preload"
 import { flushOfflineDrafts } from "@/lib/offline-drafts"
+import { FeedbackButton } from "@/components/app/feedback-button"
 import { isImeKeyEvent } from "@/lib/keyboard"
 import { Sidebar } from "@/components/app/sidebar"
 import { useWorkspaceRealtime } from "@/components/app/use-workspace-realtime"
@@ -172,6 +173,7 @@ export function AppShell() {
       <Suspense fallback={null}>
         <TaskCenter />
       </Suspense>
+      <FeedbackButton />
     </div>
   )
 }

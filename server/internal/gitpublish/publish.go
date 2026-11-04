@@ -218,3 +218,49 @@ func Test(ctx context.Context, cfg Config) error {
 	_, _, err := client.request(ctx, http.MethodGet, endpoint, nil)
 	return err
 }
+
+// CreateIssue opens an issue in the configured repository. It uses the same
+// token/API-base rules as publishing so GitHub, GitLab and Gitea all work.
+func (c *Client) CreateIssue(ctx context.Context, title, body string) (string, error) {
+	title = strings.TrimSpace(title)
+	body = strings.TrimSpace(body)
+	if title == "" {
+		return "", fmt.Errorf("issue title is required")
+	}
+	owner := url.PathEscape(strings.TrimSpace(c.cfg.Owner))
+	repo := url.PathEscape(strings.TrimSpace(c.cfg.Repo))
+	if owner == "" || repo == "" {
+		return "", fmt.Errorf("git owner and repository are required")
+	}
+	var endpoint string
+	var payload any
+	switch strings.ToLower(c.cfg.Kind) {
+	case "gitlab":
+		endpoint = c.apiPath("/projects/" + url.PathEscape(strings.TrimSpace(c.cfg.Owner)+"/"+strings.TrimSpace(c.cfg.Repo)) + "/issues")
+		payload = map[string]any{"title": title, "description": body}
+	case "gitea":
+		endpoint = c.apiPath("/repos/" + owner + "/" + repo + "/issues")
+		payload = map[string]any{"title": title, "body": body}
+	default:
+		endpoint = c.apiPath("/repos/" + owner + "/" + repo + "/issues")
+		payload = map[string]any{"title": title, "body": body}
+	}
+	data, _, err := c.request(ctx, http.MethodPost, endpoint, payload)
+	if err != nil {
+		return "", err
+	}
+	var result struct {
+		HTMLURL string `json:"html_url"`
+		WebURL  string `json:"web_url"`
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return "", fmt.Errorf("could not read git issue response: %w", err)
+	}
+	if result.HTMLURL != "" {
+		return result.HTMLURL, nil
+	}
+	if result.WebURL != "" {
+		return result.WebURL, nil
+	}
+	return "", fmt.Errorf("git provider did not return an issue URL")
+}

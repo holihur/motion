@@ -266,6 +266,7 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/integrations/notion/import", s.importNotion)
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/integrations/yuque/import", s.importYuque)
 			r.With(s.requireScope("workspace:write")).Post("/workspaces/{workspaceID}/integrations/feishu/import", s.importFeishu)
+			r.With(s.requireScope("workspace:read")).Post("/workspaces/{workspaceID}/feedback", s.createFeedback)
 			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/export", s.exportWorkspace)
 			r.With(s.requireScope("workspace:read")).Post("/workspaces/{workspaceID}/export/jobs", s.createExportJob)
 			r.With(s.requireScope("workspace:read")).Get("/workspaces/{workspaceID}/export/jobs/{jobID}", s.getExportJob)

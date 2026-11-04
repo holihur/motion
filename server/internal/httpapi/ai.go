@@ -493,11 +493,14 @@ func (s *Server) testAISettings(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	temperature := float32(0)
+	// Reasoning models (for example LongCat-2.5) spend output tokens on hidden
+	// reasoning before emitting the visible answer. A 16-token cap makes a
+	// perfectly healthy provider look disconnected because content stays empty.
 	req := &adkmodel.LLMRequest{
 		Contents: []*genai.Content{{
 			Role: "user", Parts: []*genai.Part{{Text: "Reply with the single word: OK"}},
 		}},
-		Config: &genai.GenerateContentConfig{Temperature: &temperature, MaxOutputTokens: 16},
+		Config: &genai.GenerateContentConfig{Temperature: &temperature, MaxOutputTokens: 256},
 	}
 	started := time.Now()
 	var reply strings.Builder

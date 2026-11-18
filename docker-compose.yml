@@ -11,7 +11,14 @@ services:
       retries: 10
 
   motion:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_CATCH_URL: ${VITE_CATCH_URL:-}
+        VITE_CATCH_INGEST_KEY: ${VITE_CATCH_INGEST_KEY:-}
+        VITE_CATCH_ENV: ${VITE_CATCH_ENV:-production}
+        VITE_CATCH_SERVICE: ${VITE_CATCH_SERVICE:-motion-web}
+        VITE_CATCH_RELEASE: ${VITE_CATCH_RELEASE:-}
     restart: unless-stopped
     ports:
       - "8787:8787"
@@ -27,6 +34,11 @@ services:
       JWT_SECRET: "${JWT_SECRET:-change-me-motion-jwt-secret}"
       ENCRYPTION_KEY: "${ENCRYPTION_KEY:-change-me-motion-encryption-key}"
       AUTO_UPDATE: "off"
+      CATCH_URL: "${CATCH_URL:-}"
+      CATCH_KEY: "${CATCH_KEY:-}"
+      CATCH_ENV: "${CATCH_ENV:-production}"
+      CATCH_SERVICE: "${CATCH_SERVICE:-motion-api}"
+      CATCH_RELEASE: "${CATCH_RELEASE:-}"
     depends_on:
       mongo:
         condition: service_healthy

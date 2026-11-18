@@ -1,5 +1,6 @@
-import { Component, type ReactNode } from "react"
+import { Component, type ErrorInfo, type ReactNode } from "react"
 import { AlertTriangle, RefreshCw } from "lucide-react"
+import { captureCatchError } from "@/lib/catch"
 import { tr } from "@/lib/i18n"
 
 export class RouteErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -9,9 +10,13 @@ export class RouteErrorBoundary extends Component<{ children: ReactNode }, { err
     return { error }
   }
 
-  componentDidCatch(error: Error) {
+  componentDidCatch(error: Error, info: ErrorInfo) {
     // eslint-disable-next-line no-console
     console.error("route crash:", error)
+    captureCatchError(error, {
+      mechanism: "react-error-boundary",
+      componentStack: info.componentStack,
+    })
   }
 
   render() {

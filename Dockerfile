@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1
+# Frontend Catch SDK values are build-time (Vite) and supplied as build args.
 FROM debian:bookworm-slim AS build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -14,6 +15,16 @@ RUN mise trust && mise install
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./web/
 RUN cd web && mise exec -- pnpm install --frozen-lockfile
 COPY web/ ./web/
+ARG VITE_CATCH_URL=
+ARG VITE_CATCH_INGEST_KEY=
+ARG VITE_CATCH_ENV=production
+ARG VITE_CATCH_SERVICE=motion-web
+ARG VITE_CATCH_RELEASE=
+ENV VITE_CATCH_URL=${VITE_CATCH_URL} \
+    VITE_CATCH_INGEST_KEY=${VITE_CATCH_INGEST_KEY} \
+    VITE_CATCH_ENV=${VITE_CATCH_ENV} \
+    VITE_CATCH_SERVICE=${VITE_CATCH_SERVICE} \
+    VITE_CATCH_RELEASE=${VITE_CATCH_RELEASE}
 RUN cd web && mise exec -- pnpm build
 
 COPY server/ ./server/

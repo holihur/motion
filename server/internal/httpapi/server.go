@@ -5,9 +5,11 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +23,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/motion/server/internal/auth"
+	"github.com/motion/server/internal/catchreport"
 	"github.com/motion/server/internal/config"
 	"github.com/motion/server/internal/mcpserver"
 	"github.com/motion/server/internal/model"
@@ -51,6 +54,7 @@ type Server struct {
 	lastUpdateAt time.Time
 	restart      func()
 	webhooks     *webhooks.Service
+	catch        *catchreport.Client
 }
 
 func New(cfg config.Config, st *store.Store, tokens *auth.Manager) *Server {
@@ -60,6 +64,7 @@ func New(cfg config.Config, st *store.Store, tokens *auth.Manager) *Server {
 		cfg: cfg, store: st, tokens: tokens, hub: hub,
 		mcp: mcpserver.New(st, hub), webFS: webFS, webName: webName,
 		webhooks: webhooks.New(st, cfg.EncryptionKey),
+		catch:    catchreport.New(cfg.CatchURL, cfg.CatchKey, cfg.CatchEnv, cfg.CatchService, cfg.CatchRelease),
 	}
 	settings, err := site.Load(context.Background(), st.Settings, cfg, cfg.EncryptionKey)
 	if err != nil {
@@ -67,6 +72,13 @@ func New(cfg config.Config, st *store.Store, tokens *auth.Manager) *Server {
 	}
 	if strings.TrimSpace(cfg.OpsToken) == "" {
 		slog.Warn("OPS_TOKEN is not set; the /ops console is disabled")
+	}
+	if srv.catch != nil {
+		slog.Info("Catch reporting enabled", "url", cfg.CatchURL, "service", cfg.CatchService)
+		srv.catch.Capture(catchreport.Event{
+			Kind: "log", Level: "info", Message: "motion api started",
+			Request: &catchreport.Request{Method: "STARTUP"},
+		})
 	}
 	srv.site = settings
 	return srv
@@ -150,7 +162,7 @@ func (s *Server) Router() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Recoverer)
+	r.Use(s.recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   s.cfg.CORSOrigins,
@@ -345,8 +357,70 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 		start := time.Now()
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(ww, r)
-		slog.Info("request", "method", r.Method, "path", r.URL.Path, "status", ww.Status(), "duration", time.Since(start).Round(time.Millisecond))
+		status := ww.Status()
+		duration := time.Since(start)
+		slog.Info("request", "method", r.Method, "path", r.URL.Path, "status", status, "duration", duration.Round(time.Millisecond))
+		if status >= http.StatusInternalServerError {
+			s.catch.Capture(catchreport.Event{
+				Kind:    "error",
+				Level:   "error",
+				Message: fmt.Sprintf("HTTP %d on %s %s", status, r.Method, r.URL.Path),
+				URL:     requestURL(r),
+				Culprit: r.Method + " " + r.URL.Path,
+				Request: &catchreport.Request{
+					Method: r.Method, URL: requestURL(r), Status: status,
+					DurationMS: duration.Milliseconds(), RequestID: middleware.GetReqID(r.Context()),
+				},
+				User: requestCatchUser(r),
+			})
+		}
 	})
+}
+
+func (s *Server) recoverer(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				if recovered == http.ErrAbortHandler {
+					panic(recovered)
+				}
+				message := fmt.Sprint(recovered)
+				s.catch.Capture(catchreport.Event{
+					Kind:      "error",
+					Level:     "fatal",
+					Message:   message,
+					ErrorType: "panic",
+					Stack:     string(debug.Stack()),
+					URL:       requestURL(r),
+					Culprit:   r.Method + " " + r.URL.Path,
+					Request: &catchreport.Request{
+						Method: r.Method, URL: requestURL(r), Status: http.StatusInternalServerError,
+						RequestID: middleware.GetReqID(r.Context()),
+					},
+					User: requestCatchUser(r),
+				})
+				slog.Error("panic recovered", "error", message, "path", r.URL.Path)
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+func requestURL(r *http.Request) string {
+	scheme := "http"
+	if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host + r.URL.RequestURI()
+}
+
+func requestCatchUser(r *http.Request) *catchreport.User {
+	auth := currentAuth(r)
+	if auth.UserID.IsZero() {
+		return nil
+	}
+	return &catchreport.User{ID: auth.UserID.Hex()}
 }
 
 type ctxKey string

@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { ApiError, api, getToken, setToken } from "@/lib/api"
+import { clearCatchUser, identifyCatchUser } from "@/lib/catch"
 import type { User } from "@/lib/types"
 import { useWorkspaceStore } from "@/stores/workspace"
 
@@ -46,12 +47,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (bootstrapPromise) return bootstrapPromise
     bootstrapPromise = (async () => {
       if (!getToken()) {
+        clearCatchUser()
         set({ status: "guest", user: null })
         return
       }
       try {
         const user = await api.auth.me()
         cacheUser(user)
+        identifyCatchUser(user)
         set({ status: "authed", user })
       } catch (error) {
         const cached = readCachedUser()
@@ -64,11 +67,13 @@ export const useAuthStore = create<AuthState>((set) => ({
             !(error instanceof ApiError) ||
             error.status >= 500)
         if (keepSession) {
+          identifyCatchUser(cached)
           set({ status: "authed", user: cached })
           return
         }
         setToken(null)
         cacheUser(null)
+        clearCatchUser()
         set({ status: "guest", user: null })
       }
     })()
@@ -79,6 +84,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { token, user } = await api.auth.login(email, password)
     setToken(token)
     cacheUser(user)
+    identifyCatchUser(user)
     bootstrapPromise = Promise.resolve()
     set({ status: "authed", user })
   },
@@ -87,6 +93,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { token, user } = await api.auth.register(name, email, password)
     setToken(token)
     cacheUser(user)
+    identifyCatchUser(user)
     bootstrapPromise = Promise.resolve()
     set({ status: "authed", user })
   },
@@ -95,6 +102,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { token, user } = await api.auth.oidcExchange()
     setToken(token)
     cacheUser(user)
+    identifyCatchUser(user)
     bootstrapPromise = Promise.resolve()
     set({ status: "authed", user })
   },
@@ -102,6 +110,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: () => {
     setToken(null)
     cacheUser(null)
+    clearCatchUser()
     bootstrapPromise = Promise.resolve()
     useWorkspaceStore.getState().reset()
     set({ status: "guest", user: null })
@@ -109,6 +118,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setUser: (user) => {
     cacheUser(user)
+    identifyCatchUser(user)
     set({ user })
   },
 }))

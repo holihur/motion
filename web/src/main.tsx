@@ -5,8 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { useThemeStore } from "@/stores/theme"
 import { ensureLanguageLoaded, getLanguage } from "@/lib/i18n"
 import { installClipboardFallback } from "@/lib/clipboard"
+import { initCatch } from "@/lib/catch"
 import "./index.css"
 
+initCatch()
 installClipboardFallback()
 
 function Root() {

@@ -166,6 +166,32 @@ make build
 
 ![Ops](docs/screenshots/ops.png)
 
+## Catch 可观测性（可选）
+
+Motion 前后端都可以把错误上报到 [Catch](https://github.com/holihur/catch)。
+
+后端在 `.env` 中配置，捕获 5xx 响应与 panic：
+
+```bash
+CATCH_URL=http://localhost:8091
+CATCH_KEY=ck_xxxxxxxx
+CATCH_ENV=production
+CATCH_SERVICE=motion-api
+CATCH_RELEASE=$(git describe --tags --always --dirty)
+```
+
+前端是构建时配置，写入 `web/.env.local`（模板见 `web/.env.example`）：
+
+```bash
+VITE_CATCH_URL=http://localhost:8091
+VITE_CATCH_INGEST_KEY=ck_xxxxxxxx
+VITE_CATCH_ENV=production
+VITE_CATCH_SERVICE=motion-web
+VITE_CATCH_RELEASE=v1.2.3
+```
+
+前端会自动上报未捕获异常、Promise rejection、HTTP 5xx 面包屑和 SPA 页面浏览，并在登录 / 退出时同步用户身份。Docker 构建需通过 `VITE_CATCH_*` build args 传入前端值。
+
 ## BYOK / AI 文档助手
 
 在 **Settings → AI** 里选择 Provider 并填入自己的 Key：
@@ -303,6 +329,11 @@ Token 只在创建时显示一次，可随时撤销；MCP 和 API 都使用同�
 | `AUTO_UPDATE` | `off` | `off` / `check` / `apply` |
 | `TRASH_RETENTION_DAYS` | `0` | 回收站保留天数；0 表示永久保留 |
 | `GITHUB_TOKEN` | 空 | 可选，避免 GitHub API 限流 |
+| `CATCH_URL` | 空 | Catch 地址；为空时后端上报关闭 |
+| `CATCH_KEY` | 空 | 后端 Project 的 Ingest Key |
+| `CATCH_ENV` | `GO_ENV` | 上报环境标识 |
+| `CATCH_SERVICE` | `motion-api` | 后端服务名 |
+| `CATCH_RELEASE` | 构建版本 | 后端版本号 |
 
 > 运行时 **Ops 页面保存的值优先于环境变量**。环境变量只在首次启动或尚未保存 Ops 配置时作为默认值。
 

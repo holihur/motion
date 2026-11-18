@@ -41,6 +41,12 @@ type Config struct {
 	OIDCScopes          []string
 	OIDCAllowedDomains  []string
 	OIDCAutoCreate      bool
+
+	CatchURL     string
+	CatchKey     string
+	CatchEnv     string
+	CatchService string
+	CatchRelease string
 }
 
 func Load() Config {
@@ -78,12 +84,21 @@ func Load() Config {
 		OIDCScopes:          split(env("OIDC_SCOPES", "openid,email,profile")),
 		OIDCAllowedDomains:  split(env("OIDC_ALLOWED_DOMAINS", "")),
 		OIDCAutoCreate:      env("OIDC_AUTO_CREATE", "true") == "true",
+		CatchURL:            strings.TrimRight(env("CATCH_URL", ""), "/"),
+		CatchKey:            env("CATCH_KEY", ""),
+		CatchEnv:            env("CATCH_ENV", env("GO_ENV", "production")),
+		CatchService:        env("CATCH_SERVICE", "motion-api"),
+		CatchRelease:        env("CATCH_RELEASE", ""),
 	}
 	return cfg
 }
 
 func (c Config) OIDCEnabled() bool {
 	return c.OIDCIssuer != "" && c.OIDCClientID != "" && c.OIDCClientSecret != ""
+}
+
+func (c Config) CatchEnabled() bool {
+	return c.CatchURL != "" && c.CatchKey != ""
 }
 
 func (c Config) Validate() {

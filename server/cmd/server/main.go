@@ -24,6 +24,9 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
 	cfg := config.Load()
 	cfg.Validate()
+	if cfg.CatchRelease == "" {
+		cfg.CatchRelease = version.Version
+	}
 
 	for _, arg := range os.Args[1:] {
 		if arg == "-version" || arg == "--version" || arg == "version" {

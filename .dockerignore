@@ -9,3 +9,4 @@ server/bin
 server/internal/webassets/dist
 *.log
 .env
+web/.env.local

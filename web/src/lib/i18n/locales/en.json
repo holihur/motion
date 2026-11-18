@@ -595,5 +595,13 @@
   "No variables yet.": "No variables yet.",
   "Variable name": "Variable name",
   "Variable value": "Variable value",
-  "Remove variable": "Remove variable"
+  "Remove variable": "Remove variable",
+  "Resize row": "Resize row",
+  "Drag to resize row; double-click to reset": "Drag to resize row; double-click to reset",
+  "Resize block height": "Resize block height",
+  "Drag to resize block height; double-click to reset": "Drag to resize block height; double-click to reset",
+  "Reset height": "Reset height",
+  "URL or text": "URL or text",
+  "Edit content": "Edit content",
+  "Use the ••• menu to enter a URL or text.": "Use the ••• menu to enter a URL or text."
 }

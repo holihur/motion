@@ -81,6 +81,8 @@ export interface TableData {
   frozenColumns?: number[]
   stickyHeader?: boolean
   widths?: number[]
+  /** Per-row pixel heights; 0/undefined means the default row height. */
+  heights?: number[]
   align?: ("left" | "center" | "right")[]
   formulas?: Record<string, string>
   columnTypes?: TableColumnType[]
@@ -213,6 +215,8 @@ export interface Block {
   indent?: number
   collapsed?: boolean
   locked?: boolean
+  /** Manual pixel height; 0/undefined keeps the height content-driven. */
+  height?: number
 }
 
 export interface NotifyPrefs {

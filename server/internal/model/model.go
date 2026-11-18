@@ -111,6 +111,7 @@ type TableData struct {
 	FrozenColumns []int             `bson:"frozenColumns,omitempty" json:"frozenColumns,omitempty"`
 	StickyHeader  *bool             `bson:"stickyHeader,omitempty" json:"stickyHeader,omitempty"`
 	Widths        []float64         `bson:"widths,omitempty" json:"widths,omitempty"`
+	Heights       []float64         `bson:"heights,omitempty" json:"heights,omitempty"`
 	Align         []string          `bson:"align,omitempty" json:"align,omitempty"`
 	Formulas      map[string]string `bson:"formulas,omitempty" json:"formulas,omitempty"`
 	ColumnTypes   []string          `bson:"columnTypes,omitempty" json:"columnTypes,omitempty"`
@@ -291,6 +292,7 @@ type Block struct {
 	Indent       int               `bson:"indent,omitempty" json:"indent,omitempty"`
 	Collapsed    bool              `bson:"collapsed,omitempty" json:"collapsed,omitempty"`
 	Locked       bool              `bson:"locked,omitempty" json:"locked,omitempty"`
+	Height       int               `bson:"height,omitempty" json:"height,omitempty"`
 }
 
 type Page struct {

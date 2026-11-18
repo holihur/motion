@@ -35,6 +35,7 @@ import {
   Network,
   Palette,
   Plus,
+  QrCode,
   RefreshCw,
   Rows3,
   Sigma,
@@ -193,6 +194,16 @@ function LazyBlockFallback() {
   return <div className="my-2 h-20 animate-pulse rounded-lg border border-border/60 bg-muted/20" />
 }
 
+const QR_COLORS = [
+  { value: "", label: "Dark", swatch: "#0f172a" },
+  { value: "#7c5cff", label: "Purple", swatch: "#7c5cff" },
+  { value: "#0ea5e9", label: "Blue", swatch: "#0ea5e9" },
+  { value: "#16a34a", label: "Green", swatch: "#16a34a" },
+  { value: "#dc2626", label: "Red", swatch: "#dc2626" },
+] as const
+
+const QR_SIZE_OPTIONS = [["200", "Small"], ["280", "Medium"], ["360", "Large"]] as const
+
 function TableStylePopover({ label, style, onChange, className }: {
   label: string
   style?: TableCellStyle | null
@@ -289,15 +300,18 @@ export function BlockRow(props: BlockRowProps) {
   const textStyled = TEXT_STYLE_TYPES.has(block.type)
   const aligned = ALIGN_STYLE_TYPES.has(block.type)
   const blockBackground = textStyled ? backgroundColorClass(block.bgColor) : ""
+  const fixedHeight = typeof block.height === "number" && block.height > 0
   const contentClassName = cn(
     "min-w-0 flex-1",
     textStyled && textColorClass(block.textColor),
     aligned && alignClass(block.align),
     (block.type === "code" || block.type === "curl") && "py-2",
     blockBackground && cn("-mx-2 rounded-md px-2", blockBackground),
+    fixedHeight && "thin-scrollbar overflow-y-auto overscroll-contain",
   )
 
   const editableRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
   const [diagramMode, setDiagramMode] = useState<"preview" | "split" | "source">(block.text ? "split" : "source")
   const [diagramSplit, setDiagramSplit] = useState(() => {
@@ -314,7 +328,7 @@ export function BlockRow(props: BlockRowProps) {
   const [calloutFolded, setCalloutFolded] = useState(false)
   // Call the table hook unconditionally: block types can change in place
   // (e.g. "Turn into table"), and hooks must run in the same order every render.
-  const { table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setColumnType, setColumnOptions, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, sortRows, copyTable, downloadCSV, downloadJSONL, downloadExcel } = useTableBlock(block, onUpdate)
+  const { table, widths, heights, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setColumnType, setColumnOptions, setAlignment, resizeColumn, resizeRow, resetRowHeight, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, sortRows, copyTable, downloadCSV, downloadJSONL, downloadExcel } = useTableBlock(block, onUpdate)
   const [tableSort, setTableSort] = useState<{ column: number; dir: "asc" | "desc" } | null>(null)
   const [activeTableCell, setActiveTableCell] = useState<{ row: number; column: number } | null>(null)
 
@@ -341,6 +355,42 @@ export function BlockRow(props: BlockRowProps) {
     const rect = rowRef.current?.getBoundingClientRect()
     if (!rect) return
     onDrop(event.clientY < rect.top + rect.height / 2 ? "before" : "after")
+  }
+
+  function resizeBlockHeight(event: React.PointerEvent<HTMLSpanElement>) {
+    if (event.button !== 0) return
+    event.preventDefault()
+    event.stopPropagation()
+    const target = event.currentTarget
+    const pointerId = event.pointerId
+    const startY = event.clientY
+    const startHeight = fixedHeight
+      ? block.height!
+      : contentRef.current?.getBoundingClientRect().height ?? 0
+    const previousCursor = document.body.style.cursor
+    const previousSelect = document.body.style.userSelect
+    document.body.style.cursor = "row-resize"
+    document.body.style.userSelect = "none"
+    target.setPointerCapture(pointerId)
+    let moved = false
+    const onMove = (moveEvent: PointerEvent) => {
+      const delta = moveEvent.clientY - startY
+      if (!moved && Math.abs(delta) < 3) return
+      moved = true
+      const next = Math.round(Math.max(48, Math.min(4000, startHeight + delta)))
+      onUpdate({ height: next })
+    }
+    const onUp = () => {
+      document.body.style.cursor = previousCursor
+      document.body.style.userSelect = previousSelect
+      if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId)
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerup", onUp)
+      window.removeEventListener("pointercancel", onUp)
+    }
+    window.addEventListener("pointermove", onMove)
+    window.addEventListener("pointerup", onUp)
+    window.addEventListener("pointercancel", onUp)
   }
 
   function deleteDividerFocused(event: React.KeyboardEvent<HTMLDivElement>) {
@@ -922,6 +972,7 @@ export function BlockRow(props: BlockRowProps) {
                           rows: imported.rows,
                           header: true,
                           widths: imported.columns.map(() => 160),
+                          heights: undefined,
                           align: imported.columns.map(() => "left"),
                           columnStyles: undefined,
                           rowStyles: undefined,
@@ -1063,12 +1114,12 @@ export function BlockRow(props: BlockRowProps) {
                 </thead>}
                 <tbody>
                   {visibleRows.map(({ row, rowIndex }, visibleIndex) => (
-                    <tr key={rowIndex} className="group/row transition-colors hover:bg-brand-soft/15">
+                    <tr key={rowIndex} className="group/row transition-colors hover:bg-brand-soft/15" style={heights[rowIndex] ? { height: heights[rowIndex] } : undefined}>
                       {table.rowNumbers && <td className={cn("border-b border-r border-border/60 text-center text-[11px] tabular-nums text-muted-foreground", frozenOffsets.size > 0 && "sticky left-0 z-10 bg-card", tableCellStyleClasses(table.rowStyles?.[rowIndex]))}>{visibleIndex + 1}</td>}
                       {columnIndexes.map((columnIndex) => {
                         const type = tableColumnType(table, columnIndex)
                         return (
-                        <td key={columnIndex} className={cn("border-b border-r border-border/60 p-0 last:border-r-0", frozenOffsets.has(columnIndex) && "sticky z-10 bg-card", tableCellStyleClasses({ ...(table.rowStyles?.[rowIndex] ?? {}), ...(table.columnStyles?.[columnIndex] ?? {}) }))} style={frozenOffsets.has(columnIndex) ? { left: frozenOffsets.get(columnIndex) } : undefined}>
+                        <td key={columnIndex} className={cn("relative border-b border-r border-border/60 p-0 last:border-r-0", frozenOffsets.has(columnIndex) && "sticky z-10 bg-card", tableCellStyleClasses({ ...(table.rowStyles?.[rowIndex] ?? {}), ...(table.columnStyles?.[columnIndex] ?? {}) }))} style={frozenOffsets.has(columnIndex) ? { left: frozenOffsets.get(columnIndex) } : undefined}>
                           {type === "text" ? (
                             <TableCell
                               id={`table-cell-${block.id}-${rowIndex}-${columnIndex}`}
@@ -1095,11 +1146,31 @@ export function BlockRow(props: BlockRowProps) {
                               onFocus={() => { setActiveTableCell({ row: rowIndex, column: columnIndex }); onFocusBlock?.(block.id) }}
                             />
                           )}
+                          {!readOnly && (
+                            <span
+                              role="separator"
+                              aria-label={tr("Resize row")}
+                              title={tr("Drag to resize row; double-click to reset")}
+                              onMouseDown={(event) => resizeRow(event, rowIndex)}
+                              onDoubleClick={(event) => { event.preventDefault(); resetRowHeight(rowIndex) }}
+                              className="absolute inset-x-0 -bottom-[3px] z-20 h-1.5 cursor-row-resize bg-transparent transition-colors hover:bg-brand/40 max-md:bg-brand/10"
+                            />
+                          )}
                         </td>
                         )
                       })}
-                      <td className="border-b border-border/60 p-0 text-center">
+                      <td className="relative border-b border-border/60 p-0 text-center">
                         {!readOnly && <TableStylePopover label={tr("Row style")} style={table.rowStyles?.[rowIndex]} onChange={(style) => setRowStyle(rowIndex, style)} className="inline-flex group-hover/row:text-muted-foreground" />}
+                        {!readOnly && (
+                          <span
+                            role="separator"
+                            aria-label={tr("Resize row")}
+                            title={tr("Drag to resize row; double-click to reset")}
+                            onMouseDown={(event) => resizeRow(event, rowIndex)}
+                            onDoubleClick={(event) => { event.preventDefault(); resetRowHeight(rowIndex) }}
+                            className="absolute inset-x-0 -bottom-[3px] z-20 h-1.5 cursor-row-resize bg-transparent transition-colors hover:bg-brand/40 max-md:bg-brand/10"
+                          />
+                        )}
                         {!readOnly && table.rows.length > 1 && <button
                           type="button"
                           onClick={() => removeRow(rowIndex)}
@@ -1377,7 +1448,7 @@ export function BlockRow(props: BlockRowProps) {
           </Suspense>
         )
       case "qrcode":
-        return <Suspense fallback={<LazyBlockFallback />}><QRCodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} /></Suspense>
+        return <Suspense fallback={<LazyBlockFallback />}><QRCodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} /></Suspense>
       case "barcode":
         return <Suspense fallback={<LazyBlockFallback />}><BarcodeBlock block={block} readOnly={readOnly} autoFocus={autoFocus} onUpdate={onUpdate} /></Suspense>
       case "checkbox":
@@ -1562,7 +1633,12 @@ export function BlockRow(props: BlockRowProps) {
         />
       )}
 
-      <div key={block.type} className={contentClassName}>
+      <div
+        key={block.type}
+        ref={contentRef}
+        className={contentClassName}
+        style={fixedHeight ? { height: block.height } : undefined}
+      >
         {renderContent()}
         {block.translations && Object.keys(block.translations).length > 0 && (
           <div className="mt-1.5 rounded-md border border-dashed border-brand/20 bg-brand-soft/20 px-2.5 py-1.5">
@@ -1578,6 +1654,22 @@ export function BlockRow(props: BlockRowProps) {
           </div>
         )}
       </div>
+
+      {!readOnly && block.type !== "divider" && (
+        <span
+          role="separator"
+          aria-label={tr("Resize block height")}
+          title={tr("Drag to resize block height; double-click to reset")}
+          onPointerDown={resizeBlockHeight}
+          onDoubleClick={(event) => {
+            event.preventDefault()
+            onUpdate({ height: undefined })
+          }}
+          className="group/resize absolute bottom-0 left-1/2 z-20 flex h-1.5 w-12 -translate-x-1/2 cursor-row-resize touch-none items-center justify-center bg-transparent max-md:bg-brand/5"
+        >
+          <span className="pointer-events-none h-0.5 w-8 rounded-full bg-transparent transition-colors group-hover/block:bg-brand/25 group-hover/resize:bg-brand/60" />
+        </span>
+      )}
 
       {locked && !pageReadOnly && (
         <button
@@ -1736,6 +1828,9 @@ function BlockMenu({
   const alignValue = block.align || (block.type === "image" ? "center" : "left")
   const [customLanguage, setCustomLanguage] = useState("")
   const [translating, setTranslating] = useState(false)
+  const [qrEditOpen, setQrEditOpen] = useState(false)
+  const [qrText, setQrText] = useState(block.text)
+  const [qrCaption, setQrCaption] = useState(block.caption ?? "")
   const copyText = () => {
     void navigator.clipboard.writeText(block.text).then(
       () => toast.success(tr("Copied to clipboard")),
@@ -1760,19 +1855,20 @@ function BlockMenu({
     }
   }
   return (
-    <DropdownMenu>
+    <>
+      <DropdownMenu>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent
         align={align}
         sideOffset={6}
-        className="max-h-[70vh] w-52 overflow-y-auto thin-scrollbar"
+        className="w-52"
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <RefreshCw /> Turn into
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="max-h-[280px] w-48 overflow-y-auto thin-scrollbar">
+          <DropdownMenuSubContent className="w-48">
             {SLASH_COMMANDS.filter((command) =>
               command.type !== "content" || (isLayout && (!hasContentPlaceholder || block.type === "content")),
             ).map((command) => (
@@ -1979,6 +2075,47 @@ function BlockMenu({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         )}
+        {block.type === "qrcode" && (
+          <>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger><Palette /> {tr("QR color")}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-40">
+                {QR_COLORS.map((color) => (
+                  <DropdownMenuItem key={color.swatch} onSelect={() => onUpdate({ color: color.value })}>
+                    <span className="size-4 rounded-full border" style={{ background: color.swatch }} />
+                    {tr(color.label)}
+                    {(block.color || "#0f172a") === color.swatch && <Check className="ml-auto size-3.5 text-brand" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger><Maximize2 /> {tr("QR size")}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-40">
+                {QR_SIZE_OPTIONS.map(([value, label]) => (
+                  <DropdownMenuItem key={value} onSelect={() => onUpdate({ language: value })}>
+                    {tr(label)}
+                    {(block.language || "280") === value && <Check className="ml-auto size-3.5 text-brand" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuItem
+              onSelect={() => {
+                setQrText(block.text)
+                setQrCaption(block.caption ?? "")
+                setQrEditOpen(true)
+              }}
+            >
+              <QrCode /> {tr("Edit content")}
+            </DropdownMenuItem>
+          </>
+        )}
+        {block.height ? (
+          <DropdownMenuItem onSelect={() => onUpdate({ height: undefined })}>
+            <Rows3 /> {tr("Reset height")}
+          </DropdownMenuItem>
+        ) : null}
         {(onInsertAbove || onInsertBelow) && <DropdownMenuSeparator />}
         {onInsertAbove && (
           <DropdownMenuItem onSelect={onInsertAbove}>
@@ -2073,5 +2210,45 @@ function BlockMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    <Dialog open={qrEditOpen} onOpenChange={setQrEditOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{tr("QR code")}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <label className="block space-y-1">
+            <span className="text-xs font-medium">{tr("URL or text")}</span>
+            <Textarea
+              value={qrText}
+              onChange={(event) => setQrText(event.target.value)}
+              placeholder={tr("URL or text to encode…")}
+              rows={3}
+              className="min-h-20 text-xs"
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-xs font-medium">{tr("Caption (optional)")}</span>
+            <input
+              value={qrCaption}
+              onChange={(event) => setQrCaption(event.target.value)}
+              placeholder={tr("Caption (optional)")}
+              className="h-8 w-full rounded-md border bg-background px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
+            />
+          </label>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setQrEditOpen(false)}>{tr("Cancel")}</Button>
+          <Button
+            onClick={() => {
+              onUpdate({ text: qrText, caption: qrCaption.trim() })
+              setQrEditOpen(false)
+            }}
+          >
+            {tr("Save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

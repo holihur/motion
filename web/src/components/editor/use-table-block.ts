@@ -35,6 +35,7 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
   // client (or an API client) changes one of the cells it references.
   const table = useMemo(() => computeTableFormulas(stored), [stored])
   const widths = table.columns.map((_, i) => table.widths?.[i] ?? 160)
+  const heights = table.rows.map((_, i) => table.heights?.[i] ?? 0)
   const aligns = table.columns.map((_, i) => table.align?.[i] ?? "left")
   const types = table.columns.map((_, i) => tableColumnType(table, i))
   const optionsByColumn = table.columns.map((_, i) => tableColumnOptions(table, i))
@@ -66,17 +67,22 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
 
   const addRow = useCallback(() => {
     if (table.rows.length >= 200) return
-    updateTable({ ...table, rows: [...table.rows, table.columns.map(() => "")] })
-  }, [table, updateTable])
+    updateTable({
+      ...table,
+      rows: [...table.rows, table.columns.map(() => "")],
+      heights: table.heights ? [...heights, 0] : undefined,
+    })
+  }, [table, heights, updateTable])
 
   const removeRow = useCallback((index: number) => {
     if (table.rows.length <= 1) return
     updateTable({
       ...table,
       rows: table.rows.filter((_, i) => i !== index),
+      heights: table.heights ? heights.filter((_, i) => i !== index) : undefined,
       formulas: remapFormulas(table.formulas, (row, column) => (row === index ? null : { row: row > index ? row - 1 : row, column })),
     })
-  }, [table, updateTable])
+  }, [table, heights, updateTable])
 
   const addColumn = useCallback(() => {
     if (table.columns.length >= 20) return
@@ -206,6 +212,31 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
     window.addEventListener("mouseup", onUp)
   }, [table, widths, updateTable])
 
+  const resizeRow = useCallback((e: React.MouseEvent, index: number) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    e.stopPropagation()
+    const startY = e.clientY
+    const rowElement = (e.currentTarget as HTMLElement).closest("tr")
+    const startHeight = table.heights?.[index] || rowElement?.getBoundingClientRect().height || 36
+    const onMove = (ev: MouseEvent) => {
+      const next = Math.round(Math.max(32, Math.min(600, startHeight + ev.clientY - startY)))
+      updateTable({
+        ...table,
+        heights: table.rows.map((_, i) => (i === index ? next : table.heights?.[i] ?? 0)),
+      })
+    }
+    const onUp = () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp) }
+    window.addEventListener("mousemove", onMove)
+    window.addEventListener("mouseup", onUp)
+  }, [table, updateTable])
+
+  const resetRowHeight = useCallback((index: number) => {
+    if (!table.heights?.[index]) return
+    const next = table.heights.map((height, i) => (i === index ? 0 : height))
+    updateTable({ ...table, heights: next.some((height) => height > 0) ? next : undefined })
+  }, [table, updateTable])
+
   const sortRows = useCallback((column: number, direction: "asc" | "desc") => {
     const compare = (left: string, right: string) => {
       const leftNumber = Number(left)
@@ -222,6 +253,7 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
     updateTable({
       ...table,
       rows: order.map((rowIndex) => table.rows[rowIndex]),
+      heights: table.heights ? order.map((rowIndex) => table.heights?.[rowIndex] ?? 0) : undefined,
       formulas: remapFormulas(table.formulas, (row, col) => {
         const position = positionOf.get(row)
         return position === undefined ? null : { row: position, column: col }
@@ -274,6 +306,6 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
   }, [table])
 
   return {
-    table, widths, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setColumnType, setColumnOptions, setAlignment, resizeColumn, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, sortRows, copyTable, downloadCSV, downloadJSONL, downloadExcel,
+    table, widths, heights, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setColumnType, setColumnOptions, setAlignment, resizeColumn, resizeRow, resetRowHeight, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, sortRows, copyTable, downloadCSV, downloadJSONL, downloadExcel,
   }
 }

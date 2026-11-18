@@ -10,6 +10,7 @@ function textExtraLines(block: Block): number {
 }
 
 function estimatedHeight(block: Block): number {
+  if (block.height && block.height > 0) return block.height + 4
   switch (block.type) {
     case "heading1":
       return 58

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -105,6 +106,22 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 		columnOptions = nil
 	}
 	widths := make([]float64, len(columns))
+	heights := make([]float64, len(cleaned))
+	hasHeights := false
+	for i := range cleaned {
+		if i >= len(table.Heights) {
+			continue
+		}
+		height := math.Round(table.Heights[i])
+		if height < 32 || height > 600 {
+			continue
+		}
+		heights[i] = height
+		hasHeights = true
+	}
+	if !hasHeights {
+		heights = nil
+	}
 	align := make([]string, len(columns))
 	for i := range columns {
 		width := 160.0
@@ -128,7 +145,7 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 		FreezeFirst:   table.FreezeFirst,
 		FrozenColumns: sanitizeFrozenColumns(table.FrozenColumns, len(columns)),
 		StickyHeader:  table.StickyHeader,
-		Widths:        widths, Align: align,
+		Widths:        widths, Heights: heights, Align: align,
 		Formulas:      sanitizeTableFormulas(table.Formulas, len(columns), len(cleaned), clean),
 		ColumnTypes:   columnTypes,
 		ColumnOptions: columnOptions,

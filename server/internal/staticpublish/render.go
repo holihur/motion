@@ -518,6 +518,17 @@ func tableStyleAt(styles []*model.TableCellStyle, index int) *model.TableCellSty
 	return styles[index]
 }
 
+func tableRowHeightAttr(table *model.TableData, index int) string {
+	if table == nil || index < 0 || index >= len(table.Heights) {
+		return ""
+	}
+	height := int(table.Heights[index] + 0.5)
+	if height < 32 || height > 600 {
+		return ""
+	}
+	return ` style="height:` + strconv.Itoa(height) + `px"`
+}
+
 var tableBackgrounds = map[string]string{
 	"gray": "#f3f4f6", "brown": "#fef3c7", "orange": "#ffedd5", "yellow": "#fef9c3",
 	"green": "#dcfce7", "blue": "#dbeafe", "purple": "#f3e8ff", "pink": "#fce7f3", "red": "#fee2e2",
@@ -618,7 +629,7 @@ func renderTable(table *model.TableData, base string) string {
 	b.WriteString(`</tr></thead><tbody>`)
 	for rowIndex, row := range table.Rows {
 		rowStyle := tableStyleAt(table.RowStyles, rowIndex)
-		b.WriteString(`<tr>`)
+		b.WriteString(`<tr` + tableRowHeightAttr(table, rowIndex) + `>`)
 		if table.RowNumbers {
 			b.WriteString(`<td` + tableFrozenClass(table.FreezeFirst) + tableCellStyleAttr(rowStyle, nil) + `>` + strconv.Itoa(rowIndex+1) + `</td>`)
 		}

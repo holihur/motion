@@ -1788,5 +1788,13 @@
   "Store uploads in Qiniu Kodo.": "将上传文件存储到七牛 Kodo。",
   "Store uploads in S3-compatible storage.": "将上传文件存储到兼容 S3 的存储。",
   "Store uploads in Tencent Cloud COS.": "将上传文件存储到腾讯云 COS。",
-  "{n} group(s)": "{n} 个分组"
+  "{n} group(s)": "{n} 个分组",
+  "Resize row": "调整行高",
+  "Drag to resize row; double-click to reset": "拖动调整行高，双击恢复默认高度",
+  "Resize block height": "调整块高度",
+  "Drag to resize block height; double-click to reset": "拖动调整块高度，双击恢复自适应高度",
+  "Reset height": "恢复自适应高度",
+  "URL or text": "网址或文字",
+  "Edit content": "编辑内容",
+  "Use the ••• menu to enter a URL or text.": "使用 ••• 菜单输入网址或文字。"
 }

@@ -1788,5 +1788,13 @@
   "Store uploads in Qiniu Kodo.": "Store uploads in Qiniu Kodo.",
   "Store uploads in S3-compatible storage.": "Store uploads in S3-compatible storage.",
   "Store uploads in Tencent Cloud COS.": "Store uploads in Tencent Cloud COS.",
-  "{n} group(s)": "{n} group(s)"
+  "{n} group(s)": "{n} group(s)",
+  "Resize row": "Resize row",
+  "Drag to resize row; double-click to reset": "Drag to resize row; double-click to reset",
+  "Resize block height": "Resize block height",
+  "Drag to resize block height; double-click to reset": "Drag to resize block height; double-click to reset",
+  "Reset height": "Reset height",
+  "URL or text": "URL or text",
+  "Edit content": "Edit content",
+  "Use the ••• menu to enter a URL or text.": "Use the ••• menu to enter a URL or text."
 }

@@ -639,6 +639,12 @@ func (s *Server) saveBlocks(w http.ResponseWriter, r *http.Request) {
 		if b.Indent > 8 {
 			b.Indent = 8
 		}
+		if b.Height < 0 {
+			b.Height = 0
+		}
+		if b.Height > 4000 {
+			b.Height = 4000
+		}
 		if b.Type == "password" {
 			if len(b.Ciphertext) > 200_000 || len(b.Salt) > 100 || len(b.IV) > 100 {
 				writeErr(w, http.StatusBadRequest, "encrypted area is too large")
@@ -781,6 +787,12 @@ func (s *Server) syncBlocks(w http.ResponseWriter, r *http.Request) {
 		}
 		if b.Indent > 8 {
 			b.Indent = 8
+		}
+		if b.Height < 0 {
+			b.Height = 0
+		}
+		if b.Height > 4000 {
+			b.Height = 4000
 		}
 		if b.Type == "password" {
 			if len(b.Ciphertext) > 200_000 || len(b.Salt) > 100 || len(b.IV) > 100 {

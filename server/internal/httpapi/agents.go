@@ -1169,7 +1169,7 @@ func blocksEqual(a, b model.Block) bool {
 		a.TextColor == b.TextColor && a.BGColor == b.BGColor && a.Align == b.Align && a.Width == b.Width && a.LineNumbers == b.LineNumbers &&
 		a.URL == b.URL && a.Caption == b.Caption && a.Ciphertext == b.Ciphertext &&
 		a.Salt == b.Salt && a.IV == b.IV && tableEqual(a.Table, b.Table) && formEqual(a.Form, b.Form) && mapEqual(a.Map, b.Map) &&
-		a.Indent == b.Indent && a.Collapsed == b.Collapsed && a.Locked == b.Locked
+		a.Indent == b.Indent && a.Collapsed == b.Collapsed && a.Locked == b.Locked && a.Height == b.Height
 }
 
 func mapEqual(a, b *model.MapData) bool {

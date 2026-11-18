@@ -196,6 +196,26 @@ func TestSanitizeTableKeepsFractionalWidths(t *testing.T) {
 	}
 }
 
+func TestSanitizeTableRowHeights(t *testing.T) {
+	table := sanitizeTable(&model.TableData{
+		Columns: []string{"A"},
+		Rows:    [][]string{{"a"}, {"b"}, {"c"}},
+		Heights: []float64{48.4, 5, 900},
+	})
+	if len(table.Heights) != 3 || table.Heights[0] != 48 || table.Heights[1] != 0 || table.Heights[2] != 0 {
+		t.Fatalf("unexpected row heights: %#v", table.Heights)
+	}
+
+	plain := sanitizeTable(&model.TableData{
+		Columns: []string{"A"},
+		Rows:    [][]string{{"a"}},
+		Heights: []float64{0},
+	})
+	if plain.Heights != nil {
+		t.Fatalf("default row heights should be omitted: %#v", plain.Heights)
+	}
+}
+
 func TestSanitizeDatabaseRelationAndRowIDs(t *testing.T) {
 	db := sanitizeDatabase(&model.DatabaseData{
 		Columns: []model.DatabaseColumn{

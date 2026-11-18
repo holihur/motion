@@ -139,6 +139,7 @@ function SidebarContent() {
   const setSearchOpen = useUIStore((state) => state.setSearchOpen)
   const setSidebarOpen = useUIStore((state) => state.setSidebarOpen)
   const [showFavorites, setShowFavorites] = useState(true)
+  const [showPrivate, setShowPrivate] = useState(true)
   const [filter, setFilter] = useState("")
   const [pendingProposals, setPendingProposals] = useState(0)
 
@@ -264,8 +265,8 @@ function SidebarContent() {
           <div className="pt-3">
             <SectionHeader
               label={tr("Private")}
-              open
-              onToggle={() => undefined}
+              open={showPrivate}
+              onToggle={() => setShowPrivate((value) => !value)}
               action={
                 <div className="flex items-center gap-0.5">
                   <Tooltip>
@@ -297,9 +298,11 @@ function SidebarContent() {
                 </div>
               }
             />
-            <div className="mt-0.5">
-              <PageTree pages={pages} activeId={activePageId} query={filter} readOnly={readOnly} />
-            </div>
+            {showPrivate && (
+              <div className="mt-0.5">
+                <PageTree pages={pages} activeId={activePageId} query={filter} readOnly={readOnly} />
+              </div>
+            )}
           </div>
 
           <div className="pt-3">

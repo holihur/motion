@@ -1542,7 +1542,7 @@ export function PageEditor() {
                 <ListTree className="size-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="max-h-96 w-72 overflow-y-auto thin-scrollbar">
+            <DropdownMenuContent align="start" className="w-72">
               {outline.length > 0 && <>
                 <DropdownMenuLabel>{tr("Headings")}</DropdownMenuLabel>
                 {outline.map((h) => (

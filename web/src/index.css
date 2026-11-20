@@ -188,6 +188,10 @@
   .thin-scrollbar::-webkit-scrollbar-thumb:hover {
     background: color-mix(in oklch, var(--muted-foreground) 32%, transparent);
   }
+  /* Keep the floating feedback pill out of the AI composer's way. */
+  body:has([data-ai-panel]) [data-feedback-button] {
+    display: none;
+  }
   .thin-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }

@@ -305,7 +305,7 @@ export function AIPanel({
   if (!open) return null
 
   return (
-    <aside className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col border-l bg-background shadow-2xl animate-in slide-in-from-right duration-200 max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:h-[82svh] max-md:max-w-none max-md:rounded-t-2xl max-md:border-l-0 max-md:border-t">
+    <aside data-ai-panel className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[420px] flex-col border-l bg-background shadow-2xl animate-in slide-in-from-right duration-200 max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:h-[82svh] max-md:max-w-none max-md:rounded-t-2xl max-md:border-l-0 max-md:border-t">
       <header className="flex h-12 shrink-0 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2">
           <span className="flex size-6 items-center justify-center rounded-lg brand-gradient text-white">

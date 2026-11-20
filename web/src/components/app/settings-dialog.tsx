@@ -651,6 +651,7 @@ function AISettings() {
             <Label htmlFor="ai-provider">{saved ? tr("Edit provider") : tr("Add provider")}</Label>
             <select
               id="ai-provider"
+              aria-label={tr("Provider")}
               value={provider}
               onChange={(event) => selectProvider(event.target.value as AIProviderKey)}
               className="h-9 w-full rounded-lg border-0 bg-muted/50 px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand/25"

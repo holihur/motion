@@ -27,10 +27,13 @@ test("workspace webhook receives signed comment events", async ({ page, request 
 
     await page.locator("aside").getByLabel("Settings").click()
     await page.getByRole("tab", { name: "Integrations" }).click()
+    await page.getByRole("button", { name: /Outgoing webhook/ }).click()
     await page.getByPlaceholder("https://hooks.example.com/motion").fill(`http://127.0.0.1:${port}/hook`)
     await page.getByPlaceholder("Optional signing secret").fill("test-secret")
     await page.getByRole("button", { name: "Save webhook" }).click()
     await expect(page.getByText("Webhook saved")).toBeVisible()
+    await page.getByRole("button", { name: "All integrations" }).click()
+    await page.getByRole("button", { name: /Action groups/ }).click()
 
     await page.getByPlaceholder("Group name, e.g. Release everywhere").fill("Publish everywhere")
     await page.getByRole("button", { name: "Add group" }).click()

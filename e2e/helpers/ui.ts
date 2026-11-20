@@ -16,8 +16,10 @@ export async function pressEnter(page: Page) {
 }
 
 export async function openSearch(page: Page) {
-  await page.keyboard.press(`${modKey()}+k`)
   const input = page.locator("[cmdk-input]")
+  if (!(await input.isVisible().catch(() => false))) {
+    await page.locator("aside").getByRole("button", { name: /Search/ }).first().click()
+  }
   await expect(input).toBeVisible()
   return input
 }

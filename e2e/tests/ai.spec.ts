@@ -62,8 +62,8 @@ test.describe("BYOK AI agent", () => {
       // The BYOK form defaults to DeepSeek and never exposes stored keys.
       await page.locator("aside").getByLabel("Settings").click()
       await page.getByRole("tab", { name: "AI" }).click()
-      await expect(page.getByLabel("Provider")).toHaveValue("deepseek")
-      await expect(page.getByLabel("Model")).toHaveValue("deepseek-chat")
+      await expect(page.getByLabel("Provider", { exact: true })).toHaveValue("deepseek")
+      await expect(page.getByLabel("Model", { exact: true })).toHaveValue("deepseek-chat")
       await page.keyboard.press("Escape")
 
       const saved = await request.put("/api/ai/settings", {

@@ -62,6 +62,7 @@ export function FeedbackButton() {
   const [sending, setSending] = useState(false)
   const pageId = /^\/page\/([a-f0-9]+)/.exec(location.pathname)?.[1] ?? ""
   const pageTitle = pages.find((page) => page.id === pageId)?.title ?? ""
+  if (location.pathname.startsWith("/ai")) return null
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -102,6 +103,7 @@ export function FeedbackButton() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={tr("Send feedback")}
+        data-feedback-button
         className="fixed bottom-20 right-4 z-40 flex h-10 items-center gap-1.5 rounded-full bg-background/90 px-3.5 text-xs font-medium text-muted-foreground shadow-[var(--shadow-card)] backdrop-blur transition hover:bg-brand-soft/30 hover:text-foreground md:bottom-5 md:right-5"
       >
         <MessageSquarePlus className="size-4" />

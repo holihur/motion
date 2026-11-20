@@ -54,8 +54,9 @@ export function AppShell() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void import("@/components/app/search-dialog")
-      void import("@/components/app/settings-dialog")
+      if (!navigator.onLine) return
+      void import("@/components/app/search-dialog").catch(() => undefined)
+      void import("@/components/app/settings-dialog").catch(() => undefined)
     }, 1500)
     return () => window.clearTimeout(timer)
   }, [])
@@ -63,7 +64,7 @@ export function AppShell() {
   // Warm the editor route once the workspace is ready so opening the first
   // page does not wait for its ~1.3 MB chunk.
   useEffect(() => {
-    if (!ready) return
+    if (!ready || !navigator.onLine) return
     const id = window.setTimeout(() => preloadPageEditor(), 250)
     return () => window.clearTimeout(id)
   }, [ready])

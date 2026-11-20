@@ -45,7 +45,7 @@ export function SettingsDialog() {
   ] as const
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="flex max-h-[92svh] w-[calc(100vw-1.5rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:h-[min(720px,88svh)]">
+      <DialogContent className="flex max-h-[92svh] w-[calc(100vw-1.5rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:h-[min(720px,88svh)]" data-catch-ignore>
         <Tabs defaultValue="profile" orientation="vertical" className="flex min-h-0 flex-1 flex-col sm:flex-row">
           <aside className="flex shrink-0 flex-col bg-muted/30 sm:w-64">
             <DialogHeader className="px-5 pb-4 pt-5 text-left">

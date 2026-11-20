@@ -1,5 +1,6 @@
 import type { BlockType } from "@/lib/types"
 import { registerBlockRenderer } from "./registry"
+import { PdfBlockRenderer } from "@/components/editor/pdf-block"
 import type { BlockRenderer } from "./types"
 import {
   BulletedBlock,
@@ -76,6 +77,7 @@ const builtInRenderers: Record<BlockType, BlockRenderer> = {
   video: VideoBlockRenderer,
   embed: EmbedBlockRenderer,
   file: FileBlockRenderer,
+  pdf: PdfBlockRenderer,
   toc: TocBlockRenderer,
   jsonVisual: JsonVisualBlockRenderer,
   pageLink: PageLinkBlockRenderer,

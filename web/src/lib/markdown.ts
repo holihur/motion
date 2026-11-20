@@ -37,6 +37,8 @@ function blockToMarkdown(block: Block, number: number): string {
       return "---"
     case "image":
       return block.url ? `![${block.caption ?? ""}](${block.url})` : ""
+    case "pdf":
+      return block.url ? `[${inline || block.text || "PDF"}](${block.url})` : ""
     case "table":
     case "gantt":
     case "chart":

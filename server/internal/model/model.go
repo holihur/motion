@@ -19,6 +19,10 @@ type User struct {
 	NotifyPrefs *NotifyPrefs       `bson:"notifyPrefs,omitempty" json:"notifyPrefs,omitempty"`
 	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
 	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
+
+	// PasswordLoginAsked records that the user already decided whether an SSO
+	// sign-in may disable their local password.
+	PasswordLoginAsked bool `bson:"passwordLoginAsked,omitempty" json:"-"`
 }
 
 // NotifyPrefs controls in-app notification delivery. Nil = all enabled.
@@ -328,6 +332,11 @@ type Page struct {
 	PublicViews        int64               `bson:"publicViews,omitempty" json:"publicViews,omitempty"`
 	PublicComment      bool                `bson:"publicComment,omitempty" json:"publicComment,omitempty"`
 	PublicIndex        bool                `bson:"publicIndex,omitempty" json:"publicIndex,omitempty"`
+	// PageCommentsDisabled turns off page-level (non-anchored) comments only.
+	PageCommentsDisabled bool `bson:"pageCommentsDisabled,omitempty" json:"pageCommentsDisabled,omitempty"`
+	// PageCommentRoles limits page-level comments to specific workspace roles
+	// (owner/editor). Empty means every role that may comment.
+	PageCommentRoles []string `bson:"pageCommentRoles,omitempty" json:"pageCommentRoles,omitempty"`
 }
 
 // PageSummary is the lightweight shape used by the sidebar tree.

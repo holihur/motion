@@ -104,6 +104,7 @@ export function FeedbackButton() {
         onClick={() => setOpen(true)}
         aria-label={tr("Send feedback")}
         data-feedback-button
+        data-catch-event="feedback_open"
         className="fixed bottom-20 right-4 z-40 flex h-10 items-center gap-1.5 rounded-full bg-background/90 px-3.5 text-xs font-medium text-muted-foreground shadow-[var(--shadow-card)] backdrop-blur transition hover:bg-brand-soft/30 hover:text-foreground md:bottom-5 md:right-5"
       >
         <MessageSquarePlus className="size-4" />
@@ -119,7 +120,13 @@ export function FeedbackButton() {
               {tr("Creates an issue in the Git repository configured in Settings → Integrations → Git Pages publishing. Your Git token stays on the server.")}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={submit} className="space-y-3">
+          <form
+            onSubmit={submit}
+            className="space-y-3"
+            data-catch-mask
+            data-catch-event="feedback_submit"
+            data-catch-props={JSON.stringify({ category })}
+          >
             <div className="flex gap-1 rounded-lg bg-muted/40 p-1">
               {[
                 { id: "feedback", label: tr("Feedback"), icon: MessageSquarePlus },

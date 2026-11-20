@@ -2,6 +2,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Local runs should honour the same .env as docker compose.
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+fi
+
 if [[ ! -f web/dist/index.html ]]; then
   echo "web/dist is missing. Run 'make build-web-fast' first." >&2
   exit 1

@@ -127,7 +127,14 @@ func (s *Server) oidcStart(w http.ResponseWriter, r *http.Request) {
 		Path: "/api/auth/oidc", HttpOnly: true, SameSite: http.SameSiteLaxMode,
 		Secure: requestIsSecure(r), MaxAge: 600,
 	})
-	authURL := s.oidcOAuthConfig(provider, settings, r).AuthCodeURL(state, oidc.Nonce(nonce))
+	// `?prompt=login` forces the identity provider to re-authenticate, which is
+	// how the login page offers "use another account" while the IdP session is
+	// still alive.
+	opts := []oauth2.AuthCodeOption{oidc.Nonce(nonce)}
+	if strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("prompt")), "login") {
+		opts = append(opts, oauth2.SetAuthURLParam("prompt", "login"))
+	}
+	authURL := s.oidcOAuthConfig(provider, settings, r).AuthCodeURL(state, opts...)
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
@@ -236,10 +243,9 @@ func (s *Server) findOrCreateOIDCUser(r *http.Request, email, name, issuer, subj
 	var user model.User
 	err := s.store.Users.FindOne(r.Context(), bson.M{"email": email}).Decode(&user)
 	if err == nil {
+		// Never disable an existing local password here: converting the account
+		// to SSO-only is the user's choice and is confirmed after sign-in.
 		updates := bson.M{}
-		if user.OIDCIssuer != "" && user.Password != "!oidc" {
-			updates["password"] = "!oidc"
-		}
 		if user.OIDCIssuer == "" {
 			updates["oidcIssuer"] = issuer
 			updates["oidcSubject"] = subject
@@ -302,7 +308,46 @@ func (s *Server) oidcExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.decorateUser(&user)
-	writeJSON(w, http.StatusOK, authResponse{Token: cookie.Value, User: user})
+	writeJSON(w, http.StatusOK, authResponse{
+		Token:           cookie.Value,
+		User:            user,
+		AskPasswordMode: needsPasswordModeChoice(user),
+	})
+}
+
+// needsPasswordModeChoice reports whether an SSO sign-in should ask the user
+// what to do with the password they already use for this account.
+func needsPasswordModeChoice(user model.User) bool {
+	if user.PasswordLoginAsked || user.OIDCIssuer == "" {
+		return false
+	}
+	return user.Password != "" && user.Password != "!oidc"
+}
+
+// oidcPasswordMode records the user's decision about password sign-in after an
+// SSO sign-in matched an existing password account.
+func (s *Server) oidcPasswordMode(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Mode string `json:"mode"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	updates := bson.M{"passwordLoginAsked": true, "updatedAt": time.Now().UTC()}
+	switch strings.TrimSpace(req.Mode) {
+	case "keep":
+	case "sso_only":
+		updates["password"] = "!oidc"
+	default:
+		writeErr(w, http.StatusBadRequest, "mode must be keep or sso_only")
+		return
+	}
+	if _, err := s.store.Users.UpdateByID(r.Context(), currentUserID(r), bson.M{"$set": updates}); err != nil {
+		writeErr(w, http.StatusInternalServerError, "could not update sign-in settings")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func requestIsSecure(r *http.Request) bool {

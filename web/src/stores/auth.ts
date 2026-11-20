@@ -12,7 +12,7 @@ interface AuthState {
   bootstrap: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
   register: (name: string, email: string, password: string) => Promise<void>
-  completeOIDC: () => Promise<void>
+  completeOIDC: () => Promise<{ askPasswordMode: boolean }>
   logout: () => void
   setUser: (user: User) => void
 }
@@ -99,12 +99,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   completeOIDC: async () => {
-    const { token, user } = await api.auth.oidcExchange()
+    const { token, user, askPasswordMode } = await api.auth.oidcExchange()
     setToken(token)
     cacheUser(user)
     identifyCatchUser(user)
     bootstrapPromise = Promise.resolve()
     set({ status: "authed", user })
+    return { askPasswordMode: Boolean(askPasswordMode) }
   },
 
   logout: () => {

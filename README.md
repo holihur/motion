@@ -188,9 +188,30 @@ VITE_CATCH_INGEST_KEY=ck_xxxxxxxx
 VITE_CATCH_ENV=production
 VITE_CATCH_SERVICE=motion-web
 VITE_CATCH_RELEASE=v1.2.3
+
+# 埋点（默认全开；改成 none 只保留错误/日志）
+VITE_CATCH_AUTO_TRACK=pageview,click,submit,expose
+VITE_CATCH_SAMPLE_RATE=1
+VITE_CATCH_TRACK_SAMPLE_RATE=1
 ```
 
 前端会自动上报未捕获异常、Promise rejection、HTTP 5xx 面包屑和 SPA 页面浏览，并在登录 / 退出时同步用户身份。Docker 构建需通过 `VITE_CATCH_*` build args 传入前端值。
+
+### 无感埋点
+
+除了错误，Catch SDK 默认还会零侵入采集页面浏览、点击、表单提交和元素曝光，业务组件不需要写上报代码：
+
+```html
+<button data-catch-event="page_create" data-catch-props='{"source":"sidebar"}'>New page</button>
+<div data-catch-expose="pricing_view">…</div>
+```
+
+Motion 的约定：
+
+- 语义埋点只用 `data-catch-event` / `data-catch-props`，不带任何业务逻辑代码；按钮、菜单、模板、发布/导出等入口都已标注。
+- 凡是渲染用户内容的区域（正文编辑区、页面树、最近页面、评论、AI 对话、搜索结果、历史版本、设置/分享弹窗）都加了 `data-catch-ignore`，不进入自动采集，也不进入面包屑。
+- 回收站等列表用 `data-catch-mask` 屏蔽文本，只保留事件名与结构化属性；输入框的值在 SDK 层就从不采集。
+- 需要额外字段（例如 AI 运行结果、导出格式）时用 `catchTrack(name, props)`（`web/src/lib/catch.ts`），它会自动补上 `route`。
 
 ## BYOK / AI 文档助手
 

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react"
-import { CheckCheck, MessageSquare, MessageSquareReply, RotateCcw, Send, Trash2, X } from "lucide-react"
+import { CheckCheck, FileText, MessageSquare, MessageSquareReply, RotateCcw, Send, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { api } from "@/lib/api"
 import type { Comment, Member } from "@/lib/types"
@@ -26,6 +26,9 @@ export function CommentsPanel({
   comments,
   loading,
   readOnly = false,
+  pageCommentsDisabled = false,
+  pageCommentRoles,
+  role,
   hasMore = false,
   total = 0,
   loadingMore = false,
@@ -39,6 +42,9 @@ export function CommentsPanel({
   comments: Comment[]
   loading: boolean
   readOnly?: boolean
+  pageCommentsDisabled?: boolean
+  pageCommentRoles?: ("owner" | "editor")[]
+  role?: "owner" | "editor" | "viewer"
   hasMore?: boolean
   total?: number
   loadingMore?: boolean
@@ -54,8 +60,14 @@ export function CommentsPanel({
   const [pending, setPending] = useState(false)
   const pendingRef = useRef(false)
   const [deleteTarget, setDeleteTarget] = useState<Comment | null>(null)
+  const [pageBody, setPageBody] = useState("")
+  const [pageMentions, setPageMentions] = useState<string[]>([])
 
-  const { threads, resolved } = useMemo(() => {
+  const pageCommentAllowed =
+    !pageCommentsDisabled &&
+    (role === "owner" || !pageCommentRoles?.length || (role === "editor" && pageCommentRoles.includes("editor")))
+
+  const { threads, resolved, pageThreads, blockThreads } = useMemo(() => {
     const roots = comments.filter((comment) => !comment.parentId)
     const openThreads = roots
       .filter((comment) => !comment.resolved)
@@ -63,7 +75,13 @@ export function CommentsPanel({
     const resolvedThreads = roots
       .filter((comment) => comment.resolved)
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    return { threads: openThreads, resolved: resolvedThreads }
+    return {
+      threads: openThreads,
+      resolved: resolvedThreads,
+      // Comments without a block anchor belong to the page itself.
+      pageThreads: openThreads.filter((comment) => !comment.blockId),
+      blockThreads: openThreads.filter((comment) => Boolean(comment.blockId)),
+    }
   }, [comments])
 
   function repliesFor(id: string) {
@@ -92,6 +110,30 @@ export function CommentsPanel({
       onReload()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : tr("Could not reply"))
+    } finally {
+      pendingRef.current = false
+      setPending(false)
+    }
+  }
+
+  async function submitPageComment() {
+    if (!pageBody.trim() || pending || pendingRef.current) return
+    pendingRef.current = true
+    setPending(true)
+    try {
+      await api.pages.createComment(pageId, {
+        blockId: "",
+        quote: "",
+        startOffset: 0,
+        endOffset: 0,
+        body: pageBody.trim(),
+        mentions: pageMentions,
+      })
+      setPageBody("")
+      setPageMentions([])
+      onReload()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : tr("Could not add comment"))
     } finally {
       pendingRef.current = false
       setPending(false)
@@ -129,6 +171,7 @@ export function CommentsPanel({
   }
 
   function jumpToBlock(comment: Comment) {
+    if (!comment.blockId) return
     window.dispatchEvent(
       new CustomEvent("motion:scroll-block", { detail: { id: comment.blockId } }),
     )
@@ -142,7 +185,7 @@ export function CommentsPanel({
   if (!open) return null
 
   return (
-    <aside aria-label={tr("Comments panel")} className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[380px] flex-col border-l bg-background shadow-2xl animate-in slide-in-from-right duration-200 max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:h-[78svh] max-md:max-w-none max-md:rounded-t-2xl max-md:border-l-0 max-md:border-t">
+    <aside aria-label={tr("Comments panel")} data-catch-ignore className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[380px] flex-col border-l bg-background shadow-2xl animate-in slide-in-from-right duration-200 max-md:inset-x-0 max-md:bottom-0 max-md:top-auto max-md:h-[78svh] max-md:max-w-none max-md:rounded-t-2xl max-md:border-l-0 max-md:border-t">
       <header className="flex h-12 shrink-0 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <MessageSquare className="size-4 text-brand" />
@@ -168,42 +211,120 @@ export function CommentsPanel({
               <div key={item} className="h-24 animate-pulse rounded-xl bg-muted/60" />
             ))}
           </div>
-        ) : threads.length === 0 ? (
-          <div className="mt-16 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-muted">
-              <MessageSquare className="size-5 text-muted-foreground" />
-            </div>
-            <h3 className="mt-4 text-sm font-medium">{tr("No open comments")}</h3>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {tr("Select any text on the page and choose Comment to start a thread.")}
-            </p>
-          </div>
         ) : (
           <div className="space-y-5">
-            {threads.map((comment) => (
-              <Thread
-                key={comment.id}
-                comment={comment}
-                replies={repliesFor(comment.id)}
-                currentUserId={user?.id}
-                replyOpen={replyTo === comment.id}
-                replyBody={replyBody}
-                members={members}
-                onReplyMentions={setReplyMentions}
-                pending={pending}
-                onReplyOpen={() => {
-                  setReplyTo(replyTo === comment.id ? null : comment.id)
-                  setReplyBody("")
-                  setReplyMentions([])
-                }}
-                onReplyChange={setReplyBody}
-                onReplySubmit={() => void submitReply(comment.id)}
-                onResolve={() => void toggleResolved(comment)}
-                onDelete={() => setDeleteTarget(comment)}
-                onQuoteClick={() => jumpToBlock(comment)}
-                readOnly={readOnly}
-              />
-            ))}
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                  <FileText className="size-3.5" /> {tr("Page comments")}
+                </h3>
+                <span className="text-[10px] text-muted-foreground">{tr("{n} open", { n: pageThreads.length })}</span>
+              </div>
+
+              {pageCommentsDisabled && (
+                <p className="rounded-lg border border-dashed border-border/70 px-3 py-2 text-[11px] leading-5 text-muted-foreground">
+                  {tr("Page-level comments are turned off for this page.")}
+                </p>
+              )}
+
+              {pageThreads.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-border/70 px-3 py-3 text-xs leading-5 text-muted-foreground">
+                  {tr("Discuss this page itself — no text selection needed.")}
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {pageThreads.map((comment) => (
+                    <Thread
+                      key={comment.id}
+                      comment={comment}
+                      pageLevel
+                      replies={repliesFor(comment.id)}
+                      currentUserId={user?.id}
+                      replyOpen={replyTo === comment.id}
+                      replyBody={replyBody}
+                      members={members}
+                      onReplyMentions={setReplyMentions}
+                      pending={pending}
+                      onReplyOpen={() => {
+                        setReplyTo(replyTo === comment.id ? null : comment.id)
+                        setReplyBody("")
+                        setReplyMentions([])
+                      }}
+                      onReplyChange={setReplyBody}
+                      onReplySubmit={() => void submitReply(comment.id)}
+                      onResolve={() => void toggleResolved(comment)}
+                      onDelete={() => setDeleteTarget(comment)}
+                      onQuoteClick={() => jumpToBlock(comment)}
+                      readOnly={readOnly}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {!readOnly && pageCommentAllowed && (
+                <div className="flex items-center gap-1.5">
+                  <MentionInput
+                    members={members}
+                    value={pageBody}
+                    onChange={(value, ids) => {
+                      setPageBody(value)
+                      setPageMentions(ids)
+                    }}
+                    onKeyDown={(event) => {
+                      if (isImeKeyEvent(event)) return
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault()
+                        void submitPageComment()
+                      }
+                    }}
+                    placeholder={tr("Comment on this page… (type @ to mention)")}
+                    className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
+                  />
+                  <Button size="icon-sm" onClick={() => void submitPageComment()} disabled={!pageBody.trim() || pending} aria-label={tr("Send page comment")}>
+                    <Send className="size-3.5" />
+                  </Button>
+                </div>
+              )}
+              {!readOnly && !pageCommentAllowed && (
+                <p className="text-[11px] leading-5 text-muted-foreground">
+                  {tr("Only {roles} can post page comments here.", { roles: (pageCommentRoles ?? []).map((item) => (item === "owner" ? tr("Owner") : tr("Editor"))).join(" / ") })}
+                </p>
+              )}
+            </section>
+
+            {blockThreads.length > 0 && (
+              <section className="space-y-3 border-t pt-4">
+                <h3 className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                  <MessageSquare className="size-3.5" /> {tr("Block comments")}
+                </h3>
+                <div className="space-y-3">
+                  {blockThreads.map((comment) => (
+                    <Thread
+                      key={comment.id}
+                      comment={comment}
+                      replies={repliesFor(comment.id)}
+                      currentUserId={user?.id}
+                      replyOpen={replyTo === comment.id}
+                      replyBody={replyBody}
+                      members={members}
+                      onReplyMentions={setReplyMentions}
+                      pending={pending}
+                      onReplyOpen={() => {
+                        setReplyTo(replyTo === comment.id ? null : comment.id)
+                        setReplyBody("")
+                        setReplyMentions([])
+                      }}
+                      onReplyChange={setReplyBody}
+                      onReplySubmit={() => void submitReply(comment.id)}
+                      onResolve={() => void toggleResolved(comment)}
+                      onDelete={() => setDeleteTarget(comment)}
+                      onQuoteClick={() => jumpToBlock(comment)}
+                      readOnly={readOnly}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
 
@@ -225,6 +346,7 @@ export function CommentsPanel({
                   <Thread
                     key={comment.id}
                     comment={comment}
+                    pageLevel={!comment.blockId}
                     replies={repliesFor(comment.id)}
                     currentUserId={user?.id}
                     replyOpen={false}
@@ -279,6 +401,7 @@ export function CommentsPanel({
 
 function Thread({
   comment,
+  pageLevel = false,
   replies,
   currentUserId,
   replyOpen,
@@ -296,6 +419,7 @@ function Thread({
   readOnly = false,
 }: {
   comment: Comment
+  pageLevel?: boolean
   replies: Comment[]
   currentUserId?: string
   replyOpen: boolean
@@ -314,13 +438,19 @@ function Thread({
 }) {
   return (
     <div className={cn("rounded-xl border border-border/70 bg-card p-3", resolved && "bg-muted/20")}>
-      <button
-        type="button"
-        onClick={onQuoteClick}
-        className="mb-2 flex w-full items-center gap-1.5 truncate rounded border-l-2 border-brand/60 bg-brand-soft/30 px-2 py-1 text-left text-[11px] italic text-muted-foreground hover:bg-brand-soft/50"
-      >
-        {comment.quote ? <span className="truncate">“{comment.quote}”</span> : <><MessageSquare className="size-3 shrink-0" /> {tr("On this block")}</>}
-      </button>
+      {pageLevel ? (
+        <div className="mb-2 flex items-center gap-1.5 rounded border-l-2 border-brand/60 bg-brand-soft/30 px-2 py-1 text-[11px] text-muted-foreground">
+          <FileText className="size-3 shrink-0" /> {tr("Page comment")}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onQuoteClick}
+          className="mb-2 flex w-full items-center gap-1.5 truncate rounded border-l-2 border-brand/60 bg-brand-soft/30 px-2 py-1 text-left text-[11px] italic text-muted-foreground hover:bg-brand-soft/50"
+        >
+          {comment.quote ? <span className="truncate">“{comment.quote}”</span> : <><MessageSquare className="size-3 shrink-0" /> {tr("On this block")}</>}
+        </button>
+      )}
       <div className="flex items-start gap-2">
         <Avatar className="size-6">
           <AvatarFallback>{initials(comment.authorName || "?")}</AvatarFallback>

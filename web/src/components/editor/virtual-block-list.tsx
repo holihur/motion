@@ -31,6 +31,8 @@ function estimatedHeight(block: Block): number {
     case "bookmark":
     case "file":
       return 110
+    case "pdf":
+      return 560
     case "video":
       return 300
     case "embed":

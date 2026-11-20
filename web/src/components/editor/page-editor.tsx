@@ -1613,6 +1613,7 @@ export function PageEditor() {
                 onClick={() => setZenMode(!zenMode)}
                 aria-label={tr("Focus mode")}
                 title={tr("Focus mode")}
+                data-catch-event="editor_focus_mode"
                 className={cn("text-muted-foreground", zenMode && "bg-brand-soft text-brand")}
               >
                 <Fullscreen className="size-4" />
@@ -1628,6 +1629,7 @@ export function PageEditor() {
                 onClick={() => toggleReadAloud()}
                 aria-label={reading ? tr("Stop reading") : tr("Read aloud")}
                 title={reading ? tr("Stop reading") : tr("Read aloud")}
+                data-catch-event={reading ? "editor_read_stop" : "editor_read_aloud"}
                 className={cn("text-muted-foreground", reading && "bg-brand-soft text-brand")}
               >
                 {reading ? <Square className="size-4" /> : <Volume2 className="size-4" />}
@@ -1645,6 +1647,7 @@ export function PageEditor() {
                   setCommentsOpen(false)
                 }}
                 aria-label={tr("Ask Motion AI")}
+                data-catch-event="editor_ai_toggle"
                 className={cn("text-muted-foreground", aiOpen && "bg-brand-soft text-brand")}
               >
                 <Sparkles className="size-4" />
@@ -1662,6 +1665,7 @@ export function PageEditor() {
                   setAiOpen(false)
                 }}
                 aria-label={tr("Comments")}
+                data-catch-event="editor_comments_toggle"
                 className="relative text-muted-foreground"
               >
                 <MessageSquare className="size-4" />
@@ -1681,6 +1685,7 @@ export function PageEditor() {
                 size="icon-sm"
                 onClick={() => setHistoryOpen(true)}
                 aria-label={tr("Version history")}
+                data-catch-event="editor_history_open"
                 className="text-muted-foreground"
               >
                 <Clock3 className="size-4" />
@@ -1695,6 +1700,7 @@ export function PageEditor() {
                 size="icon-sm"
                 onClick={() => setShareOpen(true)}
                 aria-label={tr("Share")}
+                data-catch-event="editor_share_open"
                 className="text-muted-foreground"
               >
                 <Users className="size-4" />
@@ -1755,6 +1761,7 @@ export function PageEditor() {
               <button
                 type="button"
                 aria-label={tr("Page options")}
+                data-catch-event="page_options_open"
                 className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground data-[state=open]:bg-accent"
               >
                 <MoreHorizontal className="size-4" />
@@ -1876,7 +1883,7 @@ export function PageEditor() {
           </div>
         )}
 
-        <div className={cn("mx-auto w-full px-5 pb-28 sm:px-10", page.width === "full" ? "max-w-none" : page.width === "wide" ? "max-w-7xl" : "max-w-3xl lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl", !cover && "pt-6")}>
+        <div data-catch-ignore className={cn("mx-auto w-full px-5 pb-28 sm:px-10", page.width === "full" ? "max-w-none" : page.width === "wide" ? "max-w-7xl" : "max-w-3xl lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl", !cover && "pt-6")}>
           {layoutHeader.length > 0 && (
             <div className="mb-6 pb-1">
               <BlockEditor
@@ -2073,6 +2080,9 @@ export function PageEditor() {
             pageId={page.id}
             members={members}
             comments={comments}
+            pageCommentsDisabled={page.pageCommentsDisabled}
+            pageCommentRoles={page.pageCommentRoles}
+            role={page.role}
             loading={commentsLoading}
             readOnly={readOnly}
             hasMore={commentsHasMore}

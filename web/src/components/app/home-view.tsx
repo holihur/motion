@@ -6,8 +6,8 @@ import {
   FilePlus2,
   FileText,
   Plus,
+  RotateCcw,
   Search,
-  Settings,
   Sparkles,
   Star,
   X,
@@ -25,8 +25,9 @@ import { useWorkspaceStore } from "@/stores/workspace"
 import { useUIStore } from "@/stores/ui"
 import { SidebarToggle } from "@/components/app/sidebar-toggle"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { AccountMenu } from "@/components/app/account-menu"
 import { cn } from "@/lib/utils"
 import { PageActionsMenu } from "@/components/app/page-actions"
 
@@ -39,7 +40,6 @@ export function HomeView() {
   const activeId = useWorkspaceStore((state) => state.activeId)
   const createPage = useWorkspaceStore((state) => state.createPage)
   const setSearchOpen = useUIStore((state) => state.setSearchOpen)
-  const setSettingsOpen = useUIStore((state) => state.setSettingsOpen)
   const [showOnboarding, setShowOnboarding] = useState(() => localStorage.getItem("motion.onboarding.dismissed") !== "1")
   const onboardingProgress = useOnboardingProgress()
   const [creatingTemplate, setCreatingTemplate] = useState("")
@@ -118,25 +118,22 @@ export function HomeView() {
               {modKey()} K
             </span>
           </button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm" onClick={() => setSettingsOpen(true)} aria-label={tr("Settings")}>
-                <Settings className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{tr("Settings")}</TooltipContent>
-          </Tooltip>
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="ml-1 rounded-full ring-offset-2 transition hover:ring-2 hover:ring-border"
-            aria-label={tr("Open settings")}
-          >
-            <Avatar className="size-6">
-              <AvatarImage src={user?.avatar} alt={user?.name} />
-              <AvatarFallback>{initials(user?.name ?? "M")}</AvatarFallback>
-            </Avatar>
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="ml-1 rounded-full ring-offset-2 transition hover:ring-2 hover:ring-border"
+                aria-label={tr("Account menu")}
+                data-catch-event="account_menu_open"
+              >
+                <Avatar className="size-6">
+                  <AvatarImage src={user?.avatar} alt={user?.name} />
+                  <AvatarFallback>{initials(user?.name ?? "M")}</AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <AccountMenu />
+          </DropdownMenu>
         </div>
       </header>
 
@@ -158,16 +155,16 @@ export function HomeView() {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-2">
-            <Button onClick={() => void newPage()} className="gap-2">
+            <Button onClick={() => void newPage()} className="gap-2" data-catch-event="page_create">
               <Plus className="size-4" />
               {tr("New page")}
             </Button>
-            <Button variant="outline" onClick={() => setSearchOpen(true)} className="gap-2">
+            <Button variant="outline" onClick={() => setSearchOpen(true)} className="gap-2" data-catch-event="search_open">
               <Search className="size-4" />
               {tr("Search workspace")}
             </Button>
             {favorites.length > 0 && (
-              <Button variant="ghost" onClick={() => navigate(`/page/${favorites[0].id}`)} className="gap-2 text-muted-foreground">
+              <Button variant="ghost" onClick={() => navigate(`/page/${favorites[0].id}`)} className="gap-2 text-muted-foreground" data-catch-event="favorite_open">
                 <Star className="size-4 fill-amber-400 text-amber-400" />
                 {tr("Open favorite")}
               </Button>
@@ -175,15 +172,17 @@ export function HomeView() {
           </div>
 
           {!showOnboarding && (
-            <div className="flex justify-center">
+            <div className="mt-3 flex">
               <button
                 type="button"
                 onClick={() => {
                   localStorage.removeItem("motion.onboarding.dismissed")
                   setShowOnboarding(true)
                 }}
-                className="text-[11px] text-muted-foreground/70 underline-offset-4 hover:text-foreground hover:underline"
+                data-catch-event="onboarding_replay"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2.5 py-1 text-[11px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
               >
+                <RotateCcw className="size-3" />
                 {tr("Replay the 60-second tour")}
               </button>
             </div>
@@ -198,12 +197,12 @@ export function HomeView() {
           )}
 
           <section className="mt-10">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
               <h2 className="flex items-center gap-2 text-sm font-semibold">
                 <Sparkles className="size-4 text-brand" />
                 {tr("Start from a template")}
               </h2>
-              <span className="text-[11px] text-muted-foreground">{tr("Faster than a blank page")}</span>
+              <span className="hidden text-[11px] text-muted-foreground sm:inline">{tr("Faster than a blank page")}</span>
             </div>
             <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
               {PAGE_TEMPLATES.map((template) => (
@@ -212,6 +211,8 @@ export function HomeView() {
                   type="button"
                   disabled={!!creatingTemplate}
                   onClick={() => void useTemplate(template)}
+                  data-catch-event="template_use"
+                  data-catch-props={`{"template":"${template.id}"}`}
                   className={cn(
                     "group/template relative overflow-hidden rounded-xl bg-gradient-to-br p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] disabled:opacity-60",
                     template.gradient,
@@ -242,7 +243,7 @@ export function HomeView() {
                   </h2>
                   <span className="text-[11px] text-muted-foreground">{pages.length === 1 ? tr("{n} page", { n: pages.length }) : tr("{n} pages", { n: pages.length })}</span>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-catch-ignore>
                   {recent.map((page, index) => (
                     <div
                       key={page.id}
@@ -298,6 +299,7 @@ export function HomeView() {
                   <button
                     type="button"
                     onClick={() => void newPage()}
+                    data-catch-event="page_create"
                     className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl bg-muted/30 text-muted-foreground transition hover:bg-brand-soft/30 hover:text-foreground"
                   >
                     <span className="flex size-9 items-center justify-center rounded-full bg-muted">
@@ -315,7 +317,7 @@ export function HomeView() {
                     <Star className="size-4 text-amber-400" />
                     {tr("Favorites")}
                   </h2>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2" data-catch-ignore>
                     {favorites.map((page) => (
                       <button
                         key={page.id}

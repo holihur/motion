@@ -428,7 +428,7 @@ func renderBlock(block model.Block, files map[string]string, base string) string
 			return `<p><a class="page-link" href="` + html.EscapeString(href) + `">🔗 ` + inline + `</a></p>`
 		}
 		return `<p><span class="page-link">🔗 ` + inline + `</span></p>`
-	case "bookmark", "video", "embed", "file":
+	case "bookmark", "video", "embed", "file", "pdf":
 		return `<p><a class="embed-link" href="` + html.EscapeString(safeURL(block.URL, base)) + `">` + inline + `</a></p>`
 	case "password":
 		return `<div class="locked">🔒 ` + inline + ` <small>(encrypted in Motion)</small></div>`

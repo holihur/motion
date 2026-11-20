@@ -46,6 +46,7 @@ var blockTypes = map[string]bool{
 	"video":          true,
 	"embed":          true,
 	"file":           true,
+	"pdf":            true,
 	"equation":       true,
 	"toc":            true,
 	"gantt":          true,
@@ -402,6 +403,52 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 			updates["layoutId"] = ""
 		}
 	}
+	if value, ok := raw["pageCommentsDisabled"]; ok {
+		var disabled bool
+		if err := json.Unmarshal(value, &disabled); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid page comment setting")
+			return
+		}
+		updates["pageCommentsDisabled"] = disabled
+	}
+	if value, ok := raw["pageCommentRoles"]; ok {
+		var roles []string
+		if err := json.Unmarshal(value, &roles); err != nil {
+			writeErr(w, http.StatusBadRequest, "invalid page comment roles")
+			return
+		}
+		normalized := make([]string, 0, len(roles))
+		seen := map[string]bool{}
+		for _, role := range roles {
+			role = strings.TrimSpace(role)
+			if role != roleOwner && role != roleEditor {
+				writeErr(w, http.StatusBadRequest, "page comment roles must be owner or editor")
+				return
+			}
+			if !seen[role] {
+				seen[role] = true
+				normalized = append(normalized, role)
+			}
+		}
+		if len(normalized) == 0 {
+			unset["pageCommentRoles"] = ""
+		} else {
+			updates["pageCommentRoles"] = normalized
+		}
+	}
+	if _, hasDisabled := raw["pageCommentsDisabled"]; hasDisabled {
+		if _, role, err := s.accessiblePage(r, pageID); err != nil || role != roleOwner {
+			writeErr(w, http.StatusForbidden, "only the workspace owner can change page comment settings")
+			return
+		}
+	}
+	if _, hasRoles := raw["pageCommentRoles"]; hasRoles {
+		if _, role, err := s.accessiblePage(r, pageID); err != nil || role != roleOwner {
+			writeErr(w, http.StatusForbidden, "only the workspace owner can change page comment settings")
+			return
+		}
+	}
+
 	if value, ok := raw["archived"]; ok {
 		var archived bool
 		if err := json.Unmarshal(value, &archived); err != nil {

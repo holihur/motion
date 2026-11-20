@@ -34,7 +34,7 @@ export interface HeadingItem {
   level: 1 | 2 | 3
 }
 
-function safeHttpUrl(value: string): URL | null {
+export function safeHttpUrl(value: string): URL | null {
   try {
     const url = new URL(value)
     return url.protocol === "http:" || url.protocol === "https:" ? url : null

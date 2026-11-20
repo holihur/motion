@@ -98,6 +98,10 @@ type authRequest struct {
 type authResponse struct {
 	Token string     `json:"token"`
 	User  model.User `json:"user"`
+
+	// AskPasswordMode asks the client to confirm whether SSO should replace an
+	// existing password sign-in (only set for the OIDC exchange).
+	AskPasswordMode bool `json:"askPasswordMode,omitempty"`
 }
 
 func (s *Server) register(w http.ResponseWriter, r *http.Request) {

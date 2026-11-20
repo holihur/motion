@@ -124,7 +124,7 @@ export function ShareDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90svh] max-w-xl overflow-y-auto">
+      <DialogContent className="max-h-[90svh] max-w-xl overflow-y-auto" data-catch-ignore>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="size-4 text-brand" /> {tr("Share “{title}”", { title: page.title.trim() || tr("Untitled") })}

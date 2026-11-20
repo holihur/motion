@@ -131,7 +131,7 @@ export function TrashView() {
                 <p className="mt-1 text-xs text-muted-foreground">{tr("Deleted pages will show up here.")}</p>
               </div>
             ) : (
-              <div className="divide-y divide-border/50 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
+              <div className="divide-y divide-border/50 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]" data-catch-mask>
                 {trash.map((page) => (
                   <div key={page.id} data-page-id={page.id} className="flex items-center gap-3 px-4 py-3">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-lg">
@@ -150,6 +150,7 @@ export function TrashView() {
                         className="gap-1.5"
                         disabled={busy === page.id}
                         onClick={() => void restore(page)}
+                        data-catch-event="page_restore"
                       >
                         <RotateCcw className="size-3.5" />
                         <span className="hidden sm:inline">{tr("Restore")}</span>
@@ -161,6 +162,7 @@ export function TrashView() {
                         disabled={busy === page.id}
                         onClick={() => setPendingDelete(page)}
                         aria-label={tr("Delete forever")}
+                        data-catch-event="page_delete_forever_open"
                       >
                         <Trash2 className="size-4" />
                       </Button>

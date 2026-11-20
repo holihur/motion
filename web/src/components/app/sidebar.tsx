@@ -30,6 +30,7 @@ import { WorkspaceIcon } from "@/components/app/workspace-icon"
 import { NotificationBell } from "@/components/app/notifications"
 import { PageTree } from "@/components/app/page-tree"
 import { tr } from "@/lib/i18n"
+import { AccountMenu } from "@/components/app/account-menu"
 import { PageActionsMenu } from "@/components/app/page-actions"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -203,18 +204,21 @@ function SidebarContent() {
           <SidebarButton
             icon={<Search className="size-3.5" />}
             label={tr("Search")}
+            track="sidebar_search"
             trailing={<span className="rounded-md bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{modKey()} K</span>}
             onClick={() => setSearchOpen(true)}
           />
           <SidebarButton
             icon={<Home className="size-3.5" />}
             label={tr("Home")}
+            track="sidebar_home"
             active={location.pathname === "/"}
             onClick={() => navigate("/")}
           />
           <SidebarButton
             icon={<Inbox className="size-3.5" />}
             label={tr("Agent")}
+            track="sidebar_agent"
             trailing={pendingProposals > 0 ? (
               <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold tabular-nums text-amber-700 dark:text-amber-300">
                 {pendingProposals}
@@ -255,7 +259,9 @@ function SidebarContent() {
               {showFavorites && (
                 <div className="mt-0.5 space-y-px">
                   {favorites.map((page) => (
-                    <FavoriteRow key={page.id} page={page} active={activePageId === page.id} readOnly={readOnly} />
+                    <div key={page.id} data-catch-ignore>
+                      <FavoriteRow page={page} active={activePageId === page.id} readOnly={readOnly} />
+                    </div>
                   ))}
                 </div>
               )}
@@ -276,6 +282,7 @@ function SidebarContent() {
                         onClick={() => window.dispatchEvent(new CustomEvent("motion:collapse-all"))}
                         className="flex size-5 items-center justify-center rounded text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground"
                         aria-label={tr("Collapse all")}
+                        data-catch-event="page_tree_collapse_all"
                       >
                         <ChevronsDownUp className="size-3.5" />
                       </button>
@@ -289,6 +296,7 @@ function SidebarContent() {
                         onClick={() => void onNewPage()}
                         className="flex size-5 items-center justify-center rounded text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground"
                         aria-label={tr("New page")}
+                        data-catch-event="page_create"
                       >
                         <Plus className="size-3.5" />
                       </button>
@@ -300,7 +308,9 @@ function SidebarContent() {
             />
             {showPrivate && (
               <div className="mt-0.5">
-                <PageTree pages={pages} activeId={activePageId} query={filter} readOnly={readOnly} />
+                <div data-catch-ignore>
+                  <PageTree pages={pages} activeId={activePageId} query={filter} readOnly={readOnly} />
+                </div>
               </div>
             )}
           </div>
@@ -309,6 +319,7 @@ function SidebarContent() {
             <SidebarButton
               icon={<Trash2 className="size-3.5" />}
               label={tr("Trash")}
+              track="sidebar_trash"
               active={location.pathname === "/trash"}
               onClick={() => navigate("/trash")}
             />
@@ -320,6 +331,7 @@ function SidebarContent() {
         {!readOnly && <button
           type="button"
           onClick={() => void onNewPage()}
+          data-catch-event="page_create"
           className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground"
         >
           <span className="flex size-4 items-center justify-center rounded border border-dashed border-muted-foreground/50">
@@ -337,6 +349,7 @@ function SidebarContent() {
                     size="icon-sm"
                     onClick={() => navigate("/ops")}
                     aria-label={tr("Ops console")}
+                    data-catch-event="ops_open"
                     className="text-muted-foreground"
                   >
                     <ShieldCheck className="size-4" />
@@ -347,7 +360,7 @@ function SidebarContent() {
             )}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-sm" onClick={() => setSettingsOpen(true)} aria-label={tr("Settings")}>
+                <Button variant="ghost" size="icon-sm" onClick={() => setSettingsOpen(true)} aria-label={tr("Settings")} data-catch-event="settings_open">
                   <Settings className="size-4" />
                 </Button>
               </TooltipTrigger>
@@ -356,7 +369,7 @@ function SidebarContent() {
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" className="flex items-center gap-2 rounded-lg p-1 pr-1.5 transition hover:bg-sidebar-accent" aria-label={tr("Account menu")}>
+              <button type="button" className="flex items-center gap-2 rounded-lg p-1 pr-1.5 transition hover:bg-sidebar-accent" aria-label={tr("Account menu")} data-catch-event="account_menu_open">
                 <Avatar className="size-6">
                   <AvatarImage src={user?.avatar} alt={user?.name} />
                   <AvatarFallback>{initials(user?.name ?? "M")}</AvatarFallback>
@@ -417,18 +430,21 @@ function SidebarButton({
   label,
   trailing,
   active,
+  track,
   onClick,
 }: {
   icon: React.ReactNode
   label: string
   trailing?: React.ReactNode
   active?: boolean
+  track?: string
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      data-catch-event={track}
       className={cn(
         "flex h-[29px] w-full items-center gap-2 rounded-md px-2 text-[13px] transition-colors",
         active
@@ -473,6 +489,7 @@ function FavoriteRow({ page, active, readOnly = false }: { page: PageSummary; ac
           <button
             type="button"
             aria-label={tr("Page options")}
+            data-catch-event="page_options_open"
             className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition hover:bg-sidebar-border/70 hover:text-foreground group-hover/fav:opacity-100 data-[state=open]:bg-sidebar-border/70 data-[state=open]:opacity-100 max-md:opacity-100"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -613,39 +630,6 @@ function WorkspaceSwitcher() {
 
       <CreateWorkspaceDialog open={createOpen} onOpenChange={setCreateOpen} />
     </>
-  )
-}
-
-function AccountMenu() {
-  const user = useAuthStore((state) => state.user)
-  const logout = useAuthStore((state) => state.logout)
-  const setSettingsOpen = useUIStore((state) => state.setSettingsOpen)
-  const navigate = useNavigate()
-  const opsUnlocked = typeof sessionStorage !== "undefined" && !!sessionStorage.getItem("motion.ops.token")
-  return (
-    <DropdownMenuContent align="end" className="w-56">
-      <div className="px-2 py-1.5">
-        <div className="text-sm font-medium">{user?.name}</div>
-        <div className="truncate text-[11px] text-muted-foreground">{user?.email}</div>
-      </div>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
-        <Settings /> {tr("Settings")}
-      </DropdownMenuItem>
-      {opsUnlocked && (
-        <DropdownMenuItem onSelect={() => navigate("/ops")}>
-          <ShieldCheck /> {tr("Ops console")}
-        </DropdownMenuItem>
-      )}
-      <DropdownMenuItem
-        onSelect={() => {
-          logout()
-          navigate("/login", { replace: true })
-        }}
-      >
-        <LogOut /> {tr("Sign out")}
-      </DropdownMenuItem>
-    </DropdownMenuContent>
   )
 }
 

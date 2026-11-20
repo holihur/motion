@@ -214,6 +214,15 @@ export function AuthPage() {
                   <LockKeyhole className="size-4" />
                   {oidc.name || tr("Single sign-on")}
                 </Button>
+                <button
+                  type="button"
+                  className="w-full text-center text-[11px] text-muted-foreground underline-offset-4 transition hover:text-foreground hover:underline"
+                  onClick={() => {
+                    window.location.href = "/api/auth/oidc/start?prompt=login"
+                  }}
+                >
+                  {tr("Use another account")}
+                </button>
                 <div className="py-1 text-center text-[11px] uppercase tracking-widest text-muted-foreground">or</div>
               </div>
             )}

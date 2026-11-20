@@ -78,6 +78,7 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
             <button
               type="button"
               aria-label={tr("Page options")}
+              data-catch-event="page_options_open"
               className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition hover:bg-sidebar-accent hover:text-foreground data-[state=open]:bg-sidebar-accent"
             >
               <MoreHorizontal className="size-3.5" />
@@ -85,17 +86,19 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
           )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align={align} className="w-56">
-          <DropdownMenuItem onSelect={() => navigate(`/page/${page.id}/settings`)}>
+          <DropdownMenuItem onSelect={() => navigate(`/page/${page.id}/settings`)} data-catch-event="page_settings_open">
             <Settings2 /> {tr("Page settings")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {!readOnly && (
-            <DropdownMenuItem onSelect={openRename}>
+            <DropdownMenuItem onSelect={openRename} data-catch-event="page_rename_open">
               <PencilLine /> {tr("Rename")}
             </DropdownMenuItem>
           )}
           {!readOnly && (
             <DropdownMenuItem
+              data-catch-event="page_favorite_toggle"
+              data-catch-props={JSON.stringify({ favorite: page.favorite ? "remove" : "add" })}
               onSelect={() => {
                 void toggleFavorite(page.id).then((favorite) =>
                   toast.success(favorite ? tr("Added to Favorites") : tr("Removed from Favorites")),
@@ -107,24 +110,24 @@ export function PageActionsMenu({ page, align = "start", trigger, readOnly = fal
             </DropdownMenuItem>
           )}
           {!readOnly && (
-            <DropdownMenuItem onSelect={onAddSubpage}>
+            <DropdownMenuItem onSelect={onAddSubpage} data-catch-event="page_create_child">
               <FilePlus2 /> {tr("Add sub-page")}
             </DropdownMenuItem>
           )}
           {!readOnly && onMoveUp && (
-            <DropdownMenuItem onSelect={onMoveUp}>
+            <DropdownMenuItem onSelect={onMoveUp} data-catch-event="page_move_up">
               <ArrowUp /> {tr("Move up")}
             </DropdownMenuItem>
           )}
           {!readOnly && onMoveDown && (
-            <DropdownMenuItem onSelect={onMoveDown}>
+            <DropdownMenuItem onSelect={onMoveDown} data-catch-event="page_move_down">
               <ArrowDown /> {tr("Move down")}
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onSelect={() => void onCopyLink()}>
+          <DropdownMenuItem onSelect={() => void onCopyLink()} data-catch-event="page_copy_link">
             <Link2 /> {tr("Copy link")}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => navigate(`/page/${page.id}/settings`)}>
+          <DropdownMenuItem onSelect={() => navigate(`/page/${page.id}/settings`)} data-catch-event="page_publish_open">
             <Copy /> {tr("Import, export & publishing…")}
           </DropdownMenuItem>
         </DropdownMenuContent>

@@ -89,7 +89,7 @@ func DOCX(page model.Page, diagrams ...map[string]Diagram) ([]byte, error) {
 			}
 		case "equation":
 			body.WriteString(docxParagraph(block.Text, 18, false, "F3F4F6", "Courier New"))
-		case "pageLink", "bookmark", "video", "embed", "file":
+		case "pageLink", "bookmark", "video", "embed", "file", "pdf":
 			body.WriteString(docxParagraph(block.Text+"  "+block.URL, 0, false, ""))
 		case "password":
 			body.WriteString(docxParagraph("🔒 "+block.Text, 0, false, ""))

@@ -128,7 +128,7 @@ export function HistoryDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[90svh] max-w-3xl overflow-hidden p-0">
+        <DialogContent className="max-h-[90svh] max-w-3xl overflow-hidden p-0" data-catch-ignore>
           <DialogHeader className="border-b px-6 py-4">
             <div className="flex items-start justify-between gap-3">
               <div>

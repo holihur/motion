@@ -20,6 +20,7 @@ export type BlockType =
   | "video"
   | "embed"
   | "file"
+  | "pdf"
   | "equation"
   | "toc"
   | "gantt"
@@ -287,6 +288,8 @@ export interface PageSummary {
   archived: boolean
   locked?: boolean
   lockedByName?: string
+  pageCommentsDisabled?: boolean
+  pageCommentRoles?: ("owner" | "editor")[]
   layoutId?: string
   isLayout?: boolean
   shareOverrides?: ShareOverride[]

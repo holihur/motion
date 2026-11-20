@@ -251,16 +251,16 @@ export function AgentInboxView() {
           <span>{tr("Agent")}</span>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
-          <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => void load()} disabled={loading}>
+          <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => void load()} disabled={loading} data-catch-event="agent_refresh">
             <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} /> {tr("Refresh")}
           </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => setAgentDialog({ open: true })}>
+          <Button size="sm" className="gap-1.5" onClick={() => setAgentDialog({ open: true })} data-catch-event="agent_create_open">
             <Plus className="size-3.5" /> {tr("New agent")}
           </Button>
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto thin-scrollbar">
+      <div className="min-h-0 flex-1 overflow-y-auto thin-scrollbar" data-catch-ignore>
         <div className="mx-auto w-full max-w-5xl px-5 pb-24 pt-8 sm:px-8">
           <div className="flex items-start justify-between gap-4">
             <div>

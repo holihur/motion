@@ -19,6 +19,9 @@ services:
         VITE_CATCH_ENV: ${VITE_CATCH_ENV:-production}
         VITE_CATCH_SERVICE: ${VITE_CATCH_SERVICE:-motion-web}
         VITE_CATCH_RELEASE: ${VITE_CATCH_RELEASE:-}
+        VITE_CATCH_AUTO_TRACK: ${VITE_CATCH_AUTO_TRACK:-pageview,click,submit,expose}
+        VITE_CATCH_SAMPLE_RATE: ${VITE_CATCH_SAMPLE_RATE:-1}
+        VITE_CATCH_TRACK_SAMPLE_RATE: ${VITE_CATCH_TRACK_SAMPLE_RATE:-1}
     restart: unless-stopped
     ports:
       - "8787:8787"

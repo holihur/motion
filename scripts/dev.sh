@@ -2,6 +2,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Local runs should honour the same .env as docker compose.
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+fi
+
 MODE="${1:-watch}"
 export WEB_DIR="${WEB_DIR:-$PWD/web/dist}"
 export MOTION_DEV_API_PORT="${PORT:-8787}"

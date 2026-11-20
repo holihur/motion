@@ -224,7 +224,9 @@ export const api = {
     config: () =>
       request<{ appName: string; oidc: { enabled: boolean; name: string } }>("/auth/config"),
     oidcExchange: () =>
-      request<{ token: string; user: User }>("/auth/oidc/exchange", { method: "POST" }),
+      request<{ token: string; user: User; askPasswordMode?: boolean }>("/auth/oidc/exchange", { method: "POST" }),
+    setOIDCPasswordMode: (mode: "keep" | "sso_only") =>
+      request<{ ok: boolean }>("/auth/oidc/password-mode", { method: "POST", body: body({ mode }) }),
     updateMe: (input: { name?: string; avatar?: string }) =>
       request<User>("/me", { method: "PATCH", body: body(input) }),
   },
@@ -631,6 +633,8 @@ export const api = {
         watermark?: boolean
         archived?: boolean
         parentId?: string | null
+        pageCommentsDisabled?: boolean
+        pageCommentRoles?: ("owner" | "editor")[]
       },
       init: RequestInit = {},
     ) => request<Page>(`/pages/${id}`, { ...init, method: "PATCH", body: body(patch) }),

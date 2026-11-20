@@ -145,6 +145,8 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 	_, name := s.editorFor(r)
 	comment.AuthorName = name
 
+	isPageLevel := strings.TrimSpace(req.BlockID) == ""
+
 	var parent model.Comment
 	hasParent := false
 	if req.ParentID != nil && strings.TrimSpace(*req.ParentID) != "" {
@@ -169,7 +171,10 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		comment.StartOffset = parent.StartOffset
 		comment.EndOffset = parent.EndOffset
 		comment.Annotation = parent.Annotation
-	} else {
+		isPageLevel = parent.BlockID == ""
+	} else if strings.TrimSpace(req.BlockID) != "" {
+		// A block id anchors the thread to a block; an empty one means the
+		// comment belongs to the page itself.
 		found := false
 		for _, block := range page.Blocks {
 			if block.ID == req.BlockID {
@@ -179,6 +184,20 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		}
 		if !found {
 			writeErr(w, http.StatusBadRequest, "block not found")
+			return
+		}
+	} else {
+		// Page-level comments have no selection or image annotation.
+		req.BlockID = ""
+		req.Quote = ""
+		req.StartOffset = 0
+		req.EndOffset = 0
+		req.Annotation = nil
+	}
+
+	if isPageLevel {
+		if err := pageCommentAllowed(page, role); err != nil {
+			writeErr(w, http.StatusForbidden, err.Error())
 			return
 		}
 	}
@@ -217,7 +236,7 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 					UserID: uidCopy, WorkspaceID: page.WorkspaceID,
 					ActorID: comment.AuthorID, ActorName: name,
 					Type: "mention", Title: name + " 在评论中 @了你",
-					Body: "在「" + title + "」：" + truncateRunes(comment.Body, 120),
+					Body:   "在「" + title + "」：" + truncateRunes(comment.Body, 120),
 					PageID: page.ID.Hex(), BlockID: comment.BlockID, CommentID: comment.ID.Hex(),
 				})
 			}
@@ -324,3 +343,25 @@ func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 	}, clientID(r))
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// pageCommentAllowed enforces the page-level comment switch and role allowlist.
+// Owners always keep access so they cannot lock themselves out.
+func pageCommentAllowed(page model.Page, role string) error {
+	if page.PageCommentsDisabled {
+		return errPageCommentsDisabled
+	}
+	if len(page.PageCommentRoles) == 0 || role == roleOwner {
+		return nil
+	}
+	for _, allowed := range page.PageCommentRoles {
+		if allowed == role {
+			return nil
+		}
+	}
+	return errPageCommentsForbidden
+}
+
+var (
+	errPageCommentsDisabled  = &authError{message: "page comments are disabled for this page"}
+	errPageCommentsForbidden = &authError{message: "your role cannot post page comments"}
+)

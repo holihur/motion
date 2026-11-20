@@ -599,6 +599,51 @@ export function PageSettingsPage() {
             </div>
           </SettingsCard>
 
+          <SettingsCard title={tr("Page comments")} description={tr("Control page-level comments. Block and inline comments are not affected.")}>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-xs font-medium">{tr("Allow page-level comments")}</div>
+                  <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">
+                    {tr("A thread attached to the whole page instead of a block or selection.")}
+                  </p>
+                </div>
+                <Switch
+                  checked={!page.pageCommentsDisabled}
+                  disabled={!canEdit || page.role !== "owner"}
+                  onCheckedChange={(checked) => void updatePage({ pageCommentsDisabled: !checked }, tr("Page comment setting saved"))}
+                />
+              </div>
+              <div>
+                <div className="text-xs font-medium">{tr("Who can post page comments")}</div>
+                <div className="mt-2 flex flex-wrap items-center gap-4">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <input type="checkbox" checked disabled className="size-3.5" /> {tr("Owner")}
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={!page.pageCommentRoles?.length || page.pageCommentRoles.includes("editor")}
+                      disabled={!canEdit || page.role !== "owner"}
+                      onChange={(event) => {
+                        const next: ("owner" | "editor")[] = event.target.checked ? ["owner", "editor"] : ["owner"]
+                        void updatePage({ pageCommentRoles: next }, tr("Page comment setting saved"))
+                      }}
+                      className="size-3.5"
+                    />
+                    {tr("Editor")}
+                  </label>
+                </div>
+                <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+                  {tr("Owners can always comment. Unchecking editors limits page comments to owners.")}
+                </p>
+              </div>
+              {page.role !== "owner" && (
+                <p className="text-[11px] text-muted-foreground">{tr("Only the workspace owner can change these settings.")}</p>
+              )}
+            </div>
+          </SettingsCard>
+
           <SettingsCard title={tr("Page actions")} description={tr("Lock, favorite or remove this page.")}>
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" disabled={busy || readOnly} onClick={() => void toggleLock()}>

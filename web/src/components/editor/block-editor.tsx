@@ -21,7 +21,6 @@ import type { HeadingItem } from "@/components/editor/rich-blocks"
 import { defaultChartTable, defaultGanttTable } from "@/components/editor/data-blocks"
 import { defaultCalendarTable } from "@/components/editor/calendar-block"
 import { defaultColumnsTable } from "@/components/editor/link-blocks"
-import { defaultForm } from "@/components/editor/form-block"
 import { hasMarkdownSyntax, parseMarkdownToBlocks } from "@/lib/markdown-import"
 import { blocksToMarkdown } from "@/lib/markdown"
 import type { RealtimePresence } from "@/lib/realtime"
@@ -883,12 +882,6 @@ export function BlockEditor({
     }, 250)
   }
 
-  function selectionRange(start: number, end: number) {
-    const from = Math.max(0, Math.min(start, end))
-    const to = Math.min(blocksRef.current.length - 1, Math.max(start, end))
-    return new Set(blocksRef.current.slice(from, to + 1).map((block) => block.id))
-  }
-
   function selectedIndexes() {
     const all = blocksRef.current
     const indexes = new Set<number>()
@@ -906,64 +899,6 @@ export function BlockEditor({
       for (let position = index; position < end; position += 1) indexes.add(position)
     }
     return indexes
-  }
-
-  function beginSelection(event: React.MouseEvent<HTMLElement>, index: number) {
-    if (event.button !== 0) return
-    event.preventDefault()
-    event.stopPropagation()
-    const all = blocksRef.current
-    const clicked = all[index]
-    if (!clicked) return
-    const previousAnchor = selectionAnchorRef.current
-    const anchor = event.shiftKey && previousAnchor !== null ? previousAnchor : index
-    selectionAnchorRef.current = anchor
-    const wasSelected = selectedIds.has(clicked.id)
-    const startY = event.clientY
-    let moved = false
-    const body = document.body
-    const previousUserSelect = body.style.userSelect
-    body.style.userSelect = "none"
-
-    if (event.shiftKey && previousAnchor !== null) {
-      setSelectedIds(selectionRange(anchor, index))
-    } else {
-      setSelectedIds(new Set([clicked.id]))
-    }
-
-    function onMove(moveEvent: MouseEvent) {
-      if (!moved && Math.abs(moveEvent.clientY - startY) > 4) moved = true
-      if (!moved) return
-      const element = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)
-      const row = element?.closest<HTMLElement>("[data-block-row]")
-      if (!row) return
-      const target = Number(row.dataset.blockIndex)
-      if (!Number.isFinite(target)) return
-      setSelectedIds(selectionRange(anchor, target))
-    }
-
-    function cleanup() {
-      window.removeEventListener("mousemove", onMove)
-      window.removeEventListener("mouseup", onUp)
-      body.style.userSelect = previousUserSelect
-    }
-
-    function onUp(upEvent: MouseEvent) {
-      cleanup()
-      if (moved) return
-      if (wasSelected && !upEvent.shiftKey) {
-        setSelectedIds((current) => {
-          const next = new Set(current)
-          next.delete(clicked.id)
-          return next
-        })
-      } else {
-        setSelectedIds(new Set([clicked.id]))
-      }
-    }
-
-    window.addEventListener("mousemove", onMove)
-    window.addEventListener("mouseup", onUp)
   }
 
   function toggleSelection(index: number) {
@@ -1160,7 +1095,6 @@ export function BlockEditor({
         isLayout={isLayout}
         hasContentPlaceholder={hasContentPlaceholder}
         selected={selectedIds.has(block.id)}
-        onSelectionStart={(event) => beginSelection(event, index)}
         onSelectBlock={() => toggleSelection(index)}
         resetKey={resetKeysRef.current[block.id] ?? 0}
         autoFocus={autoFocus?.id === block.id}
@@ -1188,7 +1122,6 @@ export function BlockEditor({
         onMoveDown={() => moveBlockBy(index, 1)}
         canMoveUp={index > 0}
         canMoveDown={subtreeEndAt(blocks, index) < blocks.length}
-        onInsertAfter={(rect) => openSlash(index, "insert", "", rect)}
         onDragStart={() => setDragging(index)}
         onDragEnd={() => {
           setDragging(null)

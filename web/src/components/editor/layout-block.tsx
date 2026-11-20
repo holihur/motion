@@ -40,7 +40,7 @@ export function LayoutBlock({
   const grid = columns.length >= 4 ? "sm:grid-cols-4" : columns.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"
 
   return (
-    <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 rounded-xl border border-border/80 bg-card p-3">
+    <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 rounded-xl bg-card p-3 shadow-[var(--shadow-card)]">
       <div className="mb-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         <Columns3 className="size-3" /> {tr("Layout")}
         <span className="normal-case tracking-normal text-muted-foreground/60">{columns.length}</span>

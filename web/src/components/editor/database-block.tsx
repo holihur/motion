@@ -173,7 +173,7 @@ export function DatabaseBlock({
       groups.set(key, [...(groups.get(key) ?? []), row])
     }
     return (
-      <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+      <div className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
         <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px]">
           <span className="flex items-center gap-1 font-medium text-muted-foreground"><Kanban className="size-3" /> {tr("Database")} — {tr("Board")}</span>
           <div className="ml-auto flex items-center gap-1">
@@ -206,7 +206,7 @@ export function DatabaseBlock({
   }
 
   return (
-    <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+    <div className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px]">
         <span className="flex items-center gap-1 font-medium text-muted-foreground"><Table2 className="size-3" /> {tr("Database")}</span>
         <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">{tr("{n} rows", { n: filtered.length })}</span>

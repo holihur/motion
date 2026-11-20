@@ -47,7 +47,7 @@ export function SettingsDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="flex max-h-[92svh] w-[calc(100vw-1.5rem)] max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:h-[min(720px,88svh)]">
         <Tabs defaultValue="profile" orientation="vertical" className="flex min-h-0 flex-1 flex-col sm:flex-row">
-          <aside className="flex shrink-0 flex-col border-b bg-muted/35 sm:w-64 sm:border-b-0 sm:border-r">
+          <aside className="flex shrink-0 flex-col bg-muted/30 sm:w-64">
             <DialogHeader className="px-5 pb-4 pt-5 text-left">
               <DialogTitle className="text-base tracking-tight">{tr("Settings")}</DialogTitle>
               <DialogDescription className="text-[11px] leading-4">{tr("Your workspace, your rules.")}</DialogDescription>
@@ -59,7 +59,7 @@ export function SettingsDialog() {
                   <TabsTrigger
                     key={section.value}
                     value={section.value}
-                    className="group h-auto min-w-fit justify-start gap-2.5 rounded-lg border border-transparent px-3 py-2 text-left text-xs font-medium text-muted-foreground transition data-[state=active]:border-border/60 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm hover:bg-background/60 hover:text-foreground sm:w-full"
+                    className="group h-auto min-w-fit justify-start gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-muted-foreground transition data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm hover:bg-background/60 hover:text-foreground sm:w-full"
                   >
                     <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-background/80 text-muted-foreground shadow-sm transition group-data-[state=active]:bg-brand-soft group-data-[state=active]:text-brand">
                       <Icon className="size-3.5" />
@@ -192,7 +192,7 @@ function ProfileSettings() {
 
   return (
     <form onSubmit={save} className="space-y-6 pt-2">
-      <div className="flex items-center gap-4 rounded-xl border border-border/60 bg-gradient-to-br from-brand-soft/45 via-background to-background p-4">
+      <div className="flex items-center gap-4 rounded-xl bg-gradient-to-br from-brand-soft/45 via-background to-background p-4 shadow-sm">
         <Avatar className="size-14 text-lg shadow-sm ring-2 ring-background">
           <AvatarImage src={user?.avatar} alt={user?.name} />
           <AvatarFallback className="bg-brand-soft text-base font-semibold text-brand">{initials(user?.name ?? "M")}</AvatarFallback>
@@ -223,7 +223,7 @@ function ProfileSettings() {
             )}
           </div>
         </div>
-        <span className="shrink-0 self-start rounded-full border border-border/70 bg-background/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{tr("Account")}</span>
+        <span className="shrink-0 self-start rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{tr("Account")}</span>
       </div>
       <Separator />
       <div className="grid gap-4 sm:grid-cols-2">
@@ -401,7 +401,7 @@ function WorkspaceSettings() {
 
       <Separator />
 
-      <div className="flex flex-col gap-3 rounded-lg border border-destructive/25 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="text-sm font-medium text-destructive">{tr("Delete workspace")}</div>
           <div className="text-xs text-muted-foreground">
@@ -653,7 +653,7 @@ function AISettings() {
               id="ai-provider"
               value={provider}
               onChange={(event) => selectProvider(event.target.value as AIProviderKey)}
-              className="h-9 w-full rounded-md border bg-background px-2 text-sm outline-none"
+              className="h-9 w-full rounded-lg border-0 bg-muted/50 px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand/25"
             >
               {Object.entries(AI_PROVIDERS).map(([value, details]) => (
                 <option key={value} value={value}>{details.label}</option>
@@ -814,7 +814,7 @@ function DeveloperSettings() {
 
   return (
     <div className="space-y-6 pt-2">
-      <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5">
+      <div className="rounded-xl bg-muted/25 p-3.5">
         <div className="flex items-center gap-2 text-sm font-medium">
           <TerminalSquare className="size-4 text-brand" /> {tr("Personal access tokens & MCP")}
         </div>
@@ -824,7 +824,7 @@ function DeveloperSettings() {
         </p>
       </div>
 
-      <form onSubmit={create} className="space-y-4 rounded-xl border p-4">
+      <form onSubmit={create} className="space-y-4 rounded-xl bg-muted/20 p-4">
         <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
           <div className="space-y-2">
             <Label htmlFor="token-name">{tr("Token name")}</Label>
@@ -836,7 +836,7 @@ function DeveloperSettings() {
               id="token-expiry"
               value={expiry}
               onChange={(event) => setExpiry(event.target.value)}
-              className="h-9 w-full rounded-md border bg-background px-2 text-xs outline-none"
+              className="h-9 w-full rounded-lg border-0 bg-muted/50 px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-brand/25"
             >
               <option value="30">{tr("30 days")}</option>
               <option value="90">90 days</option>
@@ -1053,7 +1053,7 @@ function AppearanceSettings() {
         <select
           value={getLanguage()}
           onChange={(event) => setLanguage(event.target.value as Language)}
-          className="h-8 rounded-md border bg-background px-2 text-xs outline-none"
+          className="h-8 rounded-lg border-0 bg-muted/50 px-2.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-brand/25"
           aria-label={tr("Language")}
         >
           {LANGUAGES.map((lang) => (

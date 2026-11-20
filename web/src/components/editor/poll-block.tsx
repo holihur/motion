@@ -82,7 +82,7 @@ export function PollBlock({ block, pageId, readOnly, allowVote = false, autoFocu
   const editing = !readOnly && !poll.question && total === 0 && !poll.closed
 
   return (
-    <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+    <div className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
       <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] text-muted-foreground">
         <BarChart3 className="size-3.5 text-brand" />
         <span className="font-semibold uppercase tracking-wider">{tr("Poll")}</span>

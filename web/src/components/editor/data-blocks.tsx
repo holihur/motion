@@ -121,7 +121,7 @@ export function GanttBlock({
   }
 
   return (
-    <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+    <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
         <ChartGantt className="size-3.5 text-brand" />
         <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{tr("Gantt")}</span>
@@ -396,7 +396,7 @@ export function ChartBlock({
   }
 
   return (
-    <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+    <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
         <ChartColumn className="size-3.5 text-brand" />
         <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{tr("Chart")}</span>

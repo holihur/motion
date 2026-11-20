@@ -36,7 +36,7 @@ export function CurlBlock({ block, readOnly, autoFocus, onUpdate }: {
   }
 
   return (
-    <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+    <div className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
       <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px]">
         <TerminalSquare className="size-3.5 text-brand" />
         <span className="font-semibold uppercase tracking-wider">{tr("cURL")}</span>

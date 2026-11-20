@@ -27,7 +27,7 @@ export function EquationBlock({
       id={`block-input-${block.id}`}
       data-block-input
       tabIndex={0}
-      className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card"
+      className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]"
     >
       <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] text-muted-foreground">
         <Sigma className="size-3" /> {tr("Equation")}

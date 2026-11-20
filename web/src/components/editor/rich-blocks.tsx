@@ -215,7 +215,7 @@ export function BookmarkBlock({
         href={url?.toString() ?? "#"}
         target="_blank"
         rel="noreferrer noopener"
-        className="flex items-center gap-3 rounded-xl border border-border/80 bg-card px-3.5 py-3 transition hover:border-brand/40 hover:bg-accent/25"
+        className="flex items-center gap-3 rounded-xl bg-card px-3.5 py-3 shadow-sm transition hover:bg-accent/25 hover:shadow-md"
       >
         <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-brand-soft text-brand">
           {iconState === "loading" && <span className="absolute inset-1 animate-pulse rounded bg-brand/15" />}
@@ -402,7 +402,7 @@ export function EmbedBlock({
     return <LinkPrompt block={block} kind="embed" readOnly={readOnly} autoFocus={autoFocus} onUpdate={(patch) => { onUpdate(patch); setEditing(false) }} />
   }
   return (
-    <div className="group relative my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+    <div className="group relative my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
       <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] text-muted-foreground">
         <Frame className="size-3" /> <span className="truncate">{hostFor(block.url ?? "")}</span>
         <a href={safeHttpUrl(block.url ?? "")?.toString() ?? "#"} target="_blank" rel="noreferrer noopener" className="ml-auto flex items-center gap-1 hover:text-foreground">
@@ -513,7 +513,7 @@ export function FileBlock({
         target="_blank"
         rel="noreferrer noopener"
         download={!isPdf ? name : undefined}
-        className="flex items-center gap-3 rounded-xl border border-border/80 bg-card px-3.5 py-3 transition hover:border-brand/40 hover:bg-accent/25"
+        className="flex items-center gap-3 rounded-xl bg-card px-3.5 py-3 shadow-sm transition hover:bg-accent/25 hover:shadow-md"
       >
         <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", visual.className)}>
           <FileIcon className="size-4" />
@@ -599,7 +599,7 @@ export function TocBlock({
       id={`block-input-${block.id}`}
       data-block-input
       tabIndex={0}
-      className="my-2 rounded-xl border border-border/80 bg-card p-3.5"
+      className="my-2 rounded-xl bg-card p-3.5 shadow-[var(--shadow-card)]"
     >
       <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
         <ListTree className="size-3.5" /> {block.text || tr("Table of contents")}

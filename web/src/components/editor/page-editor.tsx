@@ -1476,7 +1476,7 @@ export function PageEditor() {
   if (loading || (page && page.id !== pageId)) {
     return (
       <div className="flex h-full flex-col">
-      <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
+      <header className="flex h-11 shrink-0 items-center gap-1 bg-background/60 px-3 backdrop-blur-sm">
           <SidebarToggle />
           <Skeleton className="ml-1 h-4 w-40" />
         </header>
@@ -1496,7 +1496,7 @@ export function PageEditor() {
   if (error || !page) {
     return (
       <div className="flex h-full flex-col">
-      <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
+      <header className="flex h-11 shrink-0 items-center gap-1 bg-background/60 px-3 backdrop-blur-sm">
           <SidebarToggle />
         </header>
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
@@ -1527,7 +1527,7 @@ export function PageEditor() {
           </div>
         </div>
       )}
-      <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
+      <header className="flex h-11 shrink-0 items-center gap-1 bg-background/60 px-3 backdrop-blur-sm">
         <SidebarToggle />
         <Breadcrumbs page={page} title={title} icon={icon} />
         <PageStats blocks={blocks} />
@@ -1565,7 +1565,7 @@ export function PageEditor() {
           </DropdownMenu>
         )}
         {readOnly && (
-          <span className="ml-1 rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+          <span className="ml-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
             {tr("View only")}
           </span>
         )}
@@ -1595,10 +1595,10 @@ export function PageEditor() {
           )}
           <span
             className={cn(
-              "hidden items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] sm:flex",
+              "hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] sm:flex",
               liveStatus === "connected"
-                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                : "border-amber-500/20 bg-amber-500/15 text-amber-800 dark:text-amber-200",
+                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : "bg-amber-500/15 text-amber-800 dark:text-amber-200",
             )}
             title={liveStatus === "connected" ? "Live collaboration connected" : "Reconnecting…"}
           >
@@ -1878,7 +1878,7 @@ export function PageEditor() {
 
         <div className={cn("mx-auto w-full px-5 pb-28 sm:px-10", page.width === "full" ? "max-w-none" : page.width === "wide" ? "max-w-7xl" : "max-w-3xl lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl", !cover && "pt-6")}>
           {layoutHeader.length > 0 && (
-            <div className="mb-5 border-b border-border/60 pb-3">
+            <div className="mb-6 pb-1">
               <BlockEditor
                 blocks={layoutHeader}
                 readOnly
@@ -1890,7 +1890,7 @@ export function PageEditor() {
             </div>
           )}
           {page.isLayout && (
-            <div className="mb-5 flex items-start gap-3 rounded-xl border border-brand/25 bg-brand-soft/25 px-3.5 py-3 text-xs">
+            <div className="mb-6 flex items-start gap-3 rounded-xl bg-brand-soft/25 px-3.5 py-3 text-xs">
               <span className="mt-0.5 rounded-full bg-brand px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">{tr("Layout")}</span>
               <span className="leading-5 text-muted-foreground">{tr("This page is a layout. Blocks before the Content placeholder become the header; blocks after it become the footer.")}</span>
             </div>
@@ -1985,7 +1985,7 @@ export function PageEditor() {
           </div>
           <Backlinks pageId={page.id} />
           {layoutFooter.length > 0 && (
-            <div className="mt-8 border-t border-border/60 pt-3">
+            <div className="mt-10 pt-1">
               <BlockEditor
                 blocks={layoutFooter}
                 readOnly
@@ -2004,7 +2004,7 @@ export function PageEditor() {
           type="button"
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => setComposerOpen(true)}
-          className="fixed z-50 flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-popover px-3 py-1.5 text-xs font-medium text-popover-foreground shadow-xl transition hover:bg-accent animate-in fade-in-0 zoom-in-95"
+          className="fixed z-50 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-popover px-3 py-1.5 text-xs font-medium text-popover-foreground shadow-[var(--shadow-pop)] transition hover:bg-accent animate-in fade-in-0 zoom-in-95"
           style={{ left: selection.x, top: Math.min(selection.y + 8, window.innerHeight - 48) }}
         >
           <MessageSquarePlus className="size-3.5 text-brand" />
@@ -2013,7 +2013,7 @@ export function PageEditor() {
       )}
 
       {!readOnly && (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-8px_24px_-18px_rgba(0,0,0,0.35)] backdrop-blur md:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-30 bg-background/90 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-12px_30px_-24px_rgba(0,0,0,0.3)] backdrop-blur-xl md:hidden">
           <div className="mx-auto flex max-w-md items-center justify-around">
             <MobileToolButton label={tr("Add block")} onClick={addParagraph}>
               <Plus className="size-5" />

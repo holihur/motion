@@ -102,7 +102,7 @@ export function FeedbackButton() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={tr("Send feedback")}
-        className="fixed bottom-20 right-4 z-40 flex h-10 items-center gap-1.5 rounded-full border border-border/70 bg-background/95 px-3 text-xs font-medium text-muted-foreground shadow-lg backdrop-blur transition hover:border-brand/40 hover:bg-brand-soft/30 hover:text-foreground md:bottom-5 md:right-5"
+        className="fixed bottom-20 right-4 z-40 flex h-10 items-center gap-1.5 rounded-full bg-background/90 px-3.5 text-xs font-medium text-muted-foreground shadow-[var(--shadow-card)] backdrop-blur transition hover:bg-brand-soft/30 hover:text-foreground md:bottom-5 md:right-5"
       >
         <MessageSquarePlus className="size-4" />
         <span className="hidden sm:inline">{tr("Feedback")}</span>
@@ -151,7 +151,7 @@ export function FeedbackButton() {
                 placeholder={tr("What happened, and what did you expect?")}
                 rows={5}
                 maxLength={10000}
-                className="w-full resize-y rounded-md border bg-background px-2.5 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring/25"
+                className="w-full resize-y rounded-lg border-0 bg-muted/50 px-3 py-2 text-xs leading-5 outline-none focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-brand/25"
               />
             </div>
             {(pageTitle || pageId) && (

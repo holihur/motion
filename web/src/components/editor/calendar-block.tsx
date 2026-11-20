@@ -150,7 +150,7 @@ export function CalendarBlock({
   }
 
   return (
-    <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+    <div className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px]">
         <span className="flex items-center gap-1 font-medium text-muted-foreground"><CalendarDays className="size-3" /> {tr("Calendar")}</span>
         <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground">{tr("{n} event(s)", { n: events.length })}</span>

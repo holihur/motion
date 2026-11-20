@@ -140,7 +140,7 @@ export function PasswordBlock({
       data-block-input
       tabIndex={0}
       onFocus={onFocus}
-      className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card outline-none focus-visible:ring-2 focus-visible:ring-brand/25"
+      className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)] outline-none focus-visible:ring-2 focus-visible:ring-brand/25"
     >
       <div className="flex items-center gap-2 border-b border-border/60 bg-muted/25 px-3 py-2">
         {mode === "unlocked" ? (

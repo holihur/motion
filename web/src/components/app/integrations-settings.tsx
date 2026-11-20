@@ -296,7 +296,7 @@ export function IntegrationsSettings() {
                 key={card.id}
                 type="button"
                 onClick={() => setActive(card.id)}
-                className="group flex min-h-24 items-start gap-3 rounded-xl border bg-card p-3.5 text-left transition hover:border-brand/35 hover:bg-brand-soft/10"
+                className="group flex min-h-24 items-start gap-3 rounded-xl bg-card p-3.5 text-left shadow-sm transition hover:bg-brand-soft/10 hover:shadow-md"
               >
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><Icon className="size-4" /></span>
                 <span className="min-w-0 flex-1">

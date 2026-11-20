@@ -44,18 +44,18 @@ export function QRCodeBlock({
   }, [value, size, values.join("|"), block.color])
 
   return (
-    <div ref={rootRef} id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
-      <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
+    <div ref={rootRef} id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2">
+      <div className="flex items-center gap-2 px-1 py-1.5">
         <QrCode className="size-3.5 text-brand" />
         <span className="flex-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{tr("QR code")}</span>
       </div>
-      <div className="space-y-3 p-3">
-        {!value && <div className="rounded-lg border border-dashed px-4 py-8 text-center text-xs text-muted-foreground">{readOnly ? tr("No QR code content.") : tr("Use the ••• menu to enter a URL or text.")}</div>}
+      <div className="space-y-2 px-1 pb-1">
+        {!value && <div className="rounded-lg bg-muted/40 px-4 py-8 text-center text-xs text-muted-foreground">{readOnly ? tr("No QR code content.") : tr("Use the ••• menu to enter a URL or text.")}</div>}
 
         {value && dataURLs.length > 0 && (
           <div className={isBatch ? "grid gap-3 sm:grid-cols-2" : "flex flex-col items-center gap-2"}>
             {dataURLs.map((url, i) => (
-              <div key={i} className="flex flex-col items-center gap-1 rounded-lg border bg-white p-2">
+              <div key={i} className="flex flex-col items-center gap-1 rounded-xl bg-white p-3">
                 <img src={url} width={Math.min(size, 180)} height={Math.min(size, 180)} alt={values[i] || "QR code"} className="max-w-full rounded-lg bg-white" />
                 <div className="truncate text-[10px] text-muted-foreground">{values[i]}</div>
                 <button type="button" onClick={() => { const link = document.createElement("a"); link.href = url; link.download = `qr-${i+1}.png`; link.click() }} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground">
@@ -106,7 +106,7 @@ export function BarcodeBlock({
   }, [value, format])
 
   return (
-    <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+    <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-2">
         <Barcode className="size-3.5 text-brand" />
         <span className="flex-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{tr("Barcode")}</span>

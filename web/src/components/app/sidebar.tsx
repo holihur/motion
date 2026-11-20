@@ -109,7 +109,7 @@ export function Sidebar() {
       <aside
         style={{ "--sidebar-width": `${sidebarWidth}px` } as React.CSSProperties}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[276px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform duration-200 md:static md:z-0 md:w-[var(--sidebar-width)] md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex w-[276px] shrink-0 flex-col bg-sidebar text-sidebar-foreground transition-transform duration-200 md:static md:z-0 md:w-[var(--sidebar-width)] md:translate-x-0",
           sidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full",
           sidebarCollapsed && "md:hidden",
         )}
@@ -121,7 +121,7 @@ export function Sidebar() {
           aria-orientation="vertical"
           onPointerDown={startResize}
           onDoubleClick={() => setSidebarWidth(DEFAULT_SIDEBAR_WIDTH)}
-          className="absolute inset-y-0 -right-1 hidden w-2 cursor-col-resize touch-none select-none hover:bg-brand/30 md:block"
+          className="absolute inset-y-0 -right-1 hidden w-2 cursor-col-resize touch-none select-none md:block"
         />
       </aside>
     </>
@@ -198,12 +198,12 @@ function SidebarContent() {
         </button>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
+      <ScrollArea type="scroll" className="min-h-0 flex-1">
         <nav className="space-y-0.5 px-2 pb-4 pt-1">
           <SidebarButton
             icon={<Search className="size-3.5" />}
             label={tr("Search")}
-            trailing={<span className="rounded border border-sidebar-border bg-background/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{modKey()} K</span>}
+            trailing={<span className="rounded-md bg-background/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">{modKey()} K</span>}
             onClick={() => setSearchOpen(true)}
           />
           <SidebarButton
@@ -231,7 +231,7 @@ function SidebarContent() {
               onChange={(event) => setFilter(event.target.value)}
               placeholder={tr("Filter pages…")}
               aria-label={tr("Filter pages…")}
-              className="h-7 border-sidebar-border bg-background/50 pl-7 pr-7 text-xs shadow-none"
+              className="h-7 bg-background/55 pl-7 pr-7 text-xs"
             />
             {filter && (
               <button
@@ -552,7 +552,7 @@ function WorkspaceSwitcher() {
             aria-label={tr("Workspace menu")}
             className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1.5 text-left transition hover:bg-sidebar-accent"
           >
-            <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-sidebar-border bg-background/60 text-[15px] shadow-sm">
+            <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-background/70 text-[15px] shadow-sm">
               {active?.icon ? <WorkspaceIcon value={active.icon} alt={active.name} className="size-full" /> : <LogoMark className="size-6 rounded-md" />}
             </span>
             <span className="min-w-0 flex-1">

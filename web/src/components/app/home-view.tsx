@@ -98,7 +98,7 @@ export function HomeView() {
 
   return (
     <>
-      <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
+      <header className="flex h-11 shrink-0 items-center gap-1 bg-background/60 px-3 backdrop-blur-sm">
         <SidebarToggle />
         <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           <WorkspaceIcon value={workspace?.icon} alt={workspace?.name} className="text-sm" />
@@ -110,11 +110,11 @@ export function HomeView() {
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="flex h-7 items-center gap-2 rounded-md border border-border/80 bg-background px-2.5 text-xs text-muted-foreground shadow-sm transition hover:bg-accent"
+            className="flex h-7 items-center gap-2 rounded-md bg-muted/50 px-2.5 text-xs text-muted-foreground transition hover:bg-muted"
           >
             <Search className="size-3.5" />
             <span className="hidden sm:inline">{tr("Search")}</span>
-            <span className="hidden rounded border border-border bg-muted/60 px-1 py-0.5 text-[9px] sm:inline">
+            <span className="hidden rounded bg-muted/70 px-1 py-0.5 text-[9px] sm:inline">
               {modKey()} K
             </span>
           </button>
@@ -213,7 +213,7 @@ export function HomeView() {
                   disabled={!!creatingTemplate}
                   onClick={() => void useTemplate(template)}
                   className={cn(
-                    "group/template relative overflow-hidden rounded-xl border border-border/80 bg-gradient-to-br p-3.5 text-left transition hover:-translate-y-0.5 hover:border-brand/35 hover:shadow-[0_14px_30px_-22px_rgba(0,0,0,0.35)] disabled:opacity-60",
+                    "group/template relative overflow-hidden rounded-xl bg-gradient-to-br p-3.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)] disabled:opacity-60",
                     template.gradient,
                   )}
                 >
@@ -252,7 +252,7 @@ export function HomeView() {
                       <button
                         type="button"
                         onClick={() => navigate(`/page/${page.id}`)}
-                        className="relative flex h-40 w-full flex-col overflow-hidden rounded-xl border border-border/80 bg-card p-4 text-left transition-all hover:-translate-y-0.5 hover:border-brand/35 hover:shadow-[0_18px_40px_-24px_rgba(0,0,0,0.35)]"
+                        className="relative flex h-40 w-full flex-col overflow-hidden rounded-xl bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-card)]"
                       >
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand/[0.045] to-brand-two/[0.04] opacity-0 transition-opacity group-hover/card:opacity-100" />
                         <div className="relative flex w-full items-start justify-between">
@@ -298,7 +298,7 @@ export function HomeView() {
                   <button
                     type="button"
                     onClick={() => void newPage()}
-                    className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border text-muted-foreground transition hover:border-brand/40 hover:bg-brand-soft/30 hover:text-foreground"
+                    className="flex h-40 flex-col items-center justify-center gap-2 rounded-xl bg-muted/30 text-muted-foreground transition hover:bg-brand-soft/30 hover:text-foreground"
                   >
                     <span className="flex size-9 items-center justify-center rounded-full bg-muted">
                       <FilePlus2 className="size-4" />
@@ -321,7 +321,7 @@ export function HomeView() {
                         key={page.id}
                         type="button"
                         onClick={() => navigate(`/page/${page.id}`)}
-                        className="flex items-center gap-2 rounded-full border border-border/80 bg-card py-1.5 pl-2 pr-3 text-xs transition hover:border-brand/35 hover:bg-accent/50"
+                        className="flex items-center gap-2 rounded-full bg-muted/50 py-1.5 pl-2 pr-3 text-xs transition hover:bg-muted"
                       >
                         <span className="text-sm leading-none">{page.icon || "📄"}</span>
                         <span className="max-w-[180px] truncate font-medium">{pageTitle(page.title)}</span>
@@ -354,7 +354,7 @@ function HomeFooter() {
   const tip = tips[index]
   const TipIcon = tip.icon
   return (
-    <div className="mt-16 overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-muted/40 via-background to-brand-soft/20">
+    <div className="mt-16 overflow-hidden rounded-2xl bg-gradient-to-br from-muted/40 via-background to-brand-soft/20 shadow-[var(--shadow-card)]">
       <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
@@ -411,7 +411,7 @@ function OnboardingCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [complete])
   return (
-    <section className="relative mt-8 overflow-hidden rounded-2xl border border-brand/20 bg-gradient-to-br from-brand-soft/50 via-background to-brand-two/10 p-5">
+    <section className="relative mt-8 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-soft/50 via-background to-brand-two/10 p-5 shadow-[var(--shadow-card)]">
       <div className="pointer-events-none absolute -right-10 -top-16 size-44 rounded-full bg-brand/10 blur-3xl" />
       <button
         type="button"
@@ -424,7 +424,7 @@ function OnboardingCard({
       <div className="relative">
         <div className="flex items-center gap-2 pr-8 text-xs font-medium text-brand">
           <Sparkles className="size-3.5" /> {complete ? tr("Workspace unlocked") : tr("A 60-second tour")}
-          <span className="ml-auto rounded-full bg-background/70 px-2 py-0.5 text-[10px] text-muted-foreground ring-1 ring-border/60">
+          <span className="ml-auto rounded-full bg-background/70 px-2 py-0.5 text-[10px] text-muted-foreground">
             {doneCount}/{steps.length}
           </span>
         </div>
@@ -434,7 +434,7 @@ function OnboardingCard({
             ? tr("You have unlocked the core workflow. Keep exploring — the tour will stay out of your way.")
             : tr("Four small actions unlock the whole workspace. You can dismiss this whenever you like.")}
         </p>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-background/70 ring-1 ring-border/40">
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-background/70">
           <div
             className="h-full rounded-full brand-gradient transition-all duration-500"
             style={{ width: `${(doneCount / steps.length) * 100}%` }}
@@ -442,7 +442,7 @@ function OnboardingCard({
         </div>
         <div className="mt-4 grid gap-1.5 sm:grid-cols-2">
           {steps.map((step, index) => (
-            <div key={step.id} className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/60 px-2.5 py-2 text-xs">
+            <div key={step.id} className="flex items-center gap-2 rounded-lg bg-background/60 px-2.5 py-2 text-xs">
               <span
                 className={cn(
                   "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
@@ -472,11 +472,11 @@ function OnboardingCard({
 
 function EmptyWorkspace({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="relative mt-12 overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-brand-soft/60 via-background to-brand-two/10 px-6 py-14 text-center">
+    <div className="relative mt-12 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-soft/60 via-background to-brand-two/10 px-6 py-14 text-center shadow-[var(--shadow-card)]">
       <div className="pointer-events-none absolute -left-16 -top-16 size-52 rounded-full bg-brand/15 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-20 -right-10 size-52 rounded-full bg-brand-two/15 blur-3xl" />
       <div className="relative mx-auto flex max-w-md flex-col items-center">
-        <div className="flex size-14 items-center justify-center rounded-2xl bg-background shadow-lg ring-1 ring-border/60">
+        <div className="flex size-14 items-center justify-center rounded-2xl bg-background shadow-lg">
           <span className="text-2xl">✍️</span>
         </div>
         <h2 className="mt-5 text-xl font-semibold tracking-tight">{tr("A blank page, full of possibility")}</h2>

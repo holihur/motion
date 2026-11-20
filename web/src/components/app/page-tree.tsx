@@ -246,7 +246,7 @@ export function PageTree({
                   createPageRef.current = false
                 }
               }}
-              className="flex w-full items-center gap-2 rounded-lg border bg-card px-2.5 py-2 text-left transition hover:border-brand/30 hover:bg-accent/40"
+              className="flex w-full items-center gap-2 rounded-lg bg-background/55 px-2.5 py-2 text-left transition hover:bg-accent/50"
             >
               <span className="text-sm">{tpl.icon}</span>
               <span className="text-xs font-medium">{tpl.title}</span>

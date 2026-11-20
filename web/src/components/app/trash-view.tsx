@@ -82,7 +82,7 @@ export function TrashView() {
 
   return (
     <>
-      <header className="flex h-11 shrink-0 items-center gap-1 border-b border-border/70 px-3">
+      <header className="flex h-11 shrink-0 items-center gap-1 bg-background/60 px-3 backdrop-blur-sm">
         <SidebarToggle />
         <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <button
@@ -131,7 +131,7 @@ export function TrashView() {
                 <p className="mt-1 text-xs text-muted-foreground">{tr("Deleted pages will show up here.")}</p>
               </div>
             ) : (
-              <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/80 bg-card">
+              <div className="divide-y divide-border/50 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
                 {trash.map((page) => (
                   <div key={page.id} data-page-id={page.id} className="flex items-center gap-3 px-4 py-3">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-lg">

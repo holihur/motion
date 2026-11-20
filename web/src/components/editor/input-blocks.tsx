@@ -20,7 +20,7 @@ export function RadioGroupBlock({
   }
 
   return (
-    <div className="my-2 rounded-xl border border-border/80 bg-card p-3">
+    <div className="my-2 rounded-xl bg-card p-3 shadow-[var(--shadow-card)]">
       <div className="flex items-center gap-2">
         <ListChecks className="size-3.5 text-brand" />
         <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{tr("Radio group")}</span>

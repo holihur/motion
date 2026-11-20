@@ -336,13 +336,13 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
   // ---- 只读：纯展示 ----
   if (readOnly) {
     if (!parsed || isLegacyChart) return (
-      <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+      <div className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
         <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] text-muted-foreground"><GitBranch className="size-3 text-brand" />{tr("Flowchart")}</div>
         {parsed ? <StaticCanvas flow={ensurePos(parsed.flow)} /> : <LegacyPreview text={block.text} />}
       </div>
     )
     return (
-      <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+      <div className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
         <div className="flex items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px] text-muted-foreground"><GitBranch className="size-3 text-brand" />{tr("Flowchart")} · {tr("{n} nodes", { n: laid.nodes.length })}</div>
         <StaticCanvas flow={laid} />
       </div>
@@ -350,7 +350,7 @@ export function JsonVisualBlock({ block, readOnly, onUpdate }: { block: Block; r
   }
 
   return (
-    <div className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+    <div className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
       {/* 顶栏 */}
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-2.5 py-1.5 text-[10px]">
         <GitBranch className="size-3.5 text-brand" />

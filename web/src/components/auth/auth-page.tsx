@@ -116,12 +116,12 @@ export function AuthPage() {
       </div>
 
       {/* Brand panel */}
-      <section className="relative hidden flex-col justify-between overflow-hidden border-r border-border/60 bg-sidebar/70 p-12 lg:flex">
+      <section className="relative hidden flex-col justify-between overflow-hidden bg-sidebar/70 p-12 lg:flex xl:p-16">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,var(--brand-soft),transparent_42%)]" />
         <Logo className="relative" markClassName="size-10" />
 
         <div className="relative z-10 max-w-lg">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/70 px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-background/60 px-3.5 py-1.5 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur">
             <Sparkles className="size-3.5 text-brand" />
             {tr("A calmer place for your thoughts")}
           </div>
@@ -137,7 +137,7 @@ export function AuthPage() {
           {/* Little product mock */}
           <div className="relative mt-12 w-full max-w-md">
             <div className="absolute -inset-4 rounded-[28px] bg-gradient-to-br from-brand/10 to-brand-two/10 blur-2xl" />
-            <div className="relative rotate-[-1.4deg] rounded-2xl border border-border/80 bg-background/90 p-5 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.35)] backdrop-blur">
+            <div className="relative rotate-[-1.4deg] rounded-2xl bg-background/90 p-5 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.35)] backdrop-blur">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <span className="text-lg">🗓️</span>
                 {tr("Weekly Notes")}
@@ -180,7 +180,7 @@ export function AuthPage() {
 
       {/* Form panel */}
       <section className="relative flex min-h-svh flex-col">
-        <header className="flex items-center justify-between p-6 lg:justify-end">
+        <header className="flex items-center justify-between p-6 lg:justify-end lg:p-8">
           <Logo className="lg:hidden" />
           <div className="flex items-center gap-1">
             <LanguageToggle compact />
@@ -188,8 +188,8 @@ export function AuthPage() {
           </div>
         </header>
 
-        <div className="relative flex flex-1 items-center justify-center px-5 pb-16 pt-4">
-          <div className="w-full max-w-[400px] animate-rise rounded-2xl border border-border/60 bg-background/60 p-6 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.3)] backdrop-blur-xl sm:p-8">
+        <div className="relative flex flex-1 items-center justify-center px-5 pb-20 pt-4 sm:px-8">
+          <div className="w-full max-w-[400px] animate-rise">
             <div className="mb-8">
               <h2 className="text-2xl font-semibold tracking-tight">
                 {mode === "login" ? tr("Welcome back") : tr("Create your account")}
@@ -205,8 +205,8 @@ export function AuthPage() {
               <div className="mb-5 space-y-4">
                 <Button
                   type="button"
-                  variant="outline"
-                  className="h-10 w-full gap-2"
+                  variant="secondary"
+                  className="h-10 w-full gap-2 bg-muted/50"
                   onClick={() => {
                     window.location.href = "/api/auth/oidc/start"
                   }}
@@ -214,11 +214,7 @@ export function AuthPage() {
                   <LockKeyhole className="size-4" />
                   {oidc.name || tr("Single sign-on")}
                 </Button>
-                <div className="flex items-center gap-3">
-                  <div className="h-px flex-1 bg-border" />
-                  <span className="text-[11px] uppercase tracking-widest text-muted-foreground">or</span>
-                  <div className="h-px flex-1 bg-border" />
-                </div>
+                <div className="py-1 text-center text-[11px] uppercase tracking-widest text-muted-foreground">or</div>
               </div>
             )}
 
@@ -234,7 +230,7 @@ export function AuthPage() {
                       placeholder="Ada Lovelace"
                       value={name}
                       onChange={(event) => setName(event.target.value)}
-                      className="h-10 pl-9"
+                      className="h-10 border-0 bg-muted/50 pl-9 shadow-none focus-visible:ring-2 focus-visible:ring-brand/30"
                     />
                   </div>
                 </div>
@@ -251,7 +247,7 @@ export function AuthPage() {
                     placeholder="you@example.com"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
-                    className="h-10 pl-9"
+                    className="h-10 border-0 bg-muted/50 pl-9 shadow-none focus-visible:ring-2 focus-visible:ring-brand/30"
                   />
                 </div>
               </div>
@@ -270,7 +266,7 @@ export function AuthPage() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    className="h-10 pl-9 pr-10"
+                    className="h-10 border-0 bg-muted/50 pl-9 pr-10 shadow-none focus-visible:ring-2 focus-visible:ring-brand/30"
                   />
                   <button
                     type="button"
@@ -284,7 +280,7 @@ export function AuthPage() {
               </div>
 
               {error && (
-                <div className="rounded-lg border border-destructive/25 bg-destructive/8 px-3 py-2.5 text-[13px] text-destructive">
+                <div className="rounded-lg bg-destructive/10 px-3 py-2.5 text-[13px] text-destructive">
                   {error}
                 </div>
               )}
@@ -301,13 +297,9 @@ export function AuthPage() {
               </Button>
             </form>
 
-            <div className="my-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-[11px] uppercase tracking-widest text-muted-foreground">or</span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
+            <div className="my-6 text-center text-[11px] uppercase tracking-widest text-muted-foreground">or</div>
 
-            <Button variant="outline" className="h-10 w-full" onClick={useDemo} disabled={pending}>
+            <Button variant="secondary" className="h-10 w-full bg-muted/50" onClick={useDemo} disabled={pending}>
               <span className="text-base leading-none">✨</span>
               {tr("Explore the demo workspace")}
             </Button>
@@ -326,7 +318,7 @@ export function AuthPage() {
               </button>
             </p>
 
-            <div className="mt-6 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
+            <div className="mt-6 rounded-xl bg-muted/35 px-3.5 py-3">
               <div className="flex items-center justify-center gap-2 text-[11px] font-medium">
                 <span className="shrink-0 whitespace-nowrap rounded bg-brand px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">{tr("Tip")}</span>
                 <span className="text-muted-foreground">{tr("Demo account: demo@motion.app · demo1234")} — {tr("Explore the demo workspace")}</span>
@@ -339,7 +331,7 @@ export function AuthPage() {
                 <span>{tr("Ask Motion AI to summarize or edit")}</span>
               </div>
             </div>
-            <div className="mt-6 flex flex-col items-center gap-2 border-t pt-4 text-[10px] text-muted-foreground/60">
+            <div className="mt-10 flex flex-col items-center gap-2 text-[10px] text-muted-foreground/60">
               <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
                 <span>© {new Date().getFullYear()} Motion</span>
                 <span className="opacity-30">·</span>

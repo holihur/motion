@@ -182,7 +182,7 @@ export function AppShell() {
 function RouteSkeleton() {
   return (
     <div className="flex h-full flex-col" aria-busy="true" aria-label={tr("Loading page")}>
-      <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border/70 px-3">
+      <header className="flex h-11 shrink-0 items-center gap-2 bg-background/60 px-3 backdrop-blur-sm">
         <Skeleton className="size-7 rounded-md" />
         <Skeleton className="h-4 w-40" />
         <div className="ml-auto flex items-center gap-2">

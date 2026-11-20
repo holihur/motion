@@ -53,7 +53,7 @@ export function PageLinkBlock({
               onClick={() => navigate(`/page/${target.id}`)}
               onMouseEnter={() => setPreviewOpen(true)}
               onMouseLeave={() => setPreviewOpen(false)}
-              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border border-border/70 bg-card px-3 py-2 text-left transition hover:border-brand/40 hover:bg-accent/30"
+              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl bg-card px-3 py-2 text-left shadow-sm transition hover:bg-accent/30 hover:shadow-md"
             >
               <span className="text-base leading-none">{target.icon || "📄"}</span>
               <span className="truncate text-[13px] font-medium">{pageTitle(target.title)}</span>
@@ -221,7 +221,7 @@ export function ColumnsBlock({
   }
 
   return (
-    <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 rounded-xl border border-border/80 bg-card p-3">
+    <div id={`block-input-${block.id}`} data-block-input tabIndex={0} className="my-2 rounded-xl bg-card p-3 shadow-[var(--shadow-card)]">
       <div className="mb-2 flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         <Columns2 className="size-3" /> {tr("Columns")}
         {!readOnly && (

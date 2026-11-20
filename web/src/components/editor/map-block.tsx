@@ -133,7 +133,7 @@ export function MapBlock({
       : `https://www.openstreetmap.org/?mlat=${data.lat}&mlon=${data.lng}#map=${data.zoom ?? 12}/${data.lat}/${data.lng}`
 
   return (
-    <div id={`block-input-${block.id}`} data-block-input tabIndex={0} onKeyDown={onKeyDown} onFocus={onFocus} className="my-2 overflow-hidden rounded-xl border border-border/80 bg-card">
+    <div id={`block-input-${block.id}`} data-block-input tabIndex={0} onKeyDown={onKeyDown} onFocus={onFocus} className="my-2 overflow-hidden rounded-xl bg-card shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-2.5 py-1.5">
         <MapIcon className="size-3.5 text-brand" />
         <select

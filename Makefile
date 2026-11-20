@@ -83,7 +83,9 @@ test:
 	cd server && $(MISE_EXEC) go test ./...
 	cd web && $(MISE_EXEC) pnpm typecheck
 
-e2e: build-web-fast build-api
+e2e: build-api
+	# Keep developer-local observability config (web/.env.local) out of e2e builds.
+	cd web && VITE_CATCH_URL= VITE_CATCH_INGEST_KEY= $(MISE_EXEC) pnpm build:fast
 	cd e2e && $(MISE_EXEC) pnpm test $(E2E_ARGS)
 
 clean:

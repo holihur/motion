@@ -168,7 +168,8 @@ function columnIndex(ref: string, fallback: number): number {
 
 async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
   if (typeof DecompressionStream === "undefined") throw new Error("This browser cannot read .xlsx files")
-  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))
+  const copy = new Uint8Array(data)
+  const stream = new Blob([copy.buffer]).stream().pipeThrough(new DecompressionStream("deflate-raw"))
   return new Uint8Array(await new Response(stream).arrayBuffer())
 }
 

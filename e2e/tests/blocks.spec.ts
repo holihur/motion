@@ -47,13 +47,13 @@ test.describe("rich blocks", () => {
       .toBeGreaterThan(160)
 
     await page.getByRole("button", { name: "Add a block" }).click()
-    await page.waitForTimeout(300)
+    await expect(page.locator("[data-block-input]").last()).toBeFocused()
     await page.keyboard.type("/")
     await page.waitForTimeout(300)
     await page.keyboard.type("dia")
     await page.getByRole("option", { name: /Diagram/ }).click()
     await page.waitForTimeout(700)
-    await page.getByRole("button", { name: "Preview" }).click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
     await expect(page.locator(".mermaid-frame svg")).toBeVisible({ timeout: 15_000 })
 
     await page.waitForTimeout(1200)

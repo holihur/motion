@@ -29,7 +29,7 @@ import { api } from "@/lib/api"
 import { tr } from "@/lib/i18n"
 import { coverStyle } from "@/lib/covers"
 import { downloadMarkdown } from "@/lib/markdown"
-import { renderDiagramImages } from "@/lib/mermaid-export"
+import { renderExportImages } from "@/lib/mermaid-export"
 import { PAGE_THEMES } from "@/lib/page-theme"
 import { cn, formatRelative } from "@/lib/utils"
 import { pageTitle } from "@/lib/tree"
@@ -43,6 +43,7 @@ import { Switch } from "@/components/ui/switch"
 import { CoverPicker } from "@/components/editor/cover-picker"
 import { EmojiPicker } from "@/components/editor/emoji-picker"
 import { PageLayoutDialog } from "@/components/app/page-layout-dialog"
+import { DEFAULT_PDF_OPTIONS, PdfExportDialog, type PdfExportOptions } from "@/components/app/pdf-export-dialog"
 import { ShareDialog } from "@/components/app/share-dialog"
 import { PagePublishingCard } from "@/components/app/page-publishing"
 import { ImportDialog } from "@/components/app/import-dialog"
@@ -70,7 +71,7 @@ function SettingsCard({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm sm:p-5">
+    <section className="rounded-2xl bg-card p-4 shadow-[var(--shadow-card)] sm:p-5">
       <div className="mb-4">
         <h2 className="text-sm font-semibold">{title}</h2>
         {description && <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">{description}</p>}
@@ -124,6 +125,8 @@ export function PageSettingsPage() {
   const [structure, setStructure] = useState<"split" | "merge" | null>(null)
   const [importOpen, setImportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [pdfOptionsOpen, setPdfOptionsOpen] = useState(false)
+  const [pdfOptions, setPdfOptions] = useState<PdfExportOptions>(DEFAULT_PDF_OPTIONS)
 
   const readOnly = page?.role === "viewer"
   const locked = Boolean(page?.locked)
@@ -269,7 +272,7 @@ export function PageSettingsPage() {
     }
   }
 
-  async function exportFile(format: "html" | "pdf" | "docx" | "json" | "md") {
+  async function exportFile(format: "html" | "pdf" | "docx" | "json" | "md", options?: PdfExportOptions) {
     if (!page || exporting) return
     setExporting(true)
     try {
@@ -279,16 +282,21 @@ export function PageSettingsPage() {
         toast.success(tr("Markdown downloaded"))
         return
       }
-      let diagrams: Awaited<ReturnType<typeof renderDiagramImages>> | undefined
+      let diagrams: Awaited<ReturnType<typeof renderExportImages>> | undefined
       if (format === "pdf" || format === "docx") {
         try {
           const full = await api.pages.get(page.id)
-          diagrams = await renderDiagramImages(full.blocks ?? [])
+          diagrams = await renderExportImages(full.blocks ?? [])
         } catch {
           diagrams = undefined
         }
       }
-      const blob = await api.pages.exportFile(page.id, format, diagrams)
+      const blob = await api.pages.exportFile(
+        page.id,
+        format,
+        diagrams,
+        format === "pdf" ? options ?? pdfOptions : undefined,
+      )
       const href = URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = href
@@ -379,7 +387,7 @@ export function PageSettingsPage() {
 
       <main className="mx-auto w-full max-w-4xl px-4 py-7 sm:px-8 sm:py-9">
         <div className="mb-7 flex items-center gap-4">
-          <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl border bg-card text-3xl shadow-sm">
+          <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-card text-3xl shadow-sm">
             {icon || "📄"}
           </div>
           <div className="min-w-0">
@@ -479,6 +487,7 @@ export function PageSettingsPage() {
                   <DropdownMenuItem onSelect={() => void exportFile("md")}><Download /> {tr("Export as Markdown")}</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void exportFile("html")}><FileCode2 /> {tr("Export as HTML")}</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void exportFile("pdf")}><FileText /> {tr("Export as PDF")}</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setPdfOptionsOpen(true)}><FileText /> {tr("PDF options")}</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void exportFile("docx")}><FileType2 /> {tr("Export as Word")}</DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => void exportFile("json")}><FileJson /> {tr("Export blocks as JSON")}</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -638,6 +647,17 @@ export function PageSettingsPage() {
         }}
       />
       <ShareDialog open={shareOpen} onOpenChange={setShareOpen} page={page} />
+      <PdfExportDialog
+        open={pdfOptionsOpen}
+        onOpenChange={setPdfOptionsOpen}
+        options={pdfOptions}
+        onOptionsChange={setPdfOptions}
+        busy={exporting}
+        onExport={() => {
+          setPdfOptionsOpen(false)
+          void exportFile("pdf", pdfOptions)
+        }}
+      />
     </div>
   )
 }

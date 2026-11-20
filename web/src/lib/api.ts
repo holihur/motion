@@ -583,7 +583,12 @@ export const api = {
       request<{ slug: string; locked: boolean; expiresAt: string | null; views: number; comments: boolean; index: boolean }>(`/pages/${id}/publish`, { method: "GET" }),
     unpublish: (id: string, includeChildren = true) =>
       request<{ ok: boolean }>(`/pages/${id}/publish`, { method: "DELETE", body: body({ includeChildren }) }),
-    exportFile: async (id: string, format: "html" | "pdf" | "docx" | "json", diagrams?: Record<string, { svg: string; png: string; width: number; height: number }>) => {
+    exportFile: async (
+      id: string,
+      format: "html" | "pdf" | "docx" | "json",
+      diagrams?: Record<string, { svg: string; png: string; width: number; height: number }>,
+      options?: { paper?: "a4" | "letter"; landscape?: boolean; margin?: number; cover?: boolean; contents?: boolean },
+    ) => {
       const headers = new Headers()
       const token = getToken()
       if (token) headers.set("Authorization", `Bearer ${token}`)
@@ -593,7 +598,13 @@ export const api = {
         init.method = "POST"
         init.body = JSON.stringify({ diagrams })
       }
-      const response = await fetch(`/api/pages/${id}/export?format=${format}`, init)
+      const params = new URLSearchParams({ format })
+      if (options?.paper) params.set("paper", options.paper)
+      if (options?.landscape) params.set("landscape", "1")
+      if (options?.margin) params.set("margin", String(options.margin))
+      if (options?.cover) params.set("cover", "1")
+      if (options?.contents) params.set("contents", "1")
+      const response = await fetch(`/api/pages/${id}/export?${params.toString()}`, init)
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null
         throw new ApiError(localizeApiError(payload?.error || `请求失败（${response.status}）`), response.status)

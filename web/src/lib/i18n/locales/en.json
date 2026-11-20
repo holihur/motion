@@ -603,5 +603,13 @@
   "Reset height": "Reset height",
   "URL or text": "URL or text",
   "Edit content": "Edit content",
-  "Use the ••• menu to enter a URL or text.": "Use the ••• menu to enter a URL or text."
+  "Use the ••• menu to enter a URL or text.": "Use the ••• menu to enter a URL or text.",
+  "PDF options": "PDF options",
+  "Page size": "Page size",
+  "A4": "A4",
+  "Letter": "Letter",
+  "Portrait": "Portrait",
+  "Landscape": "Landscape",
+  "Cover page": "Cover page",
+  "Orientation": "Orientation"
 }

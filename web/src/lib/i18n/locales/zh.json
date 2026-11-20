@@ -1796,5 +1796,13 @@
   "Reset height": "恢复自适应高度",
   "URL or text": "网址或文字",
   "Edit content": "编辑内容",
-  "Use the ••• menu to enter a URL or text.": "使用 ••• 菜单输入网址或文字。"
+  "Use the ••• menu to enter a URL or text.": "使用 ••• 菜单输入网址或文字。",
+  "PDF options": "PDF 选项",
+  "Page size": "纸张大小",
+  "A4": "A4",
+  "Letter": "Letter",
+  "Portrait": "纵向",
+  "Landscape": "横向",
+  "Cover page": "封面",
+  "Orientation": "方向"
 }

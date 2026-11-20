@@ -39,6 +39,9 @@ func (s *Server) exportPage(w http.ResponseWriter, r *http.Request) {
 	format := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("format")))
 	name := staticpublish.Slug(page.Title, page.ID)
 	diagrams := exportDiagrams(w, r, format)
+	if format == "pdf" || format == "docx" || format == "word" {
+		diagrams = s.attachExportImages(r, page, diagrams)
+	}
 	var data []byte
 	var contentType, extension string
 	switch format {
@@ -46,7 +49,25 @@ func (s *Server) exportPage(w http.ResponseWriter, r *http.Request) {
 		data, err = export.HTML(page)
 		contentType, extension = "text/html; charset=utf-8", ".html"
 	case "pdf":
-		data, err = export.PDF(page, diagrams)
+		query := r.URL.Query()
+		truthy := func(key string) bool {
+			switch strings.ToLower(strings.TrimSpace(query.Get(key))) {
+			case "1", "true", "yes", "on":
+				return true
+			default:
+				return false
+			}
+		}
+		options := export.PDFOptions{
+			Paper:     query.Get("paper"),
+			Landscape: truthy("landscape"),
+			Cover:     truthy("cover"),
+			Contents:  truthy("contents"),
+		}
+		if margin, err := strconv.ParseFloat(strings.TrimSpace(query.Get("margin")), 64); err == nil {
+			options.Margin = margin
+		}
+		data, err = export.PDFWithOptions(page, options, diagrams)
 		contentType, extension = "application/pdf", ".pdf"
 	case "docx", "word":
 		data, err = export.DOCX(page, diagrams)

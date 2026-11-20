@@ -46,7 +46,12 @@ test("collects form responses and renders QR codes and barcodes", async ({ page,
   await page.keyboard.type("/qr code")
   await page.getByRole("option", { name: /^QR code Generate/ }).click()
   const qr = page.locator("[data-block-row]").last()
-  await qr.getByPlaceholder("URL or text to encode…").fill("https://motion.app")
+  await qr.hover()
+  await qr.getByLabel("Block options").first().click()
+  await page.getByRole("menuitem", { name: "Edit content" }).click()
+  const qrDialog = page.getByRole("dialog")
+  await qrDialog.getByLabel("URL or text").fill("https://motion.app")
+  await qrDialog.getByRole("button", { name: "Save" }).click()
   await expect(qr.locator('img')).toBeVisible()
 
   await page.getByRole("button", { name: "Add a block" }).click()

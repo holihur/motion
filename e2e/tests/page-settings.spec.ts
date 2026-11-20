@@ -28,7 +28,7 @@ test.describe("page settings", () => {
     await page.getByRole("button", { name: "Blue", exact: true }).click()
     await expect.poll(async () => (await getPage(request, account.token, target.id)).theme).toBe("blue")
 
-    await page.getByRole("switch").click()
+    await page.locator("section", { hasText: "Watermark" }).getByRole("switch").click()
     await expect.poll(async () => (await getPage(request, account.token, target.id)).watermark).toBe(true)
 
     await page.getByRole("button", { name: "Lock page" }).click()

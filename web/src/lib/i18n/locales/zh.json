@@ -1840,5 +1840,6 @@
   "Only the workspace owner can change these settings.": "只有工作区所有者可以修改这些设置。",
   "Page comment setting saved": "页面评论设置已保存",
   "Page-level comments are turned off for this page.": "此页面已关闭页面级评论。",
-  "Only {roles} can post page comments here.": "只有 {roles} 可以在此发表页面评论。"
+  "Only {roles} can post page comments here.": "只有 {roles} 可以在此发表页面评论。",
+  "Your account": "你的账号"
 }

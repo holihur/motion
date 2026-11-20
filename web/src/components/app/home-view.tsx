@@ -123,7 +123,7 @@ export function HomeView() {
               <button
                 type="button"
                 className="ml-1 rounded-full ring-offset-2 transition hover:ring-2 hover:ring-border"
-                aria-label={tr("Account menu")}
+                aria-label={tr("Your account")}
                 data-catch-event="account_menu_open"
               >
                 <Avatar className="size-6">

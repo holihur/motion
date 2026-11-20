@@ -648,5 +648,6 @@
   "Only the workspace owner can change these settings.": "Only the workspace owner can change these settings.",
   "Page comment setting saved": "Page comment setting saved",
   "Page-level comments are turned off for this page.": "Page-level comments are turned off for this page.",
-  "Only {roles} can post page comments here.": "Only {roles} can post page comments here."
+  "Only {roles} can post page comments here.": "Only {roles} can post page comments here.",
+  "Your account": "Your account"
 }

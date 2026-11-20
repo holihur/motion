@@ -17,7 +17,8 @@ test("mobile can add skills and MCP servers without a secure-context randomUUID"
   })
   await signIn(page, request)
   await page.keyboard.press("Escape")
-  await page.getByRole("main").getByRole("button", { name: "Settings", exact: true }).click()
+  await page.getByRole("button", { name: "Toggle sidebar" }).first().click()
+  await page.locator("aside").getByRole("button", { name: "Settings", exact: true }).click()
   await page.getByRole("tab", { name: "Agent" }).click()
   await expect(page.getByText("Workspace skills & MCP")).toBeVisible()
 

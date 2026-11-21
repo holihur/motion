@@ -8,6 +8,7 @@ import {
   Bold,
   BookOpen,
   Check,
+  Combine,
   Columns2,
   Copy,
   Download,
@@ -40,7 +41,7 @@ import { parseTableImport } from "@/lib/table-import"
 import { columnLabel, formulaCellKey, isFormulaInput } from "@/lib/table-formula"
 import { TABLE_COLUMN_TYPES, normalizeTableCell, tableColumnOptions, tableColumnType } from "@/lib/table-input"
 import { tableColumnOrder, tableFrozenColumnIndexes, tableFrozenOffsets, tableVisibleColumnIndexes } from "@/lib/table-layout"
-import { cellKey, coveredCells, mergeAt, mergeDown, mergeRight, unmergeAt } from "@/lib/table-merge"
+import { cellKey, cellRange, coveredCells, mergeAt, mergeDown, mergeRight, mergeSelection, rangeContains, unmergeAt, unmergeSelection } from "@/lib/table-merge"
 import { FormulaHelpDialog } from "@/components/editor/formula-help-dialog"
 import { cn } from "@/lib/utils"
 import { isImeKeyEvent } from "@/lib/keyboard"
@@ -122,9 +123,11 @@ export function TableBlockView({
   const { table, widths, heights, aligns, updateTable, setCell, addRow, removeRow, addColumn, removeColumn, setColumn, setColumnType, setColumnOptions, setAlignment, resizeColumn, resizeRow, resetRowHeight, reorderColumn, toggleColumnHidden, toggleFreezeFirst, toggleColumnFrozen, toggleHeaderSticky, sortRows, copyTable, downloadCSV, downloadJSONL, downloadExcel } = useTableBlock(block, onUpdate)
   const [tableSort, setTableSort] = useState<{ column: number; dir: "asc" | "desc" } | null>(null)
   const [activeTableCell, setActiveTableCell] = useState<{ row: number; column: number } | null>(null)
+  const [rangeFocus, setRangeFocus] = useState<{ row: number; column: number } | null>(null)
 
   useEffect(() => {
     setTableSort(null)
+    setRangeFocus(null)
   }, [block.id])
 
   function renderTable() {
@@ -188,6 +191,12 @@ export function TableBlockView({
         const merges = mergesActive ? table.merges ?? [] : []
         const covered = coveredCells(merges)
         const mergeStarts = new Map(merges.map((merge) => [cellKey(merge.row, merge.col), merge]))
+        const selectionRange = activeTableCell && activeTableCell.row >= 0 && rangeFocus
+          ? cellRange(activeTableCell.row, activeTableCell.column, rangeFocus.row, rangeFocus.column)
+          : null
+        const selectionCells = selectionRange
+          ? (selectionRange.bottom - selectionRange.top + 1) * (selectionRange.right - selectionRange.left + 1)
+          : 1
         const hiddenSet = new Set(table.hiddenColumns ?? [])
         const frozenSet = tableFrozenColumnIndexes(table)
         const frozenOffsets = tableFrozenOffsets(table, Boolean(table.rowNumbers))
@@ -239,6 +248,17 @@ export function TableBlockView({
           columnIndex: number,
         ) => {
           if (readOnly || isImeKeyEvent(event)) return
+          if (event.shiftKey && ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+            event.preventDefault()
+            const start = rangeFocus ?? { row: rowIndex, column: columnIndex }
+            const next = { ...start }
+            if (event.key === "ArrowUp") next.row = Math.max(0, next.row - 1)
+            if (event.key === "ArrowDown") next.row = Math.min(table.rows.length - 1, next.row + 1)
+            if (event.key === "ArrowLeft") next.column = Math.max(0, next.column - 1)
+            if (event.key === "ArrowRight") next.column = Math.min(table.columns.length - 1, next.column + 1)
+            setRangeFocus(next)
+            return
+          }
           if (event.key !== "Tab" && event.key !== "Enter") return
           event.preventDefault()
           const direction = event.key === "Tab" && event.shiftKey ? -1 : 1
@@ -291,14 +311,36 @@ export function TableBlockView({
           }
           updateTable(next)
         }
-        const unmergeActiveCell = () => {
+        const mergeSelectedCells = () => {
+          if (!selectionRange || selectionCells <= 1) return
+          if (!mergesActive) {
+            toast.warning(tr("Clear filters, sorting and hidden columns before merging"))
+            return
+          }
+          for (let column = selectionRange.left; column <= selectionRange.right; column++) {
+            if (tableColumnType(table, column) !== "text") {
+              toast.warning(tr("Only text cells can be merged"))
+              return
+            }
+          }
+          const next = mergeSelection(table, selectionRange)
+          if (!next) {
+            toast.warning(tr("The selection crosses an existing merged cell"))
+            return
+          }
+          updateTable(next)
+          setRangeFocus(null)
+        }
+        const unmergeSelectedCells = () => {
           if (!activeTableCell || activeTableCell.row < 0) return
-          const next = unmergeAt(table, activeTableCell.row, activeTableCell.column)
+          const range = selectionRange ?? cellRange(activeTableCell.row, activeTableCell.column, activeTableCell.row, activeTableCell.column)
+          const next = selectionCells > 1 ? unmergeSelection(table, range) : unmergeAt(table, activeTableCell.row, activeTableCell.column)
           if (!next) {
             toast.info(tr("No merged cells here"))
             return
           }
           updateTable(next)
+          setRangeFocus(null)
         }
         const pasteCells = (event: React.ClipboardEvent<HTMLInputElement>, rowIndex: number, columnIndex: number) => {
           if (rowIndex < 0) return
@@ -368,7 +410,10 @@ export function TableBlockView({
                     <button type="button" aria-label={tr("Merge down")} title={tr("Merge down")} disabled={!activeTableCell || activeTableCell.row < 0} onClick={() => mergeActiveCell("down")} className="rounded p-1.5 transition hover:bg-accent hover:text-foreground disabled:opacity-40">
                       <Merge className="size-3 rotate-90" />
                     </button>
-                    <button type="button" aria-label={tr("Unmerge")} title={tr("Unmerge")} disabled={!activeTableCell || activeTableCell.row < 0 || !mergeAt(table.merges, activeTableCell.row, activeTableCell.column)} onClick={unmergeActiveCell} className="rounded p-1.5 transition hover:bg-accent hover:text-foreground disabled:opacity-40">
+                    <button type="button" aria-label={tr("Merge selection")} title={tr("Merge selection")} disabled={selectionCells <= 1} onClick={mergeSelectedCells} className="rounded p-1.5 transition hover:bg-accent hover:text-foreground disabled:opacity-40">
+                      <Combine className="size-3" />
+                    </button>
+                    <button type="button" aria-label={tr("Unmerge")} title={tr("Unmerge")} disabled={!activeTableCell || activeTableCell.row < 0} onClick={unmergeSelectedCells} className="rounded p-1.5 transition hover:bg-accent hover:text-foreground disabled:opacity-40">
                       <Ungroup className="size-3" />
                     </button>
                   </div>
@@ -688,8 +733,24 @@ export function TableBlockView({
                         if (covered.has(cellKey(rowIndex, columnIndex))) return null
                         const type = tableColumnType(table, columnIndex)
                         const frozenCell = frozenOffsets.has(columnIndex) && !cellMerge
+                        const inSelection = Boolean(selectionRange && selectionCells > 1 && rangeContains(selectionRange, rowIndex, columnIndex))
                         return (
-                        <td key={columnIndex} colSpan={cellMerge?.colSpan} rowSpan={cellMerge?.rowSpan} className={cn("relative border-b border-r border-border/60 p-0 last:border-r-0", frozenCell && "sticky z-10 bg-card", tableCellStyleClasses({ ...(table.rowStyles?.[rowIndex] ?? {}), ...(table.columnStyles?.[columnIndex] ?? {}) }))} style={frozenCell ? { left: frozenOffsets.get(columnIndex) } : undefined}>
+                        <td
+                          key={columnIndex}
+                          colSpan={cellMerge?.colSpan}
+                          rowSpan={cellMerge?.rowSpan}
+                          onMouseDown={(event) => {
+                            if (readOnly) return
+                            if (event.shiftKey) {
+                              event.preventDefault()
+                              setRangeFocus({ row: rowIndex, column: columnIndex })
+                            } else {
+                              setRangeFocus(null)
+                            }
+                          }}
+                          className={cn("relative border-b border-r border-border/60 p-0 last:border-r-0", frozenCell && "sticky z-10 bg-card", inSelection && "bg-brand-soft/50 ring-1 ring-inset ring-brand/40", tableCellStyleClasses({ ...(table.rowStyles?.[rowIndex] ?? {}), ...(table.columnStyles?.[columnIndex] ?? {}) }))}
+                          style={frozenCell ? { left: frozenOffsets.get(columnIndex) } : undefined}
+                        >
                           {type === "text" ? (
                             <TableCell
                               id={`table-cell-${block.id}-${rowIndex}-${columnIndex}`}
@@ -700,7 +761,7 @@ export function TableBlockView({
                               onChange={(value) => setCell(rowIndex, columnIndex, value)}
                               onKeyDown={(event) => handleCellKeyDown(event, rowIndex, columnIndex)}
                               onPaste={(event) => pasteCells(event, rowIndex, columnIndex)}
-                              onFocus={() => { setActiveTableCell({ row: rowIndex, column: columnIndex }); onFocusBlock?.(block.id) }}
+                              onFocus={() => { setActiveTableCell({ row: rowIndex, column: columnIndex }); setRangeFocus(null); onFocusBlock?.(block.id) }}
                               placeholder=" "
                             />
                           ) : (
@@ -713,7 +774,7 @@ export function TableBlockView({
                               align={aligns[columnIndex]}
                               label={`${table.columns[columnIndex] || tr("Column")} ${rowIndex + 1}`}
                               onChange={(value) => setCell(rowIndex, columnIndex, value)}
-                              onFocus={() => { setActiveTableCell({ row: rowIndex, column: columnIndex }); onFocusBlock?.(block.id) }}
+                              onFocus={() => { setActiveTableCell({ row: rowIndex, column: columnIndex }); setRangeFocus(null); onFocusBlock?.(block.id) }}
                             />
                           )}
                           {!readOnly && (

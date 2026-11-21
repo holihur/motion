@@ -1873,5 +1873,8 @@
   "Unmerge": "取消合并",
   "Only text cells can be merged": "只有文本单元格可以合并",
   "These cells cannot be merged": "这些单元格无法合并",
-  "No merged cells here": "此处没有合并单元格"
+  "No merged cells here": "此处没有合并单元格",
+  "Merge selection": "合并选中单元格",
+  "Clear filters, sorting and hidden columns before merging": "合并前请清除筛选、排序和隐藏列",
+  "The selection crosses an existing merged cell": "选择区域跨越了已有合并单元格"
 }

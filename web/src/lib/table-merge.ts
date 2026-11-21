@@ -118,3 +118,71 @@ export function remapMerges(merges: TableCellMerge[] | undefined, kind: "row" | 
   }
   return out.length ? out : undefined
 }
+
+export interface CellRange {
+  top: number
+  left: number
+  bottom: number
+  right: number
+}
+
+/** Normalizes two corners into an inclusive rectangle. */
+export function cellRange(row1: number, col1: number, row2: number, col2: number): CellRange {
+  return {
+    top: Math.min(row1, row2),
+    left: Math.min(col1, col2),
+    bottom: Math.max(row1, row2),
+    right: Math.max(col1, col2),
+  }
+}
+
+export function rangeContains(range: CellRange, row: number, col: number): boolean {
+  return row >= range.top && row <= range.bottom && col >= range.left && col <= range.right
+}
+
+/**
+ * Merge a rectangular selection. Existing merges must sit fully inside or
+ * fully outside; a merge that crosses the selection boundary is rejected.
+ */
+export function mergeSelection(table: TableData, range: CellRange): TableData | null {
+  const rowSpan = range.bottom - range.top + 1
+  const colSpan = range.right - range.left + 1
+  if (rowSpan * colSpan <= 1) return null
+  const merges = table.merges ?? []
+  const inside: TableCellMerge[] = []
+  const remaining: TableCellMerge[] = []
+  for (const merge of merges) {
+    const touches = !(
+      merge.row + merge.rowSpan <= range.top ||
+      range.bottom + 1 <= merge.row ||
+      merge.col + merge.colSpan <= range.left ||
+      range.right + 1 <= merge.col
+    )
+    if (!touches) {
+      remaining.push(merge)
+      continue
+    }
+    const fullyInside =
+      merge.row >= range.top &&
+      merge.col >= range.left &&
+      merge.row + merge.rowSpan <= range.bottom + 1 &&
+      merge.col + merge.colSpan <= range.right + 1
+    if (!fullyInside) return null
+    inside.push(merge)
+  }
+  const next = [...remaining, { row: range.top, col: range.left, rowSpan, colSpan }]
+  return withMerges(table, next)
+}
+
+/** Remove every merge that intersects the range. */
+export function unmergeSelection(table: TableData, range: CellRange): TableData | null {
+  const merges = table.merges ?? []
+  const remaining = merges.filter((merge) =>
+    merge.row + merge.rowSpan <= range.top ||
+    range.bottom + 1 <= merge.row ||
+    merge.col + merge.colSpan <= range.left ||
+    range.right + 1 <= merge.col,
+  )
+  if (remaining.length === merges.length) return null
+  return withMerges(table, remaining)
+}

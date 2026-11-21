@@ -1873,5 +1873,8 @@
   "Unmerge": "Unmerge",
   "Only text cells can be merged": "Only text cells can be merged",
   "These cells cannot be merged": "These cells cannot be merged",
-  "No merged cells here": "No merged cells here"
+  "No merged cells here": "No merged cells here",
+  "Merge selection": "Merge selection",
+  "Clear filters, sorting and hidden columns before merging": "Clear filters, sorting and hidden columns before merging",
+  "The selection crosses an existing merged cell": "The selection crosses an existing merged cell"
 }

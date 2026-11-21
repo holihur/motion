@@ -5,6 +5,7 @@ import {
   $createTextNode,
   $getRoot,
   $getSelection,
+  $isElementNode,
   $isRangeSelection,
   COMMAND_PRIORITY_LOW,
   FORMAT_TEXT_COMMAND,
@@ -25,6 +26,10 @@ import {
   Strikethrough,
   Underline,
   X,
+  Highlighter,
+  Subscript,
+  Superscript,
+  Sigma,
 } from "lucide-react"
 import { LexicalComposer } from "@lexical/react/LexicalComposer"
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin"
@@ -44,6 +49,7 @@ import {
   STRIKETHROUGH,
 } from "@lexical/markdown"
 import { LinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link"
+import { $createEquationNode, EquationNode } from "@/components/editor/equation-node"
 import { mergeRegister } from "@lexical/utils"
 import { MentionNode, MentionPlugin } from "@/components/editor/mention-node"
 import type { Member } from "@/lib/types"
@@ -56,6 +62,28 @@ import { toast } from "sonner"
 
 const INLINE_TRANSFORMERS = [BOLD_ITALIC_STAR, BOLD_STAR, ITALIC_STAR, INLINE_CODE, STRIKETHROUGH, LINK]
 
+/** Inserts an inline equation when the block menu requests it. */
+function EquationInsertPlugin({ blockId }: { blockId: string }) {
+  const [editor] = useLexicalComposerContext()
+  useEffect(() => {
+    function onInsert(event: Event) {
+      const detail = (event as CustomEvent<{ blockId: string; latex?: string }>).detail
+      if (!detail || detail.blockId !== blockId) return
+      editor.update(() => {
+        const root = $getRoot()
+        const paragraph = root.getFirstChild()
+        const nodes = [$createEquationNode(detail.latex ?? ""), $createTextNode(" ")]
+        if (paragraph && $isElementNode(paragraph)) paragraph.append(...nodes)
+        else root.append(...nodes)
+      })
+      editor.focus()
+    }
+    window.addEventListener("motion:insert-inline-equation", onInsert)
+    return () => window.removeEventListener("motion:insert-inline-equation", onInsert)
+  }, [editor, blockId])
+  return null
+}
+
 const THEME = {
   paragraph: "m-0",
   text: {
@@ -64,6 +92,9 @@ const THEME = {
     underline: "underline",
     strikethrough: "line-through",
     code: "inline-code",
+    highlight: "lexical-highlight",
+    subscript: "lexical-subscript",
+    superscript: "lexical-superscript",
   },
   link: "lexical-link",
 }
@@ -124,7 +155,7 @@ export function LexicalBlock({
   const initialConfig = {
     namespace: `motion-block-${id}`,
     theme: THEME,
-    nodes: [LinkNode, MentionNode],
+    nodes: [LinkNode, MentionNode, EquationNode],
     editable: !readOnly,
     editorState: rich || textToEditorState(text),
     onError(error: Error) {
@@ -191,6 +222,7 @@ export function LexicalBlock({
           onInput={onInput}
         />
         <MentionPlugin members={members} />
+        <EquationInsertPlugin blockId={id} />
         <FocusBridge
           id={id}
           autoFocus={autoFocus}
@@ -502,6 +534,8 @@ function FloatingToolbar() {
   const [linkURL, setLinkURL] = useState("https://")
   const [translateOpen, setTranslateOpen] = useState(false)
   const [translating, setTranslating] = useState(false)
+  const [equationOpen, setEquationOpen] = useState(false)
+  const [latex, setLatex] = useState("")
 
   function selectedText(): string {
     let text = ""
@@ -528,6 +562,19 @@ function FloatingToolbar() {
     } finally {
       setTranslating(false)
     }
+  }
+
+  function insertEquation() {
+    const value = latex.trim()
+    if (!value) return
+    editor.update(() => {
+      const selection = $getSelection()
+      if (!$isRangeSelection(selection)) return
+      selection.insertNodes([$createEquationNode(value), $createTextNode(" ")])
+    })
+    setLatex("")
+    setEquationOpen(false)
+    setRect(null)
   }
 
   async function translateSelection(lang: string) {
@@ -618,6 +665,9 @@ function FloatingToolbar() {
     { key: "underline", icon: Underline, label: "Underline" },
     { key: "strikethrough", icon: Strikethrough, label: "Strikethrough" },
     { key: "code", icon: Code2, label: "Inline code" },
+    { key: "highlight", icon: Highlighter, label: "Highlight" },
+    { key: "subscript", icon: Subscript, label: "Subscript" },
+    { key: "superscript", icon: Superscript, label: "Superscript" },
   ]
 
   return createPortal(
@@ -642,6 +692,39 @@ function FloatingToolbar() {
         </button>
       ))}
       <span className="mx-0.5 h-5 w-px bg-border" />
+      {equationOpen ? (
+        <form
+          className="flex items-center gap-1"
+          onSubmit={(event) => {
+            event.preventDefault()
+            insertEquation()
+          }}
+        >
+          <input
+            autoFocus
+            value={latex}
+            onChange={(event) => setLatex(event.target.value)}
+            placeholder="E = mc^2"
+            aria-label={tr("Inline equation")}
+            className="h-7 w-40 rounded-md border bg-background px-2 font-mono text-xs outline-none focus:border-brand"
+          />
+          <button type="submit" aria-label={tr("Apply")} className="flex size-7 items-center justify-center rounded-md bg-brand text-white">
+            <Check className="size-3.5" />
+          </button>
+          <button type="button" aria-label={tr("Cancel")} onClick={() => setEquationOpen(false)} className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent">
+            <X className="size-3.5" />
+          </button>
+        </form>
+      ) : null}
+      <button
+        type="button"
+        aria-label={tr("Inline equation")}
+        title={tr("Inline equation")}
+        onClick={() => setEquationOpen(true)}
+        className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground"
+      >
+        <Sigma className="size-3.5" />
+      </button>
       {translateOpen ? (
         <TranslatePicker
           onPick={(lang) => {

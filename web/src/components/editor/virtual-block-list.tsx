@@ -33,6 +33,9 @@ function estimatedHeight(block: Block): number {
       return 110
     case "pdf":
       return 560
+    case "blockRef":
+    case "blockSync":
+      return 120
     case "video":
       return 300
     case "embed":

@@ -424,7 +424,15 @@ func sanitizeDatabase(db *model.DatabaseData) *model.DatabaseData {
 		mode = "table"
 	}
 	groupBy := truncateRunes(db.GroupBy, 40)
-	return &model.DatabaseData{Columns: cols, Rows: rows, RowIDs: rowIDs, ViewMode: mode, GroupBy: groupBy}
+	sortColumn := truncateRunes(db.SortColumn, 40)
+	sortDirection := db.SortDirection
+	if sortDirection != "desc" {
+		sortDirection = "asc"
+	}
+	return &model.DatabaseData{
+		Columns: cols, Rows: rows, RowIDs: rowIDs, ViewMode: mode, GroupBy: groupBy,
+		Filter: truncateRunes(db.Filter, 200), SortColumn: sortColumn, SortDirection: sortDirection,
+	}
 }
 
 func sanitizeTranslations(in map[string]string) map[string]string {

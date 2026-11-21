@@ -21,6 +21,8 @@ export type BlockType =
   | "embed"
   | "file"
   | "pdf"
+  | "blockRef"
+  | "blockSync"
   | "equation"
   | "toc"
   | "gantt"
@@ -120,6 +122,10 @@ export interface DatabaseData {
   rowIds?: string[]
   viewMode?: "table" | "board"
   groupBy?: string
+  /** Persisted view state for the table/board filter and sort. */
+  filter?: string
+  sortColumn?: string
+  sortDirection?: "asc" | "desc"
 }
 
 export interface ShareOverride {
@@ -198,6 +204,9 @@ export interface Block {
   /** Image display width: small | medium | full. */
   width?: string
   url?: string
+  /** Source page/block for blockRef / blockSync. */
+  refPageId?: string
+  refBlockId?: string
   caption?: string
   /** Client-side encrypted password area. The server never sees plaintext. */
   ciphertext?: string
@@ -355,6 +364,9 @@ export interface Backlink {
   title: string
   icon: string
   updatedAt: string
+  /** Set when the backlink comes from a blockRef / blockSync. */
+  blockId?: string
+  refBlockId?: string
 }
 
 export interface PageRevision {

@@ -196,6 +196,10 @@ type DatabaseData struct {
 	RowIDs   []string            `bson:"rowIds,omitempty" json:"rowIds,omitempty"`
 	ViewMode string              `bson:"viewMode,omitempty" json:"viewMode,omitempty"` // table, board
 	GroupBy  string              `bson:"groupBy,omitempty" json:"groupBy,omitempty"`
+	// Persisted view state (filter/sort) so a database reopens as the user left it.
+	Filter        string `bson:"filter,omitempty" json:"filter,omitempty"`
+	SortColumn    string `bson:"sortColumn,omitempty" json:"sortColumn,omitempty"`
+	SortDirection string `bson:"sortDirection,omitempty" json:"sortDirection,omitempty"` // asc, desc
 }
 
 type ShareOverride struct {
@@ -280,6 +284,8 @@ type Block struct {
 	Align        string            `bson:"align,omitempty" json:"align,omitempty"`
 	Width        string            `bson:"width,omitempty" json:"width,omitempty"`
 	URL          string            `bson:"url,omitempty" json:"url,omitempty"`
+	RefPageID    string            `bson:"refPageId,omitempty" json:"refPageId,omitempty"`
+	RefBlockID   string            `bson:"refBlockId,omitempty" json:"refBlockId,omitempty"`
 	Caption      string            `bson:"caption,omitempty" json:"caption,omitempty"`
 	Ciphertext   string            `bson:"ciphertext,omitempty" json:"ciphertext,omitempty"`
 	Salt         string            `bson:"salt,omitempty" json:"salt,omitempty"`

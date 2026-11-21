@@ -53,6 +53,7 @@ import { clearDraft, flushOfflineDrafts, pageFromDraft, pageMeta, readCachedPage
 import { SidebarToggle } from "@/components/app/sidebar-toggle"
 import { PageActionsMenu } from "@/components/app/page-actions"
 import { BlockEditor } from "@/components/editor/block-editor"
+import { FindBar } from "@/components/editor/find-bar"
 import { EmojiPicker } from "@/components/editor/emoji-picker"
 import { BLOCK_LABELS } from "@/components/editor/commands"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -146,6 +147,7 @@ export function PageEditor() {
   const [liveStatus, setLiveStatus] = useState<"connecting" | "connected" | "disconnected">("connecting")
   const [online, setOnline] = useState(() => navigator.onLine)
   const [shareOpen, setShareOpen] = useState(false)
+  const [findOpen, setFindOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
@@ -1471,6 +1473,26 @@ export function PageEditor() {
     }, 120)
   }
 
+  // Cmd/Ctrl+F opens in-page find & replace instead of the browser's.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "f") {
+        event.preventDefault()
+        setFindOpen(true)
+      } else if (event.key === "Escape" && findOpen) {
+        setFindOpen(false)
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [findOpen])
+
+  function applyBlocks(next: Block[]) {
+    recordBlockChange(stateRef.current.blocks)
+    setBlocks(next)
+    if (!readOnly) scheduleSave()
+  }
+
   if (!pageId) return null
 
   if (loading || (page && page.id !== pageId)) {
@@ -1966,13 +1988,7 @@ export function PageEditor() {
               isLayout={Boolean(page.isLayout)}
               hasContentPlaceholder={blocks.some((block) => block.type === "content")}
               scrollParentRef={scrollRef}
-              onChange={(next) => {
-                // Viewers may still expand/collapse sections locally, but must
-                // never persist those view-only interactions.
-                recordBlockChange(stateRef.current.blocks)
-                setBlocks(next)
-                if (!readOnly) scheduleSave()
-              }}
+              onChange={applyBlocks}
               onFocusBlock={announceFocus}
               remoteFocus={remoteFocus}
               commentCounts={commentCounts}
@@ -2092,6 +2108,15 @@ export function PageEditor() {
             onReload={() => setCommentVersion((value) => value + 1)}
           />
         </Suspense>
+      )}
+      {findOpen && (
+        <FindBar
+          blocks={blocks}
+          readOnly={readOnly}
+          onClose={() => setFindOpen(false)}
+          onChange={applyBlocks}
+          onJump={scrollToBlock}
+        />
       )}
       {composerOpen && (
         <Suspense fallback={null}>

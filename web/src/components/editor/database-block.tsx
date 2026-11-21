@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Kanban, Table2, Filter, ArrowUpDown, Plus, Trash2, Settings2 } from "lucide-react"
+import { Kanban, Table2, Filter, ArrowUpDown, Plus, Trash2, Settings2, GripVertical } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tr } from "@/lib/i18n"
 import { uid } from "@/lib/utils"
@@ -44,12 +44,13 @@ export function DatabaseBlock({
     rowIds: [uid()],
     viewMode: "table",
   }
-  const [filter, setFilter] = useState("")
-  const [sortCol, setSortCol] = useState<string | null>(null)
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
+  const [filter, setFilter] = useState(db.filter ?? "")
+  const [sortCol, setSortCol] = useState<string | null>(db.sortColumn ?? null)
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(db.sortDirection ?? "asc")
   const [viewMode, setViewMode] = useState<"table" | "board">(db.viewMode ?? "table")
   const [groupBy, setGroupBy] = useState(db.groupBy ?? db.columns.find((c) => c.type === "status" || c.type === "select")?.id ?? "")
   const [databases, setDatabases] = useState<WorkspaceDatabase[]>([])
+  const [dragRow, setDragRow] = useState<string | null>(null)
 
   const rowIds = useMemo(() => db.rows.map((_, index) => db.rowIds?.[index] || `row-${index}`), [db.rowIds, db.rows])
 
@@ -57,6 +58,13 @@ export function DatabaseBlock({
     if (!workspaceId) return
     void api.databases.list(workspaceId).then(setDatabases).catch(() => undefined)
   }, [workspaceId])
+
+  useEffect(() => {
+    if (readOnly || filter === (db.filter ?? "")) return
+    const timer = window.setTimeout(() => commit({ filter }), 400)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, readOnly])
 
   useEffect(() => {
     if (readOnly) return
@@ -104,6 +112,22 @@ export function DatabaseBlock({
       rows: db.rows.filter((_, i) => i !== index),
       rowIds: rowIds.filter((_, i) => i !== index),
     })
+  }
+
+  function moveRow(fromId: string, toId: string) {
+    if (!fromId || fromId === toId) return
+    const ids = db.rows.map((_, index) => db.rowIds?.[index] || `row-${index}`)
+    const from = ids.indexOf(fromId)
+    const to = ids.indexOf(toId)
+    if (from < 0 || to < 0) return
+    const rows = [...db.rows]
+    const rowIds = [...ids]
+    const [movedRow] = rows.splice(from, 1)
+    const [movedId] = rowIds.splice(from, 1)
+    rows.splice(to, 0, movedRow)
+    rowIds.splice(to, 0, movedId)
+    setDragRow(null)
+    commit({ rows, rowIds })
   }
 
   function addColumn() {
@@ -241,6 +265,7 @@ export function DatabaseBlock({
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 bg-muted/40 text-xs">
             <tr>
+              <th className="w-6 border-b border-r border-border/60" />
               {db.columns.map((column) => {
                 const relation = targetDatabase(column)
                 const rollupRelation = db.columns.find((item) => item.id === column.rollup?.relationColumnId)
@@ -254,7 +279,17 @@ export function DatabaseBlock({
                         <span className="truncate text-xs font-semibold">{column.name}</span>
                       )}
                       <span className="rounded bg-brand-soft px-1 py-0.5 text-[10px] text-brand">{column.type}</span>
-                      <button type="button" onClick={() => { setSortCol(column.id); setSortDir((direction) => (sortCol === column.id && direction === "asc" ? "desc" : "asc")) }} className="rounded p-0.5 hover:bg-accent"><ArrowUpDown className="size-3" /></button>
+                      <button
+                        type="button"
+                        aria-label={tr("Sort by {name}", { name: column.name })}
+                        onClick={() => {
+                          const direction: "asc" | "desc" = sortCol === column.id && sortDir === "asc" ? "desc" : "asc"
+                          setSortCol(column.id)
+                          setSortDir(direction)
+                          commit({ sortColumn: column.id, sortDirection: direction })
+                        }}
+                        className="rounded p-0.5 hover:bg-accent"
+                      ><ArrowUpDown className="size-3" /></button>
                       {!readOnly && db.columns.length > 1 && <button type="button" onClick={() => removeColumn(column.id)} className="rounded p-0.5 hover:bg-destructive/10 hover:text-destructive"><Trash2 className="size-3" /></button>}
                     </div>
                     {!readOnly && (
@@ -310,8 +345,29 @@ export function DatabaseBlock({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((row, rowIndex) => (
-              <tr key={rowIds[db.rows.indexOf(row)] ?? rowIndex} className="hover:bg-brand-soft/10">
+            {filtered.map((row, rowIndex) => {
+              const rowId = rowIds[db.rows.indexOf(row)] ?? `row-${rowIndex}`
+              return (
+              <tr
+                key={rowId}
+                onDragOver={(event) => { if (!readOnly && dragRow) event.preventDefault() }}
+                onDrop={(event) => { if (!readOnly && dragRow) { event.preventDefault(); moveRow(dragRow, rowId) } }}
+                className={cn("hover:bg-brand-soft/10", dragRow === rowId && "opacity-50")}
+              >
+                <td className="w-6 border-b border-r border-border/60 text-center align-middle">
+                  {!readOnly && (
+                    <span
+                      draggable
+                      onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; setDragRow(rowId) }}
+                      onDragEnd={() => setDragRow(null)}
+                      title={tr("Drag to reorder row")}
+                      aria-label={tr("Drag to reorder row")}
+                      className="inline-flex cursor-grab items-center justify-center rounded p-1 text-muted-foreground/40 transition hover:text-foreground active:cursor-grabbing"
+                    >
+                      <GripVertical className="size-3" />
+                    </span>
+                  )}
+                </td>
                 {db.columns.map((column) => (
                   <td key={column.id} className="border-b border-r border-border/60 p-0 last:border-r-0">
                     {column.type === "rollup" ? (
@@ -346,7 +402,8 @@ export function DatabaseBlock({
                   {!readOnly && <button type="button" onClick={() => removeRow(row)} className="rounded p-1 hover:bg-destructive/10 hover:text-destructive"><Trash2 className="size-3" /></button>}
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

@@ -1,6 +1,7 @@
 import type { BlockType } from "@/lib/types"
 import { registerBlockRenderer } from "./registry"
 import { PdfBlockRenderer } from "@/components/editor/pdf-block"
+import { ReferenceBlockRenderer } from "@/components/editor/reference-block"
 import type { BlockRenderer } from "./types"
 import {
   BulletedBlock,
@@ -78,6 +79,8 @@ const builtInRenderers: Record<BlockType, BlockRenderer> = {
   embed: EmbedBlockRenderer,
   file: FileBlockRenderer,
   pdf: PdfBlockRenderer,
+  blockRef: ReferenceBlockRenderer,
+  blockSync: ReferenceBlockRenderer,
   toc: TocBlockRenderer,
   jsonVisual: JsonVisualBlockRenderer,
   pageLink: PageLinkBlockRenderer,

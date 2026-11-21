@@ -39,6 +39,9 @@ function blockToMarkdown(block: Block, number: number): string {
       return block.url ? `![${block.caption ?? ""}](${block.url})` : ""
     case "pdf":
       return block.url ? `[${inline || block.text || "PDF"}](${block.url})` : ""
+    case "blockRef":
+    case "blockSync":
+      return block.refPageId ? `[${inline || block.text || tr("Reference block")}](/page/${block.refPageId})` : ""
     case "table":
     case "gantt":
     case "chart":

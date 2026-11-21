@@ -379,6 +379,28 @@
   font-family: var(--font-mono);
   font-size: 0.88em;
 }
+.lexical-highlight {
+  border-radius: 0.2rem;
+  background: color-mix(in oklch, var(--brand) 22%, transparent);
+  padding: 0 0.12rem;
+  box-decoration-break: clone;
+}
+.lexical-subscript {
+  font-size: 0.75em;
+  vertical-align: sub;
+}
+.lexical-superscript {
+  font-size: 0.75em;
+  vertical-align: super;
+}
+.inline-equation {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.1rem;
+}
+.inline-equation-rendered .katex {
+  font-size: 1.02em;
+}
 .lexical-link {
   color: var(--brand);
   text-decoration: underline;

@@ -869,7 +869,7 @@ func (r *pdfRenderer) block(block model.Block) {
 		if !r.tocBlock(block) {
 			r.richBlock(block, "", pdfBodySize, pdfLineHeight, 0, false)
 		}
-	case "pageLink", "bookmark", "video", "embed", "file", "pdf":
+	case "pageLink", "bookmark", "video", "embed", "file", "pdf", "blockRef", "blockSync":
 		if !r.linkCard(block) {
 			r.text(strings.TrimSpace(block.Text+"  "+block.URL), 10.5, 16, 6)
 		}

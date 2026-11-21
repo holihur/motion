@@ -25,6 +25,7 @@ import {
   Palette,
   Plus,
   QrCode,
+  Sigma,
   RefreshCw,
   Rows3,
   Trash2,
@@ -470,6 +471,13 @@ export function BlockMenu({
             )}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuItem
+          onSelect={() => {
+            window.dispatchEvent(new CustomEvent("motion:insert-inline-equation", { detail: { blockId: block.id } }))
+          }}
+        >
+          <Sigma /> {tr("Inline equation")}
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={onDuplicate}>
           <Copy /> {tr("Duplicate")}
         </DropdownMenuItem>

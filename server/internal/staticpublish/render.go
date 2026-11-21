@@ -428,6 +428,15 @@ func renderBlock(block model.Block, files map[string]string, base string) string
 			return `<p><a class="page-link" href="` + html.EscapeString(href) + `">🔗 ` + inline + `</a></p>`
 		}
 		return `<p><span class="page-link">🔗 ` + inline + `</span></p>`
+	case "blockRef", "blockSync":
+		label := inline
+		if strings.TrimSpace(label) == "" {
+			label = "reference"
+		}
+		if href := pageHref(block.RefPageID, files, base); href != "" && href != "#" {
+			return `<p><a class="page-link" href="` + html.EscapeString(href) + `">🔗 ` + label + `</a></p>`
+		}
+		return `<p><span class="page-link">🔗 ` + label + `</span></p>`
 	case "bookmark", "video", "embed", "file", "pdf":
 		return `<p><a class="embed-link" href="` + html.EscapeString(safeURL(block.URL, base)) + `">` + inline + `</a></p>`
 	case "password":

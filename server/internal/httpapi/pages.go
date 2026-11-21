@@ -47,6 +47,8 @@ var blockTypes = map[string]bool{
 	"embed":          true,
 	"file":           true,
 	"pdf":            true,
+	"blockRef":       true,
+	"blockSync":      true,
 	"equation":       true,
 	"toc":            true,
 	"gantt":          true,
@@ -1067,6 +1069,42 @@ func (s *Server) pageBacklinks(w http.ResponseWriter, r *http.Request) {
 			"id": item.ID.Hex(), "title": item.Title, "icon": item.Icon,
 			"updatedAt": item.UpdatedAt,
 		})
+	}
+
+	// Blocks that reference blocks of this page (blockRef / blockSync).
+	refCur, err := s.store.Pages.Find(r.Context(), bson.M{
+		"workspaceId": page.WorkspaceID,
+		"_id":         bson.M{"$ne": page.ID},
+		"archived":    false,
+		"blocks": bson.M{"$elemMatch": bson.M{
+			"refPageId": page.ID.Hex(),
+		}},
+	}, options.Find().
+		SetProjection(bson.M{"title": 1, "icon": 1, "updatedAt": 1, "blocks": 1}).
+		SetSort(bson.D{{Key: "updatedAt", Value: -1}}).
+		SetLimit(50))
+	if err == nil {
+		defer refCur.Close(r.Context())
+		var referrers []model.Page
+		if refCur.All(r.Context(), &referrers) == nil {
+			seen := map[string]bool{}
+			for _, referrer := range referrers {
+				for _, block := range referrer.Blocks {
+					if block.RefPageID != page.ID.Hex() || block.RefBlockID == "" {
+						continue
+					}
+					key := referrer.ID.Hex() + "|" + block.RefBlockID
+					if seen[key] {
+						continue
+					}
+					seen[key] = true
+					out = append(out, map[string]any{
+						"id": referrer.ID.Hex(), "title": referrer.Title, "icon": referrer.Icon,
+						"updatedAt": referrer.UpdatedAt, "blockId": block.ID, "refBlockId": block.RefBlockID,
+					})
+				}
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, out)
 }

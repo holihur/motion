@@ -91,6 +91,17 @@ func Markdown(page model.Page) []byte {
 		case "divider":
 			numbered = 0
 			sb.WriteString("\n---\n\n")
+		case "blockRef", "blockSync":
+			numbered = 0
+			label := inline(text)
+			if label == "" {
+				label = "reference"
+			}
+			if b.RefPageID != "" {
+				sb.WriteString(fmt.Sprintf("%s[%s](/page/%s)\n\n", indent, label, b.RefPageID))
+			} else {
+				sb.WriteString(fmt.Sprintf("%s%s\n\n", indent, label))
+			}
 		case "image":
 			numbered = 0
 			caption := b.Caption

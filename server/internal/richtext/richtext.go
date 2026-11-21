@@ -13,6 +13,7 @@ type node struct {
 	Type     string `json:"type"`
 	Text     string `json:"text"`
 	URL      string `json:"url"`
+	Latex    string `json:"latex"`
 	Format   int    `json:"format"`
 	Children []node `json:"children"`
 }
@@ -27,6 +28,9 @@ const (
 	formatStrikethrough = 4
 	formatUnderline     = 8
 	formatCode          = 16
+	formatSubscript     = 32
+	formatSuperscript   = 64
+	formatHighlight     = 128
 )
 
 func parse(rich string) (node, bool) {
@@ -84,6 +88,15 @@ func formatText(value string, format int) string {
 	if format&formatStrikethrough != 0 {
 		content = "<s>" + content + "</s>"
 	}
+	if format&formatHighlight != 0 {
+		content = "<mark>" + content + "</mark>"
+	}
+	if format&formatSubscript != 0 {
+		content = "<sub>" + content + "</sub>"
+	}
+	if format&formatSuperscript != 0 {
+		content = "<sup>" + content + "</sup>"
+	}
 	return content
 }
 
@@ -93,6 +106,8 @@ func (n node) html(base string) string {
 		return formatText(n.Text, n.Format)
 	case "linebreak":
 		return "<br>"
+	case "inlineEquation":
+		return `<span class="math">` + html.EscapeString("$"+n.Latex+"$") + `</span>`
 	case "link":
 		content := n.childrenHTML(base)
 		if content == "" {
@@ -157,6 +172,8 @@ func (n node) markdown() string {
 		return markdownText(n.Text, n.Format)
 	case "linebreak":
 		return "\n"
+	case "inlineEquation":
+		return "$" + n.Latex + "$"
 	case "link":
 		content := n.childrenMarkdown()
 		if content == "" {
@@ -198,6 +215,15 @@ func markdownText(value string, format int) string {
 	if format&formatStrikethrough != 0 {
 		content = "~~" + content + "~~"
 	}
+	if format&formatHighlight != 0 {
+		content = "==" + content + "=="
+	}
+	if format&formatSubscript != 0 {
+		content = "<sub>" + content + "</sub>"
+	}
+	if format&formatSuperscript != 0 {
+		content = "<sup>" + content + "</sup>"
+	}
 	return content
 }
 
@@ -225,6 +251,10 @@ func (n node) runs(style Run) []Run {
 		return []Run{run}
 	case "linebreak":
 		return []Run{{Text: "\n"}}
+	case "inlineEquation":
+		run := style
+		run.Text = "$" + n.Latex + "$"
+		return []Run{run}
 	case "link":
 		next := style
 		next.URL = n.URL

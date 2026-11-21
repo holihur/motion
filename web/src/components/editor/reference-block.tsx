@@ -7,6 +7,7 @@ import { useWorkspaceStore } from "@/stores/workspace"
 import { pageTitle } from "@/lib/tree"
 import { tr } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
+import { onPageSaved } from "@/lib/page-events"
 
 function blockPreview(block: Block | undefined): string {
   if (!block) return ""
@@ -77,6 +78,40 @@ export function ReferenceBlock({
       })
     return () => {
       alive = false
+    }
+  }, [block.refPageId])
+
+  // Keep the preview fresh: on save events (same or other tab), on focus and
+  // when the tab becomes visible again.
+  useEffect(() => {
+    if (!block.refPageId) return
+    const pageId = block.refPageId
+    let last = 0
+    let alive = true
+    const refresh = () => {
+      const now = Date.now()
+      if (now - last < 1200) return
+      last = now
+      api.pages
+        .get(pageId)
+        .then((page) => {
+          if (alive) setTarget(page)
+        })
+        .catch(() => undefined)
+    }
+    const off = onPageSaved((savedId) => {
+      if (savedId === pageId) refresh()
+    })
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh()
+    }
+    window.addEventListener("focus", refresh)
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      alive = false
+      off()
+      window.removeEventListener("focus", refresh)
+      document.removeEventListener("visibilitychange", onVisible)
     }
   }, [block.refPageId])
 

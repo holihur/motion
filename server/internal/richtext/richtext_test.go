@@ -52,3 +52,42 @@ func TestRuns(t *testing.T) {
 		t.Fatalf("link run missing: %#v", runs)
 	}
 }
+
+const formatted = `{"root":{"children":[{"type":"paragraph","children":[
+{"type":"text","text":"hi","format":128},
+{"type":"text","text":"2","format":32},
+{"type":"text","text":"3","format":64},
+{"type":"inlineEquation","version":1,"latex":"a^2+b^2"},
+{"type":"text","text":" end","format":0}
+]}]}}`
+
+func TestFormattedInlineHTML(t *testing.T) {
+	out := HTML(formatted, "", "")
+	for _, want := range []string{"<mark>hi</mark>", "<sub>2</sub>", "<sup>3</sup>", `<span class="math">$a^2+b^2$</span>`} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("HTML missing %q: %s", want, out)
+		}
+	}
+}
+
+func TestFormattedInlineMarkdown(t *testing.T) {
+	out := Markdown(formatted, "")
+	for _, want := range []string{"==hi==", "<sub>2</sub>", "<sup>3</sup>", "$a^2+b^2$"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("Markdown missing %q: %s", want, out)
+		}
+	}
+}
+
+func TestFormattedInlineRuns(t *testing.T) {
+	var equation *Run
+	for _, run := range Runs(formatted, "") {
+		if strings.Contains(run.Text, "$a^2+b^2$") {
+			copied := run
+			equation = &copied
+		}
+	}
+	if equation == nil {
+		t.Fatalf("equation run missing: %#v", Runs(formatted, ""))
+	}
+}

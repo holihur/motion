@@ -54,6 +54,7 @@ import { SidebarToggle } from "@/components/app/sidebar-toggle"
 import { PageActionsMenu } from "@/components/app/page-actions"
 import { BlockEditor } from "@/components/editor/block-editor"
 import { FindBar } from "@/components/editor/find-bar"
+import { broadcastPageSaved } from "@/lib/page-events"
 import { EmojiPicker } from "@/components/editor/emoji-picker"
 import { BLOCK_LABELS } from "@/components/editor/commands"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -1092,6 +1093,8 @@ export function PageEditor() {
         icon: snapshot.icon,
         cover: snapshot.cover,
       })
+      // Let reference/synced blocks (also in other tabs) refresh their preview.
+      broadcastPageSaved(snapshot.pageId)
       if (!dirtyRef.current) {
         clearDraft(snapshot.pageId)
         const meta = pageRef.current

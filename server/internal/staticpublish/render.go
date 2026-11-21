@@ -674,6 +674,8 @@ img{max-width:100%;height:auto;border-radius:10px}figure{margin:18px 0}figcaptio
 .locked{background:var(--card);border:1px dashed var(--border);border-radius:10px;padding:12px 14px;color:var(--muted)}
 .code-image{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:16px 0;font-size:14px}.code-image code{word-break:break-all}
 .form{border:1px solid var(--border);border-radius:12px;padding:18px;margin:20px 0;background:var(--card)}.form h3{margin:0 0 6px}.form p{color:var(--muted);font-size:14px}.form form{display:grid;gap:12px;margin-top:14px}.form label{display:grid;gap:5px;font-size:13px}.form input,.form select,.form textarea{border:1px solid var(--border);border-radius:7px;padding:7px 9px;background:var(--bg);color:var(--fg);font:inherit}.form .required{color:#dc2626}.form button{justify-self:start;border:0;border-radius:7px;background:var(--brand);color:#fff;padding:8px 14px;font:inherit;opacity:.65}.form-hint{font-size:12px!important;margin-bottom:0!important}
+mark{background:color-mix(in srgb,var(--brand) 22%,transparent);border-radius:3px;padding:0 2px}
+.math{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--card);border-radius:4px;padding:0 3px}
 .page-link,.embed-link{color:var(--brand);text-decoration:none}.page-link:hover,.embed-link:hover{text-decoration:underline}
 .breadcrumb{color:var(--muted);font-size:13px}.toggle summary{cursor:pointer;font-weight:600}
 .children{margin-top:48px;border-top:1px solid var(--border);padding-top:20px}.children h2{font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}

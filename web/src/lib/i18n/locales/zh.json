@@ -1867,5 +1867,11 @@
   "Could not load the referenced block": "无法加载被引用的区块",
   "{n} block references": "{n} 处块引用",
   "block": "区块",
-  "Double-click to edit": "双击编辑"
+  "Double-click to edit": "双击编辑",
+  "Merge right": "向右合并",
+  "Merge down": "向下合并",
+  "Unmerge": "取消合并",
+  "Only text cells can be merged": "只有文本单元格可以合并",
+  "These cells cannot be merged": "这些单元格无法合并",
+  "No merged cells here": "此处没有合并单元格"
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react"
 import type { Block, TableColumnType, TableData } from "@/lib/types"
 import { tableColumnOrder, tableFrozenColumnIndexes, tableVisibleColumnIndexes } from "@/lib/table-layout"
+import { remapMerges } from "@/lib/table-merge"
 import { computeTableFormulas, formulaCellKey, isFormulaInput, remapFormulas } from "@/lib/table-formula"
 import {
   normalizeTableCell,
@@ -81,6 +82,7 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
       rows: table.rows.filter((_, i) => i !== index),
       heights: table.heights ? heights.filter((_, i) => i !== index) : undefined,
       formulas: remapFormulas(table.formulas, (row, column) => (row === index ? null : { row: row > index ? row - 1 : row, column })),
+      merges: remapMerges(table.merges, "row", index),
     })
   }, [table, heights, updateTable])
 
@@ -118,6 +120,7 @@ export function useTableBlock(block: Block, onUpdate: (patch: Partial<Block>) =>
       ),
       formulas: remapFormulas(table.formulas, (row, column) => (column === index ? null : { row, column: column > index ? column - 1 : column })),
       query: table.query ? { ...table.query, filters: table.query.filters.filter((filter) => filter.column !== removedName) } : undefined,
+      merges: remapMerges(table.merges, "col", index),
     })
   }, [table, widths, aligns, types, optionsByColumn, inputFields, updateTable])
 

@@ -16,6 +16,7 @@ import {
   GripVertical,
   Italic,
   ListFilter,
+  Merge,
   MoreHorizontal,
   MoreVertical,
   Palette,
@@ -26,6 +27,7 @@ import {
   Table2,
   TextCursorInput,
   ToggleRight,
+  Ungroup,
   Upload,
   X,
 } from "lucide-react"
@@ -38,6 +40,7 @@ import { parseTableImport } from "@/lib/table-import"
 import { columnLabel, formulaCellKey, isFormulaInput } from "@/lib/table-formula"
 import { TABLE_COLUMN_TYPES, normalizeTableCell, tableColumnOptions, tableColumnType } from "@/lib/table-input"
 import { tableColumnOrder, tableFrozenColumnIndexes, tableFrozenOffsets, tableVisibleColumnIndexes } from "@/lib/table-layout"
+import { cellKey, coveredCells, mergeAt, mergeDown, mergeRight, unmergeAt } from "@/lib/table-merge"
 import { FormulaHelpDialog } from "@/components/editor/formula-help-dialog"
 import { cn } from "@/lib/utils"
 import { isImeKeyEvent } from "@/lib/keyboard"
@@ -179,6 +182,12 @@ export function TableBlockView({
         const columnIndexes = tableVisibleColumnIndexes(table)
         const columnOrder = tableColumnOrder(table)
         const firstVisibleColumn = columnIndexes[0]
+        // Merges are ignored while filtering/sorting/hiding columns: a hidden
+        // covered cell would leave a hole in the rendered grid.
+        const mergesActive = activeFilters.length === 0 && !tableSort && (table.hiddenColumns ?? []).length === 0
+        const merges = mergesActive ? table.merges ?? [] : []
+        const covered = coveredCells(merges)
+        const mergeStarts = new Map(merges.map((merge) => [cellKey(merge.row, merge.col), merge]))
         const hiddenSet = new Set(table.hiddenColumns ?? [])
         const frozenSet = tableFrozenColumnIndexes(table)
         const frozenOffsets = tableFrozenOffsets(table, Boolean(table.rowNumbers))
@@ -204,8 +213,24 @@ export function TableBlockView({
           ["gt", "Greater than"], ["lt", "Less than"], ["gte", "Greater or equal"], ["lte", "Less or equal"],
         ] as const
         const focusCell = (rowIndex: number, columnIndex: number) => {
+          let row = rowIndex
+          let column = columnIndex
+          let guard = 0
+          while (
+            mergesActive &&
+            row >= 0 && row < table.rows.length &&
+            column >= 0 && column < table.columns.length &&
+            covered.has(cellKey(row, column)) &&
+            guard++ < 128
+          ) {
+            column += 1
+            if (column >= table.columns.length) {
+              column = 0
+              row += 1
+            }
+          }
           window.setTimeout(() => {
-            document.getElementById(`table-cell-${block.id}-${rowIndex}-${columnIndex}`)?.focus()
+            document.getElementById(`table-cell-${block.id}-${row}-${column}`)?.focus()
           }, 20)
         }
         const handleCellKeyDown = (
@@ -250,6 +275,30 @@ export function TableBlockView({
             addRow()
             focusCell(table.rows.length, columnIndex)
           }
+        }
+        const mergeActiveCell = (direction: "right" | "down") => {
+          if (!activeTableCell || activeTableCell.row < 0) return
+          if (tableColumnType(table, activeTableCell.column) !== "text") {
+            toast.warning(tr("Only text cells can be merged"))
+            return
+          }
+          const next = direction === "right"
+            ? mergeRight(table, activeTableCell.row, activeTableCell.column)
+            : mergeDown(table, activeTableCell.row, activeTableCell.column)
+          if (!next) {
+            toast.warning(tr("These cells cannot be merged"))
+            return
+          }
+          updateTable(next)
+        }
+        const unmergeActiveCell = () => {
+          if (!activeTableCell || activeTableCell.row < 0) return
+          const next = unmergeAt(table, activeTableCell.row, activeTableCell.column)
+          if (!next) {
+            toast.info(tr("No merged cells here"))
+            return
+          }
+          updateTable(next)
         }
         const pasteCells = (event: React.ClipboardEvent<HTMLInputElement>, rowIndex: number, columnIndex: number) => {
           if (rowIndex < 0) return
@@ -311,6 +360,19 @@ export function TableBlockView({
                 >
                   # {tr("Row numbers")}
                 </button>}
+                {!readOnly && (
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <button type="button" aria-label={tr("Merge right")} title={tr("Merge right")} disabled={!activeTableCell || activeTableCell.row < 0} onClick={() => mergeActiveCell("right")} className="rounded p-1.5 transition hover:bg-accent hover:text-foreground disabled:opacity-40">
+                      <Merge className="size-3 -rotate-90" />
+                    </button>
+                    <button type="button" aria-label={tr("Merge down")} title={tr("Merge down")} disabled={!activeTableCell || activeTableCell.row < 0} onClick={() => mergeActiveCell("down")} className="rounded p-1.5 transition hover:bg-accent hover:text-foreground disabled:opacity-40">
+                      <Merge className="size-3 rotate-90" />
+                    </button>
+                    <button type="button" aria-label={tr("Unmerge")} title={tr("Unmerge")} disabled={!activeTableCell || activeTableCell.row < 0 || !mergeAt(table.merges, activeTableCell.row, activeTableCell.column)} onClick={unmergeActiveCell} className="rounded p-1.5 transition hover:bg-accent hover:text-foreground disabled:opacity-40">
+                      <Ungroup className="size-3" />
+                    </button>
+                  </div>
+                )}
                 <Popover>
                   <PopoverTrigger asChild>
                     <button type="button" aria-label={tr("Filter")} title={tr("Filter")} className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-normal transition hover:bg-accent hover:text-foreground ${activeFilters.length ? "bg-accent text-foreground" : ""}`}>
@@ -622,9 +684,12 @@ export function TableBlockView({
                     <tr key={rowIndex} className="group/row transition-colors hover:bg-brand-soft/15" style={heights[rowIndex] ? { height: heights[rowIndex] } : undefined}>
                       {table.rowNumbers && <td className={cn("border-b border-r border-border/60 text-center text-[11px] tabular-nums text-muted-foreground", frozenOffsets.size > 0 && "sticky left-0 z-10 bg-card", tableCellStyleClasses(table.rowStyles?.[rowIndex]))}>{visibleIndex + 1}</td>}
                       {columnIndexes.map((columnIndex) => {
+                        const cellMerge = mergeStarts.get(cellKey(rowIndex, columnIndex))
+                        if (covered.has(cellKey(rowIndex, columnIndex))) return null
                         const type = tableColumnType(table, columnIndex)
+                        const frozenCell = frozenOffsets.has(columnIndex) && !cellMerge
                         return (
-                        <td key={columnIndex} className={cn("relative border-b border-r border-border/60 p-0 last:border-r-0", frozenOffsets.has(columnIndex) && "sticky z-10 bg-card", tableCellStyleClasses({ ...(table.rowStyles?.[rowIndex] ?? {}), ...(table.columnStyles?.[columnIndex] ?? {}) }))} style={frozenOffsets.has(columnIndex) ? { left: frozenOffsets.get(columnIndex) } : undefined}>
+                        <td key={columnIndex} colSpan={cellMerge?.colSpan} rowSpan={cellMerge?.rowSpan} className={cn("relative border-b border-r border-border/60 p-0 last:border-r-0", frozenCell && "sticky z-10 bg-card", tableCellStyleClasses({ ...(table.rowStyles?.[rowIndex] ?? {}), ...(table.columnStyles?.[columnIndex] ?? {}) }))} style={frozenCell ? { left: frozenOffsets.get(columnIndex) } : undefined}>
                           {type === "text" ? (
                             <TableCell
                               id={`table-cell-${block.id}-${rowIndex}-${columnIndex}`}

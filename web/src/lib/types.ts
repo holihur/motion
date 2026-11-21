@@ -70,6 +70,13 @@ export interface TableCellStyle {
 
 export type TableColumnType = "text" | "checkbox" | "switch" | "select"
 
+export interface TableCellMerge {
+  row: number
+  col: number
+  rowSpan: number
+  colSpan: number
+}
+
 export interface TableData {
   columns: string[]
   rows: string[][]
@@ -90,6 +97,8 @@ export interface TableData {
   formulas?: Record<string, string>
   columnTypes?: TableColumnType[]
   columnOptions?: (string[] | null)[]
+  /** Merged ranges; values live in the top-left cell (anchor). */
+  merges?: TableCellMerge[]
 }
 
 export type DatabaseColumnType = "text" | "select" | "status" | "person" | "date" | "number" | "relation" | "rollup"

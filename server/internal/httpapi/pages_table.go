@@ -149,7 +149,75 @@ func sanitizeTable(table *model.TableData) *model.TableData {
 		Formulas:      sanitizeTableFormulas(table.Formulas, len(columns), len(cleaned), clean),
 		ColumnTypes:   columnTypes,
 		ColumnOptions: columnOptions,
+		Merges:        sanitizeTableMerges(table.Merges, len(cleaned), columnTypes, len(columns)),
 	}
+}
+
+// sanitizeTableMerges validates merged ranges: inside the grid, never on an
+// input column (merging would hide its control) and never overlapping.
+func sanitizeTableMerges(merges []model.TableCellMerge, rows int, types []string, columns int) []model.TableCellMerge {
+	if len(merges) == 0 || rows == 0 || columns == 0 {
+		return nil
+	}
+	type rect struct{ row, col, rowSpan, colSpan int }
+	overlaps := func(a, b rect) bool {
+		return !(a.row+a.rowSpan <= b.row || b.row+a.rowSpan <= a.row || a.col+a.colSpan <= b.col || b.col+a.colSpan <= a.col)
+	}
+	out := make([]model.TableCellMerge, 0, len(merges))
+	accepted := make([]rect, 0, len(merges))
+	for _, raw := range merges {
+		if len(out) >= 200 {
+			break
+		}
+		row, col := raw.Row, raw.Col
+		if row < 0 || col < 0 || row >= rows || col >= columns {
+			continue
+		}
+		rowSpan := raw.RowSpan
+		if rowSpan < 1 {
+			rowSpan = 1
+		}
+		if row+rowSpan > rows {
+			rowSpan = rows - row
+		}
+		colSpan := raw.ColSpan
+		if colSpan < 1 {
+			colSpan = 1
+		}
+		if col+colSpan > columns {
+			colSpan = columns - col
+		}
+		if rowSpan == 1 && colSpan == 1 {
+			continue
+		}
+		inputColumn := false
+		for index := col; index < col+colSpan; index++ {
+			if index < len(types) && types[index] != "text" {
+				inputColumn = true
+				break
+			}
+		}
+		if inputColumn {
+			continue
+		}
+		current := rect{row: row, col: col, rowSpan: rowSpan, colSpan: colSpan}
+		conflict := false
+		for _, item := range accepted {
+			if overlaps(item, current) {
+				conflict = true
+				break
+			}
+		}
+		if conflict {
+			continue
+		}
+		accepted = append(accepted, current)
+		out = append(out, model.TableCellMerge{Row: row, Col: col, RowSpan: rowSpan, ColSpan: colSpan})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // sanitizeTableFormulas keeps only formulas that point at a real cell, start

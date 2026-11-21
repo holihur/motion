@@ -120,6 +120,16 @@ type TableData struct {
 	Formulas      map[string]string `bson:"formulas,omitempty" json:"formulas,omitempty"`
 	ColumnTypes   []string          `bson:"columnTypes,omitempty" json:"columnTypes,omitempty"`
 	ColumnOptions [][]string        `bson:"columnOptions,omitempty" json:"columnOptions,omitempty"`
+	Merges        []TableCellMerge  `bson:"merges,omitempty" json:"merges,omitempty"`
+}
+
+// TableCellMerge marks a rectangular block of merged cells. The anchor cell
+// (Row, Col) keeps the value; covered cells are hidden until unmerged.
+type TableCellMerge struct {
+	Row     int `bson:"row" json:"row"`
+	Col     int `bson:"col" json:"col"`
+	RowSpan int `bson:"rowSpan" json:"rowSpan"`
+	ColSpan int `bson:"colSpan" json:"colSpan"`
 }
 
 // TruthyTableCell reports whether a checkbox/switch cell value means "on".

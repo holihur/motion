@@ -622,6 +622,33 @@ func renderTable(table *model.TableData, base string) string {
 			indexes = append(indexes, index)
 		}
 	}
+	type mergeRect struct{ row, col, rowSpan, colSpan int }
+	covered := map[[2]int]bool{}
+	starts := map[[2]int]mergeRect{}
+	for _, merge := range table.Merges {
+		if merge.RowSpan < 1 || merge.ColSpan < 1 {
+			continue
+		}
+		rect := mergeRect{row: merge.Row, col: merge.Col, rowSpan: merge.RowSpan, colSpan: merge.ColSpan}
+		starts[[2]int{merge.Row, merge.Col}] = rect
+		for row := rect.row; row < rect.row+rect.rowSpan; row++ {
+			for col := rect.col; col < rect.col+rect.colSpan; col++ {
+				if row == rect.row && col == rect.col {
+					continue
+				}
+				covered[[2]int{row, col}] = true
+			}
+		}
+	}
+	visibleCols := func(from, span int) int {
+		count := 0
+		for _, index := range indexes {
+			if index >= from && index < from+span {
+				count++
+			}
+		}
+		return count
+	}
 	var b strings.Builder
 	b.WriteString(`<table><thead><tr>`)
 	if table.RowNumbers {
@@ -643,6 +670,9 @@ func renderTable(table *model.TableData, base string) string {
 			b.WriteString(`<td` + tableFrozenClass(table.FreezeFirst) + tableCellStyleAttr(rowStyle, nil) + `>` + strconv.Itoa(rowIndex+1) + `</td>`)
 		}
 		for position, index := range indexes {
+			if covered[[2]int{rowIndex, index}] {
+				continue
+			}
 			cell := ""
 			if index < len(row) {
 				cell = table.DisplayCell(rowIndex, index)
@@ -651,7 +681,17 @@ func renderTable(table *model.TableData, base string) string {
 			if position == 0 {
 				class = tableFrozenClass(table.FreezeFirst)
 			}
-			b.WriteString(`<td` + class + tableCellStyleAttr(rowStyle, tableStyleAt(table.ColumnStyles, index)) + `>` + escapeLines(cell) + `</td>`)
+			spanAttr := ""
+			if merge, ok := starts[[2]int{rowIndex, index}]; ok {
+				if colSpan := visibleCols(merge.col, merge.colSpan); colSpan > 1 {
+					spanAttr += fmt.Sprintf(` colspan="%d"`, colSpan)
+				}
+				if merge.rowSpan > 1 {
+					spanAttr += fmt.Sprintf(` rowspan="%d"`, merge.rowSpan)
+				}
+				class = ""
+			}
+			b.WriteString(`<td` + spanAttr + class + tableCellStyleAttr(rowStyle, tableStyleAt(table.ColumnStyles, index)) + `>` + escapeLines(cell) + `</td>`)
 		}
 		b.WriteString(`</tr>`)
 	}

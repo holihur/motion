@@ -1867,5 +1867,11 @@
   "Could not load the referenced block": "Could not load the referenced block",
   "{n} block references": "{n} block references",
   "block": "block",
-  "Double-click to edit": "Double-click to edit"
+  "Double-click to edit": "Double-click to edit",
+  "Merge right": "Merge right",
+  "Merge down": "Merge down",
+  "Unmerge": "Unmerge",
+  "Only text cells can be merged": "Only text cells can be merged",
+  "These cells cannot be merged": "These cells cannot be merged",
+  "No merged cells here": "No merged cells here"
 }
